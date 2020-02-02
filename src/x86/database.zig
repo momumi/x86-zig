@@ -84,6 +84,43 @@ pub const Signature = struct {
     }
 };
 
+/// Special opcode edge cases
+/// Some opcode/instruction combinations have special legacy edge cases we need
+/// to check before we can confirm a match.
+pub const OpcodeEdgeCase = enum {
+    None = 0x0,
+
+    /// Prior to x86-64, the instructions:
+    ///     90      XCHG EAX, EAX
+    /// and
+    ///     90      NOP
+    /// were encoded the same way and might be treated specially by the CPU.
+    /// However, on x86-64 `XCHG EAX,EAX` is no longer a NOP because it zeros
+    /// the upper 32 bits of the RAX register.
+    ///
+    /// When AMD designed x86-64 they decide 90 should still be treated as a NOP.
+    /// This means we have to choose a different encoding on x86-64.
+    XCHG_EAX = 0x1,
+
+    pub fn testEdgeCase(
+        self: OpcodeEdgeCase,
+        mode: Mode86,
+        op1: ?*const Operand,
+        op2: ?*const Operand,
+        op3: ?*const Operand,
+        op4: ?*const Operand
+    ) bool {
+        switch (self) {
+            .XCHG_EAX => {
+                return (mode == .x64 and op1.?.Reg == .EAX and op2.?.Reg == .EAX);
+            },
+            .None => return false,
+        }
+    }
+};
+
+
+
 // Quick refrences:
 //
 // * https://en.wikichip.org/wiki/intel/cpuid
@@ -183,6 +220,7 @@ pub const InstructionItem = struct {
     opcode: Opcode,
     encoding: InstructionEncoding,
     default_size: DefaultSize,
+    edge_case: OpcodeEdgeCase,
 
     fn create(mnem: Mnemonic, signature: Signature, opcode: Opcode, en: InstructionEncoding,
               default_size: DefaultSize, version_and_features: var) InstructionItem {
@@ -190,13 +228,56 @@ pub const InstructionItem = struct {
         // NOTE: If no version flags are given, can calculate version information
         // based of the signature/encoding/default_size properties as one of
         // _8086, _386, x64
+        var edge_case = OpcodeEdgeCase.None;
+
+        if (@typeInfo(@TypeOf(version_and_features)) != .Struct) {
+            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
+        }
+
+        inline for (version_and_features) |opt, i| {
+            switch (@TypeOf(opt)) {
+                CpuVersion => {
+                    // TODO:
+                },
+
+                InstructionPrefix => {
+                    // TODO:
+                },
+
+                OpcodeEdgeCase => {
+                    std.debug.assert(edge_case == .None);
+                    edge_case = opt;
+                },
+
+                else => |bad_type| {
+                    @compileError("Unsupported feature/version field type: " ++ @typeName(bad_type));
+                },
+            }
+        }
+
         return InstructionItem {
             .mnemonic = mnem,
             .signature = signature,
             .opcode = opcode,
             .encoding = en,
             .default_size = default_size,
+            .edge_case = edge_case,
         };
+    }
+
+    pub inline fn hasEdgeCase(self: InstructionItem) bool {
+        return self.edge_case != .None;
+    }
+
+    pub fn matchesEdgeCase(
+        self: InstructionItem,
+        machine: Machine,
+        op1: ?*const Operand,
+        op2: ?*const Operand,
+        op3: ?*const Operand,
+        op4: ?*const Operand
+    ) bool {
+        return self.edge_case.testEdgeCase(machine.mode, op1, op2, op3, op4);
     }
 
     pub fn encode(self: InstructionItem,
@@ -237,6 +318,7 @@ const ops2 = Signature.ops2;
 const instr = InstructionItem.create;
 
 const cpu = CpuVersion;
+const edge = OpcodeEdgeCase;
 const pre = InstructionPrefix;
 
 // NOTE: Entries into this table should be from most specific to most general.
@@ -330,8 +412,8 @@ pub const instruction_database = [_]InstructionItem {
 // XCHG
     instr(.XCHG,    ops2(.reg_ax, .reg16),      Op1(0x90),              .O2, .RM32,       .{} ),
     instr(.XCHG,    ops2(.reg16, .reg_ax),      Op1(0x90),              .O,  .RM32,       .{} ),
-    instr(.XCHG,    ops2(.reg_eax, .reg32),     Op1(0x90),              .O2, .RM32,       .{} ),
-    instr(.XCHG,    ops2(.reg32, .reg_eax),     Op1(0x90),              .O,  .RM32,       .{} ),
+    instr(.XCHG,    ops2(.reg_eax, .reg32),     Op1(0x90),              .O2, .RM32,       .{edge.XCHG_EAX} ),
+    instr(.XCHG,    ops2(.reg32, .reg_eax),     Op1(0x90),              .O,  .RM32,       .{edge.XCHG_EAX} ),
     instr(.XCHG,    ops2(.reg_rax, .reg64),     Op1(0x90),              .O2, .RM32,       .{} ),
     instr(.XCHG,    ops2(.reg64, .reg_rax),     Op1(0x90),              .O,  .RM32,       .{} ),
     //

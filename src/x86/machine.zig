@@ -279,7 +279,11 @@ pub const Machine = struct {
             } else {
                 found_match = true;
             }
+
             if (Signature.match_template(item.signature, sig)) {
+                if (item.hasEdgeCase() and item.matchesEdgeCase(self, ops1, ops2, ops3, ops4)) {
+                    continue;
+                }
                 // item.signature.debugPrint();
                 return item.encode(self, ops1, ops2, ops3, ops4);
             }

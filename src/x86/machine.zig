@@ -39,6 +39,14 @@ pub const Machine = struct {
         };
     }
 
+    pub fn dataSize(self: Machine) DataSize {
+        return switch (self.mode) {
+            .x86_16 => .WORD,
+            .x86 => .DWORD,
+            .x64 => .QWORD,
+        };
+    }
+
     pub fn encodeOpcode(self: Machine, opcode: Opcode, void_op: ?*const Operand, default_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
         var prefixes = Prefixes {};
@@ -102,8 +110,7 @@ pub const Machine = struct {
         const rm = rm_op.coerceRm().Rm;
 
         switch (default_size) {
-            .RM8,
-            .RM32 => {
+            .RM8, .RM32 => {
                 if (rm.operandSize() == .Bit64 and imm.bitSize() == .Bit32) {
                     // skip: can't encode 64 bit immediate and r/m64 at the same time
                     // but we can do r/m64 with a 32 bit immediate
@@ -287,24 +294,18 @@ pub const Machine = struct {
     }
 
     pub fn build(self: Machine, mnem: Mnemonic, ops1: ?*const Operand, ops2: ?*const Operand, ops3: ?*const Operand, ops4: ?*const Operand) AsmError!Instruction {
-
-        var found_match = false;
-
         const sig = database.Signature.fromOperands(ops1, ops2, ops3, ops4);
 
         // sig.debugPrint();
+        var i = database.lookupMnemonic(mnem);
 
-        for (database.instruction_database) |item| {
+        while (database.getDatabaseItem(i).mnemonic == mnem) : (i += 1) {
+            const item = database.getDatabaseItem(i);
             // all the opcodes with the same mnemonic are stored adjacent to
             // each other. So when we reach the end of this section no point
             // looking anymore.
-            if (found_match and item.mnemonic != mnem) {
-                break;
-            }
             if (item.mnemonic != mnem) {
-                continue;
-            } else {
-                found_match = true;
+                break;
             }
 
             if (Signature.matchTemplate(item.signature, sig)) {

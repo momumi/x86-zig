@@ -21,6 +21,7 @@ pub const OperandType = enum(u16) {
     const tag_imm = 0x90;
     const tag_imm_any = 0xA0;
     const tag_moffs = 0xB0;
+    const tag_void = 0xC0;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -91,12 +92,19 @@ pub const OperandType = enum(u16) {
     // moffs32 = 0xF0,
     // moffs64 = 0x100,
 
+    _void = 0 | tag_void,
+    _void8 = 1 | tag_void,
+    _void16 = 2 | tag_void,
+    _void32 = 3 | tag_void,
+    _void64 = 4 | tag_void,
+
     ptr16_16 = 0x110,
     ptr16_32 = 0x120,
 
     m16_16 = 0x130,
     m16_32 = 0x140,
     m16_64 = 0x150,
+
 
     // creg,
     // dreg,
@@ -983,14 +991,10 @@ pub const Immediate = struct {
 
     pub fn willSignExtend(self: Immediate, op_type: OperandType) bool {
         switch (op_type) {
-            .imm8_any,
-            .imm8 => return  (self._value & 0x80) != 0,
-            .imm16_any,
-            .imm16 => return (self._value & 0x8000) != 0,
-            .imm32_any,
-            .imm32 => return (self._value & 0x80000000) != 0,
-            .imm64_any,
-            .imm64 => return false,
+            .imm8_any, .imm8 => return  (self._value & 0x80) != 0,
+            .imm16_any, .imm16 => return (self._value & 0x8000) != 0,
+            .imm32_any, .imm32 => return (self._value & 0x80000000) != 0,
+            .imm64_any, .imm64 => return false,
             else => return false,
         }
     }
@@ -1094,6 +1098,8 @@ pub const Operand = union(enum) {
             .Rm => |rm| return rm.operandType(),
             .RegSpecial => |sreg| return OperandType.fromRegisterSpecial(sreg.register),
             .Addr => |addr| return addr.operandType(),
+            // TODO: get size
+            .None => return OperandType._void,
             else => unreachable,
         }
     }

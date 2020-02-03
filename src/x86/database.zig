@@ -203,6 +203,10 @@ pub const CpuVersion = enum {
     AVX2,
     /// Added in AVX-512
     AVX_512,
+
+
+    /// LAHF valid in 64 bit mode only if CPUID.80000001H:ECX.LAHF-SAHF[bit 0]
+    FeatLAHF,
 };
 
 pub const InstructionPrefix = enum {
@@ -214,6 +218,10 @@ pub const InstructionPrefix = enum {
 
 pub const InstructionEncoding = enum {
     ZO,     // no operands
+    ZO16,   // no operands, 16 bit void operand
+    ZO32,   // no operands, 32 bit void operand
+    ZO64,   // no operands, 64 bit void operand
+    ZODef,  // no operands, void operand with default size
     M,      // r/m value
     I,      // immediate
     I2,     // IGNORE           immediate
@@ -347,6 +355,10 @@ pub const InstructionItem = struct {
                   op4: ?*const Operand) AsmError!Instruction {
         switch (self.encoding) {
             .ZO => return machine.encodeOpcode(self.opcode, op1, self.default_size),
+            .ZO16 => return machine.encodeOpcode(self.opcode, &Operand.voidOperand(.WORD), self.default_size),
+            .ZO32 => return machine.encodeOpcode(self.opcode, &Operand.voidOperand(.DWORD), self.default_size),
+            .ZO64 => return machine.encodeOpcode(self.opcode, &Operand.voidOperand(.QWORD), self.default_size),
+            .ZODef => return machine.encodeOpcode(self.opcode, &Operand.voidOperand(machine.dataSize()), self.default_size),
             .M => return machine.encodeRm(self.opcode, op1.?.*, self.default_size),
             .I => return machine.encodeImmediate(self.opcode, op2, self.coerceImm(op1, 0), self.default_size),
             .I2 => return machine.encodeImmediate(self.opcode, op1, self.coerceImm(op2, 1), self.default_size),
@@ -364,6 +376,40 @@ pub const InstructionItem = struct {
     }
 };
 
+/// Generate a map from Mnemonic -> index in the instruction database
+fn genMnemonicLookupTable() [Mnemonic.count]u16 {
+    var result: [Mnemonic.count]u16 = undefined;
+    var current_mnem = Mnemonic._mnemonic_count;
+
+    _ = @setEvalBranchQuota(5000);
+
+    for (result) |*val| {
+        val.* = 0xffff;
+    }
+
+    for (instruction_database) |item, i| {
+        if (item.mnemonic != current_mnem) {
+            current_mnem = item.mnemonic;
+            result[@enumToInt(current_mnem)] = @intCast(u16, i);
+        }
+    }
+
+    return result;
+}
+
+pub fn lookupMnemonic(mnem: Mnemonic) usize {
+    const result = lookup_table[@enumToInt(mnem)];
+    if (result == 0xffff) {
+        std.debug.panic("Instruction {} not implemented yet", .{mnem});
+    }
+    return result;
+}
+
+pub fn getDatabaseItem(index: usize) *const InstructionItem {
+    return &instruction_database[index];
+}
+
+pub const lookup_table: [Mnemonic.count]u16 = genMnemonicLookupTable();
 
 const Op1 = x86.Opcode.op1;
 const Op2 = x86.Opcode.op2;
@@ -400,8 +446,6 @@ const pre = InstructionPrefix;
 // is an Immediate without a fixed size.
 //
 // TODO: add a comptime function to check that they have correct order.
-// TODO: make function for looking up values in this table based on the mnemonic
-//       and the operand signature.
 //
 // TODO/NOTE: in intel datasheets, instructions like call/jmp that take a relative
 //       address offset are encoded as a displacement. However, current they
@@ -410,6 +454,16 @@ const pre = InstructionPrefix;
 //       immediate instead of a displacement. Probably adapt the .D field to
 //       do this.
 pub const instruction_database = [_]InstructionItem {
+// AAA
+    instr(.AAA,     ops0(),                     Op1(0x37),              .ZO, .ZO32Only,   .{} ),
+// AAD
+    instr(.AAD,     ops0(),                     Op2(0xD5, 0x0A),        .ZO, .ZO32Only,   .{} ),
+    instr(.AAD,     ops1(.imm8),                Op1(0xD5),              .I,  .ZO32Only,   .{} ),
+// AAM
+    instr(.AAM,     ops0(),                     Op2(0xD4, 0x0A),        .ZO, .ZO32Only,   .{} ),
+    instr(.AAM,     ops1(.imm8),                Op1(0xD4),              .I,  .ZO32Only,   .{} ),
+// AAS
+    instr(.AAS,     ops0(),                     Op1(0x3F),              .ZO, .ZO32Only,   .{} ),
 // ADD
     instr(.ADD,     ops2(.reg_al, .imm8),       Op1(0x04),              .I2, .RM8,        .{} ),
     instr(.ADD,     ops2(.rm8, .imm8),          Op1r(0x80, 0),          .MI, .RM8,        .{} ),
@@ -520,6 +574,32 @@ pub const instruction_database = [_]InstructionItem {
     instr(.CMP,     ops2(.reg16, .rm16),        Op1(0x3B),              .RM, .RM32,       .{} ),
     instr(.CMP,     ops2(.reg32, .rm32),        Op1(0x3B),              .RM, .RM32,       .{} ),
     instr(.CMP,     ops2(.reg64, .rm64),        Op1(0x3B),              .RM, .RM32,       .{} ),
+// CMPS / CMPSB / CMPSW / CMPSD / CMPSQ
+    instr(.CMPS,    ops1(._void8),              Op1(0xA6),              .ZO, .RM8,        .{} ),
+    instr(.CMPS,    ops1(._void),               Op1(0xA7),              .ZO, .RM32,       .{} ),
+    //
+    instr(.CMPSB,   ops0(),                     Op1(0xA6),              .ZO,   .RM8,      .{} ),
+    instr(.CMPSW,   ops0(),                     Op1(0xA7),              .ZO16, .RM32,     .{} ),
+    instr(.CMPSD,   ops0(),                     Op1(0xA7),              .ZO32, .RM32,     .{} ),
+    instr(.CMPSQ,   ops0(),                     Op1(0xA7),              .ZO64, .RM32,     .{} ),
+// DAA
+    instr(.DAA,     ops0(),                     Op1(0x27),              .ZO, .ZO32Only,   .{} ),
+// DAS
+    instr(.DAS,     ops0(),                     Op1(0x2F),              .ZO, .ZO32Only,   .{} ),
+// HLT
+    instr(.HLT,     ops0(),                     Op1(0xF4),              .ZO, .ZO,         .{} ),
+// INS / INSB / INSW / INSD
+    instr(.INS,    ops1(._void8),              Op1(0x6C),              .ZO, .RM8,        .{} ),
+    instr(.INS,    ops1(._void),               Op1(0x6D),              .ZO, .RM32,       .{} ),
+    //
+    instr(.INSB,   ops0(),                     Op1(0x6C),              .ZO,   .RM8,      .{} ),
+    instr(.INSW,   ops0(),                     Op1(0x6D),              .ZO16, .RM32,     .{} ),
+    instr(.INSD,   ops0(),                     Op1(0x6D),              .ZO32, .RM32,     .{} ),
+// IRET
+    instr(.IRET,    ops1(._void),               Op1(0xCF),              .ZO,   .RM32,     .{} ),
+    instr(.IRET,    ops0(),                     Op1(0xCF),              .ZO16, .RM32,     .{} ),
+    instr(.IRETD,   ops0(),                     Op1(0xCF),              .ZO32, .RM32,     .{} ),
+    instr(.IRETQ,   ops0(),                     Op1(0xCF),              .ZO64, .RM32,     .{} ),
 // JMP
     instr(.JMP,     ops1(.imm8),                Op1(0xEB),              .I,  .RM8,        .{} ),
     instr(.JMP,     ops1(.imm16),               Op1(0xE9),              .I,  .RM32Strict, .{} ),
@@ -535,6 +615,18 @@ pub const instruction_database = [_]InstructionItem {
     instr(.JMP,     ops1(.m16_16),              Op1r(0xFF, 5),          .M,  .RM32,       .{} ),
     instr(.JMP,     ops1(.m16_32),              Op1r(0xFF, 5),          .M,  .RM32,       .{} ),
     instr(.JMP,     ops1(.m16_64),              Op1r(0xFF, 5),          .M,  .RM32,       .{} ),
+// LAHF
+    instr(.LAHF,    ops0(),                     Op1(0x9F),              .ZO, .ZO,         .{cpu.FeatLAHF} ),
+// LOCK
+    instr(.LOCK,    ops0(),                     Op1(0xF0),              .ZO, .ZO,         .{} ),
+// LODS / LODSB / LODSW / LODSD / LODSQ
+    instr(.LODS,    ops1(._void8),              Op1(0xAC),              .ZO, .RM8,        .{} ),
+    instr(.LODS,    ops1(._void),               Op1(0xAD),              .ZO, .RM32,       .{} ),
+    //
+    instr(.LODSB,   ops0(),                     Op1(0xAC),              .ZO,   .RM8,      .{} ),
+    instr(.LODSW,   ops0(),                     Op1(0xAD),              .ZO16, .RM32,     .{} ),
+    instr(.LODSD,   ops0(),                     Op1(0xAD),              .ZO32, .RM32,     .{} ),
+    instr(.LODSQ,   ops0(),                     Op1(0xAD),              .ZO64, .RM32,     .{} ),
 // MOV
     instr(.MOV,     ops2(.rm8,  .reg8),         Op1(0x88),              .MR, .RM8,        .{} ),
     instr(.MOV,     ops2(.rm16, .reg16),        Op1(0x89),              .MR, .RM32,       .{} ),
@@ -572,6 +664,14 @@ pub const instruction_database = [_]InstructionItem {
     instr(.MOV,     ops2(.rm16, .imm16),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
     instr(.MOV,     ops2(.rm32, .imm32),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
     instr(.MOV,     ops2(.rm64, .imm32),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
+// MOVS / MOVSB / MOVSW / MOVSD / MOVSQ
+    instr(.MOVS,    ops1(._void8),              Op1(0xA4),              .ZO, .RM8,        .{} ),
+    instr(.MOVS,    ops1(._void),               Op1(0xA5),              .ZO, .RM32,       .{} ),
+    //
+    instr(.MOVSB,   ops0(),                     Op1(0xA4),              .ZO,   .RM8,      .{} ),
+    instr(.MOVSW,   ops0(),                     Op1(0xA5),              .ZO16, .RM32,     .{} ),
+    instr(.MOVSD,   ops0(),                     Op1(0xA5),              .ZO32, .RM32,     .{} ),
+    instr(.MOVSQ,   ops0(),                     Op1(0xA5),              .ZO64, .RM32,     .{} ),
 // NOP
     instr(.NOP,     ops0(),                     Op1(0x90),              .ZO, .ZO,         .{} ),
     instr(.NOP,     ops1(.rm16),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
@@ -601,6 +701,13 @@ pub const instruction_database = [_]InstructionItem {
     instr(.OR,      ops2(.reg16, .rm16),        Op1(0x0B),              .RM, .RM32,       .{} ),
     instr(.OR,      ops2(.reg32, .rm32),        Op1(0x0B),              .RM, .RM32,       .{} ),
     instr(.OR,      ops2(.reg64, .rm64),        Op1(0x0B),              .RM, .RM32,       .{} ),
+// OUTS / OUTSB / OUTSW / OUTSD
+    instr(.OUTS,    ops1(._void8),              Op1(0x6E),              .ZO, .RM8,        .{} ),
+    instr(.OUTS,    ops1(._void),               Op1(0x6F),              .ZO, .RM32,       .{} ),
+    //
+    instr(.OUTSB,   ops0(),                     Op1(0x6E),              .ZO,   .RM8,      .{} ),
+    instr(.OUTSW,   ops0(),                     Op1(0x6F),              .ZO16, .RM32,     .{} ),
+    instr(.OUTSD,   ops0(),                     Op1(0x6F),              .ZO32, .RM32,     .{} ),
 // POP
     instr(.POP,     ops1(.reg16),               Op1(0x58),              .O,  .RM64_16,    .{} ),
     instr(.POP,     ops1(.reg32),               Op1(0x58),              .O,  .RM64_16,    .{} ),
@@ -615,6 +722,13 @@ pub const instruction_database = [_]InstructionItem {
     instr(.POP,     ops1(.reg_ss),              Op1(0x17),              .ZO, .ZO32Only,   .{} ),
     instr(.POP,     ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO64_16,    .{} ),
     instr(.POP,     ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO64_16,    .{} ),
+// POPF / POPFD / POPFQ
+    instr(.POPF,    ops1(._void),               Op1(0x9D),              .ZO, .RM64_16,    .{} ),
+    //
+    instr(.POPF,    ops0(),                     Op1(0x9D),              .ZODef, .RM64_16, .{} ),
+    instr(.POPFW,   ops0(),                     Op1(0x9D),              .ZO16,  .RM64_16, .{} ),
+    instr(.POPFD,   ops0(),                     Op1(0x9D),              .ZO32,  .RM32Only,.{} ),
+    instr(.POPFQ,   ops0(),                     Op1(0x9D),              .ZO64,  .RM64_16, .{} ),
 // PUSH
     instr(.PUSH,    ops1(.imm8),                Op1(0x6A),              .I,  .RM8 ,       .{} ),
     instr(.PUSH,    ops1(.imm16),               Op1(0x68),              .I,  .RM32,       .{} ),
@@ -634,6 +748,20 @@ pub const instruction_database = [_]InstructionItem {
     instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZO, .ZO32Only,  .{} ),
     instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO64_16,   .{} ),
     instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO64_16,   .{} ),
+// PUSHF / PUSHFW / PUSHFD / PUSHFQ
+    instr(.PUSHF,    ops1(._void),              Op1(0x9C),              .ZO, .RM64_16,    .{} ),
+    //
+    instr(.PUSHF,    ops0(),                    Op1(0x9C),              .ZODef, .RM64_16, .{} ),
+    instr(.PUSHFW,   ops0(),                    Op1(0x9C),              .ZO16,  .RM64_16, .{} ),
+    instr(.PUSHFD,   ops0(),                    Op1(0x9C),              .ZODef, .RM32Only,.{} ),
+    instr(.PUSHFQ,   ops0(),                    Op1(0x9C),              .ZO64,  .RM64_16, .{} ),
+//  RET (might want to encode RET in this table somehow
+//  RETF
+    instr(.RETF,    ops0(),                     Op1(0xCB),              .ZO, .ZO,         .{} ),
+    instr(.RETF,    ops1(.imm16),               Op1(0xCA),              .I,  .RM16,       .{} ),
+//  RETN
+    instr(.RETN,    ops0(),                     Op1(0xC3),              .ZO, .ZO,         .{} ),
+    instr(.RETN,    ops1(.imm16),               Op1(0xC2),              .I,  .RM16,       .{} ),
 // SBB
     instr(.SBB,     ops2(.reg_al, .imm8),       Op1(0x1C),              .I2, .RM8,        .{} ),
     instr(.SBB,     ops2(.rm8, .imm8),          Op1r(0x80, 3),          .MI, .RM8,        .{} ),
@@ -658,6 +786,28 @@ pub const instruction_database = [_]InstructionItem {
     instr(.SBB,     ops2(.reg16, .rm16),        Op1(0x1B),              .RM, .RM32,       .{} ),
     instr(.SBB,     ops2(.reg32, .rm32),        Op1(0x1B),              .RM, .RM32,       .{} ),
     instr(.SBB,     ops2(.reg64, .rm64),        Op1(0x1B),              .RM, .RM32,       .{} ),
+// SCAS / SCASB / SCASW / SCASD / SCASQ
+    instr(.SCAS,    ops1(._void8),              Op1(0xAE),              .ZO, .RM8,        .{} ),
+    instr(.SCAS,    ops1(._void),               Op1(0xAF),              .ZO, .RM32,       .{} ),
+    //
+    instr(.SCASB,   ops0(),                     Op1(0xAE),              .ZO,   .RM8,      .{} ),
+    instr(.SCASW,   ops0(),                     Op1(0xAF),              .ZO16, .RM32,     .{} ),
+    instr(.SCASD,   ops0(),                     Op1(0xAF),              .ZO32, .RM32,     .{} ),
+    instr(.SCASQ,   ops0(),                     Op1(0xAF),              .ZO64, .RM32,     .{} ),
+// STC
+    instr(.STC,     ops0(),                     Op1(0xF9),              .ZO, .ZO,         .{} ),
+// STD
+    instr(.STD,     ops0(),                     Op1(0xFD),              .ZO, .ZO,         .{} ),
+// STI
+    instr(.STI,     ops0(),                     Op1(0xFB),              .ZO, .ZO,         .{} ),
+// STOS / STOSB / STOSW / STOSD / STOSQ
+    instr(.STOS,    ops1(._void8),              Op1(0xAA),              .ZO, .RM8,        .{} ),
+    instr(.STOS,    ops1(._void),               Op1(0xAB),              .ZO, .RM32,       .{} ),
+    //
+    instr(.STOSB,   ops0(),                     Op1(0xAA),              .ZO,   .RM8,      .{} ),
+    instr(.STOSW,   ops0(),                     Op1(0xAB),              .ZO16, .RM32,     .{} ),
+    instr(.STOSD,   ops0(),                     Op1(0xAB),              .ZO32, .RM32,     .{} ),
+    instr(.STOSQ,   ops0(),                     Op1(0xAB),              .ZO64, .RM32,     .{} ),
 // SUB
     instr(.SUB,     ops2(.reg_al, .imm8),       Op1(0x2C),              .I2, .RM8,        .{} ),
     instr(.SUB,     ops2(.rm8, .imm8),          Op1r(0x80, 5),          .MI, .RM8,        .{} ),
@@ -682,6 +832,9 @@ pub const instruction_database = [_]InstructionItem {
     instr(.SUB,     ops2(.reg16, .rm16),        Op1(0x2B),              .RM, .RM32,       .{} ),
     instr(.SUB,     ops2(.reg32, .rm32),        Op1(0x2B),              .RM, .RM32,       .{} ),
     instr(.SUB,     ops2(.reg64, .rm64),        Op1(0x2B),              .RM, .RM32,       .{} ),
+// WAIT
+    instr(.WAIT,    ops0(),                     Op1(0x9B),              .ZO, .ZO,         .{} ),
+    instr(.FWAIT,   ops0(),                     Op1(0x9B),              .ZO, .ZO,         .{} ),
 // XCHG
     instr(.XCHG,    ops2(.reg_ax, .reg16),      Op1(0x90),              .O2, .RM32,       .{} ),
     instr(.XCHG,    ops2(.reg16, .reg_ax),      Op1(0x90),              .O,  .RM32,       .{} ),
@@ -698,6 +851,12 @@ pub const instruction_database = [_]InstructionItem {
     instr(.XCHG,    ops2(.reg32, .rm32),        Op1(0x87),              .RM, .RM32,       .{pre.Lock} ),
     instr(.XCHG,    ops2(.rm64, .reg64),        Op1(0x87),              .MR, .RM32,       .{pre.Lock} ),
     instr(.XCHG,    ops2(.reg64, .rm64),        Op1(0x87),              .RM, .RM32,       .{pre.Lock} ),
+// XLAT / XLATB
+    instr(.XLAT,    ops1(._void),               Op1(0xD7),              .ZO, .RM32,       .{} ),
+    //
+    instr(.XLAT,    ops0(),                     Op1(0xD7),              .ZO, .ZO,         .{} ),
+    instr(.XLATB,   ops0(),                     Op1(0xD7),              .ZO, .ZO,         .{} ),
+    // instr(.XLATB,   ops0(),                     Op1(0xD7),              .ZO64, .RM32,     .{} ),
 // XOR
     instr(.XOR,     ops2(.reg_al, .imm8),       Op1(0x34),              .I2, .RM8,        .{} ),
     instr(.XOR,     ops2(.rm8, .imm8),          Op1r(0x80, 6),          .MI, .RM8,        .{} ),

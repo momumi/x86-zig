@@ -1,4 +1,8 @@
+
 pub const Mnemonic = enum {
+    pub const count: usize = @enumToInt(Mnemonic._mnemonic_count);
+    pub const first: Mnemonic = Mnemonic.AAA;
+    pub const last: Mnemonic = Mnemonic.XTEST;
     AAA,
     AAD,
     AAM,
@@ -233,6 +237,7 @@ pub const Mnemonic = enum {
     INVPCID,
     IRET,
     IRETD,
+    IRETQ,
     JMP,
     Jcc,
     KADDB,
@@ -472,6 +477,7 @@ pub const Mnemonic = enum {
     POPAD,
     POPCNT,
     POPF,
+    POPFW,
     POPFD,
     POPFQ,
     POR,
@@ -519,6 +525,7 @@ pub const Mnemonic = enum {
     PUSHA,
     PUSHAD,
     PUSHF,
+    PUSHFW,
     PUSHFD,
     PUSHFQ,
     PXOR,
@@ -542,6 +549,8 @@ pub const Mnemonic = enum {
     REPNZ,
     REPZ,
     RET,
+    RETF,
+    RETN,
     ROL,
     ROR,
     RORX,
@@ -561,6 +570,7 @@ pub const Mnemonic = enum {
     SCASB,
     SCASD,
     SCASW,
+    SCASQ,
     SETcc,
     SFENCE,
     SGDT,
@@ -941,4 +951,5 @@ pub const Mnemonic = enum {
     XSAVES,
     XSETBV,
     XTEST,
+    _mnemonic_count,
 };

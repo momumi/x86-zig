@@ -14,4 +14,5 @@ test "main test" {
     _ = @import("x86/tests/xchg.zig");
     _ = @import("x86/tests/pop.zig");
     _ = @import("x86/tests/push.zig");
+    _ = @import("x86/tests/math_8086.zig");
 }

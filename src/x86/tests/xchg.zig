@@ -70,13 +70,13 @@ test "xchg" {
     {
         const op1 = Operand.register(.R15);
         const op2 = Operand.register(.AX);
-        testOp2Error(m64, .XCHG, op1, op2, AsmError.InvalidOperandCombination);
+        testOp2(m64, .XCHG, op1, op2, AsmError.InvalidOperandCombination);
     }
 
     {
         const op1 = Operand.register(.EAX);
         const op2 = Operand.register(.R15W);
-        testOp2Error(m64, .XCHG, op1, op2, AsmError.InvalidOperandCombination);
+        testOp2(m64, .XCHG, op1, op2, AsmError.InvalidOperandCombination);
     }
 
     {

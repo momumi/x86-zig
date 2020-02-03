@@ -137,7 +137,7 @@ pub const Instruction = struct {
         var needs_rex = false;
         var w: u1 = 0;
 
-        if (default_size.bitSize() != .Bit64) {
+        if (default_size.bitSize(mode) != .Bit64) {
             if (reg != null and reg.?.needsRex()) { needs_rex = true; }
             if (rm != null and rm.?.needsRex())   { needs_rex = true; }
             if (reg != null and reg.?.bitSize() == .Bit64) { w = 1; }
@@ -238,11 +238,15 @@ pub const Instruction = struct {
 
     /// Add the immediate to the instruction
     pub fn addImm(self: *@This(), imm: Immediate) void {
-        switch (imm) {
-            .Imm8 => |disp| self.addImm8(disp),
-            .Imm16 => |disp| self.addImm16(disp),
-            .Imm32 => |disp| self.addImm32(disp),
-            .Imm64 => |disp| self.addImm64(disp),
+        switch (imm.size) {
+            .Imm8_any,
+            .Imm8 => self.addImm8(imm.as8()),
+            .Imm16_any,
+            .Imm16 => self.addImm16(imm.as16()),
+            .Imm32_any,
+            .Imm32 => self.addImm32(imm.as32()),
+            .Imm64_any,
+            .Imm64 => self.addImm64(imm.as64()),
         }
     }
 

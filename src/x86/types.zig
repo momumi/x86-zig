@@ -31,6 +31,9 @@ pub const DefaultSize = enum (u8) {
     // TODO: might change this behavior later
     RM64 = 0x03,
 
+    /// Same as RM32, except operand accepts an 8 bit immediate
+    RM32_I8,
+
     /// 64 bit mode:
     ///     Default operand is 32 bit, 16/64 bit invalid
     /// 32 bit mode:
@@ -73,16 +76,41 @@ pub const DefaultSize = enum (u8) {
     ///     zero operands, valid
     ZO32Only,
 
-    pub fn bitSize(self: DefaultSize) BitSize {
+    /// Behaves like RM64_16, but the encoding uses zero operands
+    ZO64_16,
+
+    pub fn bitSize32(self: DefaultSize) BitSize {
         return switch (self) {
             .RM8 => .Bit8,
             .RM16 => .Bit16,
 
+            .RM64_16,
+            .ZO64_16,
+            .RM64Strict,
+            .RM32_I8,
+            .RM32Strict,
+            .RM32Only,
+            .RM32 => .Bit32,
+
+            .RM64 => .Bit64,
+
+            .ZO,
+            .ZO32Only => .Bit0,
+        };
+    }
+
+    pub fn bitSize64(self: DefaultSize) BitSize {
+        return switch (self) {
+            .RM8 => .Bit8,
+            .RM16 => .Bit16,
+
+            .RM32_I8,
             .RM32Strict,
             .RM32Only,
             .RM32 => .Bit32,
 
             .RM64Strict,
+            .ZO64_16,
             .RM64_16,
             .RM64 => .Bit64,
 
@@ -91,9 +119,17 @@ pub const DefaultSize = enum (u8) {
         };
     }
 
+    pub fn bitSize(self: DefaultSize, mode: Mode86) BitSize {
+        return switch (mode) {
+            .x86_16 => unreachable, // TODO: 
+            .x86 => self.bitSize32(),
+            .x64 => self.bitSize64(),
+        };
+    }
+
     pub fn is64(self: DefaultSize) bool {
         return switch (self) {
-            .RM64, .RM64Strict, .RM64_16 => true,
+            .ZO64_16, .RM64, .RM64Strict, .RM64_16 => true,
             else => false,
         };
     }
@@ -127,7 +163,7 @@ pub const BitSize = enum (u8) {
     Bit64 = 8,
     Bit80 = 10,
 
-    None = 0xff,
+    None = 0xf0,
 
     pub fn value(self: BitSize) u16 {
         return 8 * @enumToInt(self);
@@ -256,6 +292,8 @@ pub const DataSize = enum (u8) {
     /// 16:64 bit data size (64 bit addr followed by 16 bit segment)
     FP80 = 10 | floating_point_tag,
 
+    Default = @enumToInt(BitSize.None),
+
     // /// 128 bit data size
     // XWORD = 4,
 
@@ -265,7 +303,9 @@ pub const DataSize = enum (u8) {
     // /// 512 bit data size
     // ZWORD = 6,
 
-    // None = 0xff,
+    pub fn fromByteValue(bytes: u8) DataSize {
+        return @intToEnum(DataSize, bytes | normal_tag);
+    }
 
     pub fn bitSize(self: DataSize) BitSize {
         return @intToEnum(BitSize, @enumToInt(self) & size_mask);
@@ -273,6 +313,13 @@ pub const DataSize = enum (u8) {
 
     pub fn dataType(self: DataSize) DataType {
         return @intToEnum(DataType, @enumToInt(self) & tag_mask);
+    }
+
+    pub fn defaultBitSize(self: DataSize, mode: Mode86) BitSize {
+        return switch (self) {
+            .Default => default_size.bitSize(mode),
+            else => self.bitSize(),
+        };
     }
 };
 
@@ -413,6 +460,7 @@ pub const Prefixes = struct {
                 else => return AsmError.InvalidOperand,
             },
 
+            .RM32_I8,
             .RM32 => switch (operand_size) {
                 .Bit16 => self.addPrefix(.OperandOveride),
                 .Bit32 => {}, // default
@@ -425,6 +473,7 @@ pub const Prefixes = struct {
                 else => return AsmError.InvalidOperand,
             },
 
+            .ZO64_16,
             .RM64_16 => switch (operand_size) {
                 .Bit16 => self.addPrefix(.OperandOveride),
                 .Bit64 => rex_w.* = 0,
@@ -470,9 +519,11 @@ pub const Prefixes = struct {
                 else => return AsmError.InvalidOperand,
             },
 
+            .RM32_I8,
             .RM32,
             .RM32Strict,
             .RM32Only,
+            .ZO64_16,
             .RM64_16,
             .RM64Strict => switch (operand_size) {
                 .Bit16 => self.addPrefix(.OperandOveride),

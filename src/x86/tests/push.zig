@@ -41,7 +41,7 @@ test "push x86" {
 
     {
         const op1 = Operand.register(.RAX);
-        testOp1Error(x86, .PUSH, op1, AsmError.InvalidOperand);
+        testOp1(x86, .PUSH, op1, AsmError.InvalidOperand);
     }
 
     {
@@ -56,7 +56,7 @@ test "push x86" {
 
     {
         const op1 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0x11);
-        testOp1Error(x86, .PUSH, op1, AsmError.InvalidOperand);
+        testOp1(x86, .PUSH, op1, AsmError.InvalidOperand);
     }
 }
 
@@ -67,7 +67,7 @@ test "push x64" {
 
     {
         const op1 = Operand.registerSpecial(.ES);
-        testOp1Error(x64, .PUSH, op1, AsmError.InvalidOperand);
+        testOp1(x64, .PUSH, op1, AsmError.InvalidOperand);
     }
 
     {
@@ -102,7 +102,7 @@ test "push x64" {
 
     {
         const op1 = Operand.register(.EAX);
-        testOp1Error(x64, .PUSH, op1, AsmError.InvalidOperand);
+        testOp1(x64, .PUSH, op1, AsmError.InvalidOperand);
     }
 
     {
@@ -122,7 +122,7 @@ test "push x64" {
 
     {
         const op1 = Operand.memoryRm(.DefaultSeg, .DWORD, .RAX, 0x11);
-        testOp1Error(x64, .PUSH, op1, AsmError.InvalidOperand);
+        testOp1(x64, .PUSH, op1, AsmError.InvalidOperand);
     }
 
     {

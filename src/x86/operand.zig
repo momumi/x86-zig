@@ -18,6 +18,9 @@ pub const OperandType = enum(u16) {
     const tag_rm32 = 0x60;
     const tag_rm64 = 0x70;
     const tag_seg_reg = 0x80;
+    const tag_imm = 0x90;
+    const tag_imm_any = 0xA0;
+    const tag_moffs = 0xB0;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -66,18 +69,23 @@ pub const OperandType = enum(u16) {
     reg_fs = 5 | tag_seg_reg,
     reg_gs = 6 | tag_seg_reg,
 
-    imm8 = 0x90,
-    imm16 = 0xA0,
-    imm32 = 0xB0,
-    imm64 = 0xC0,
+    imm = 0 | tag_imm,
+    imm8 = 1 | tag_imm,
+    imm16 = 2 | tag_imm,
+    imm32 = 3 | tag_imm,
+    imm64 = 4 | tag_imm,
 
-    // Intel calls this moffs8, moffs16, moffs32, moffs64
-    // The 8/16/32/64 is the data size pointed to by the address, while the
-    // length of the address is dependent on the CPU mode (64 bit, 32 bit etc).
-    //
-    // However, how we represent the address doesn't encode the operand size,
-    // so we just use moffs for all operand sizes.
-    moffs = 0xD0,
+    imm_any = 0 | tag_imm_any,
+    imm8_any = 1 | tag_imm_any,
+    imm16_any = 2 | tag_imm_any,
+    imm32_any = 3 | tag_imm_any,
+    imm64_any = 4 | tag_imm_any,
+
+    moffs = 0 | tag_moffs,
+    moffs8 = 1 | tag_moffs,
+    moffs16 = 2 | tag_moffs,
+    moffs32 = 3 | tag_moffs,
+    moffs64 = 4 | tag_moffs,
     // moffs8 = 0xD0,
     // moffs16 = 0xE0,
     // moffs32 = 0xF0,
@@ -112,6 +120,20 @@ pub const OperandType = enum(u16) {
         }
     }
 
+    pub fn fromImmediate(imm: Immediate) OperandType {
+        switch (imm.size) {
+            .Imm8 => return OperandType.imm8,
+            .Imm16 => return OperandType.imm16,
+            .Imm32 => return OperandType.imm32,
+            .Imm64 => return OperandType.imm64,
+
+            .Imm8_any => return OperandType.imm8_any,
+            .Imm16_any => return OperandType.imm16_any,
+            .Imm32_any => return OperandType.imm32_any,
+            .Imm64_any => return OperandType.imm64_any,
+        }
+    }
+
     pub fn fromRegisterSpecial(reg: RegisterSpecial) OperandType {
         switch (reg.registerSpecialType()) {
             .Segment => {
@@ -125,17 +147,25 @@ pub const OperandType = enum(u16) {
         }
     }
 
-    pub fn match_template(template: OperandType, other: OperandType) bool {
+    // For user supplied immediates without an explicit size are allowed to match
+    // against larger immediate sizes:
+    //      * imm8  <-> imm8,  imm16, imm32, imm64
+    //      * imm16 <-> imm16, imm32, imm64
+    //      * imm32 <-> imm32, imm64
+    //  however since imm64 are used only in limited cases, we only need to check:
+    //      * imm8  <-> imm8,  imm16, imm32
+    //      * imm16 <-> imm16, imm32
+    pub fn matchTemplate(template: OperandType, other: OperandType) bool {
         const other_tag = other.getContainerType();
         return switch (template) {
             .rm8 => (other_tag == .rm8 or other_tag == .reg8),
             .rm16 => (other_tag == .rm16 or other_tag == .reg16),
             .rm32 => (other_tag == .rm32 or other_tag == .reg32),
             .rm64 => (other_tag == .rm64 or other_tag == .reg64),
-            // .rm8 => (other_tag == .rm8),
-            // .rm16 => (other_tag == .rm16),
-            // .rm32 => (other_tag == .rm32),
-            // .rm64 => (other_tag == .rm64),
+            .imm8 => (other == .imm8 or other == .imm8_any),
+            .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any),
+            .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any),
+            .imm64 => (other == .imm64 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm64_any),
             else => (template == other or template == other_tag),
         };
     }
@@ -291,7 +321,7 @@ pub const ModRmResult = struct {
 
     pub fn rex(self: @This(), w: u1) u8 {
         return (
-              (0x40)
+            (0x40)
             | (@as(u8, self.rex_w | w) << 3)
             | (@as(u8, self.rex_r) << 2)
             | (@as(u8, self.rex_x) << 1)
@@ -301,7 +331,7 @@ pub const ModRmResult = struct {
 
     pub fn modrm(self: @This()) u8 {
         return (
-              (@as(u8, self.mod) << 6)
+            (@as(u8, self.mod) << 6)
             | (@as(u8, self.reg) << 3)
             | (@as(u8, self.rm ) << 0)
         );
@@ -546,7 +576,7 @@ pub const ModRm = union(enum) {
                 }
 
                 res.sib = (
-                      (@as(u8, sib.scale.toInt()) << 6)
+                    (@as(u8, sib.scale.toInt()) << 6)
                     | (@as(u8, index) << 3)
                     | (@as(u8, base)  << 0)
                 );
@@ -772,11 +802,13 @@ pub const MOffsetDisp = union(enum) {
 pub const MemoryOffsetFarJmp = struct {
     addr: MOffsetDisp,
     segment: u16,
+    operand_size: DataSize,
 };
 
 pub const MemoryOffset = struct {
     disp: MOffsetDisp,
     segment: Segment,
+    operand_size: DataSize,
 };
 
 pub const Address = union(enum) {
@@ -792,7 +824,13 @@ pub const Address = union(enum) {
 
     pub fn operandType(self: Address) OperandType {
         return switch (self) {
-            .MOffset => |moff| OperandType.moffs,
+            .MOffset => |moff| switch (moff.operand_size.bitSize()) {
+                .Bit8 => OperandType.moffs8,
+                .Bit16 => OperandType.moffs16,
+                .Bit32 => OperandType.moffs32,
+                .Bit64 => OperandType.moffs64,
+                else => unreachable,
+            },
             .FarJmp => switch(self.getDisp().bitSize()) {
                 .Bit16 => OperandType.ptr16_16,
                 .Bit32 => OperandType.ptr16_32,
@@ -801,47 +839,63 @@ pub const Address = union(enum) {
         };
     }
 
-    pub fn moffset16(seg: Segment, disp: u16) Address {
+    pub fn operandSize(self: Address) BitSize {
+        return self.operandDataSize().bitSize();
+    }
+
+    pub fn operandDataSize(self: Address) DataSize {
+        return switch (self) {
+            .MOffset => |moff| moff.operand_size,
+            .FarJmp => |far| far.operand_size,
+        };
+    }
+
+    pub fn moffset16(seg: Segment, size: DataSize, disp: u16) Address {
         return Address {
             .MOffset = MemoryOffset {
                 .disp = MOffsetDisp { .Disp16 = disp },
                 .segment = seg,
+                .operand_size = size,
             }
         };
     }
 
-    pub fn moffset32(seg: Segment, disp: u32) Address {
+    pub fn moffset32(seg: Segment, size: DataSize, disp: u32) Address {
         return Address {
             .MOffset = MemoryOffset {
                 .disp = MOffsetDisp { .Disp32 = disp },
                 .segment = seg,
+                .operand_size = size,
             }
         };
     }
 
-    pub fn moffset64(seg: Segment, disp: u64) Address {
+    pub fn moffset64(seg: Segment, size: DataSize, disp: u64) Address {
         return Address {
             .MOffset = MemoryOffset {
                 .disp = MOffsetDisp { .Disp64 = disp },
                 .segment = seg,
+                .operand_size = size,
             }
         };
     }
 
-    pub fn far16(seg: u16, addr: u16) Address {
+    pub fn far16(seg: u16, size: DataSize, addr: u16) Address {
         return Address {
             .FarJmp = MemoryOffsetFarJmp {
                 .addr = MOffsetDisp { .Disp16 = addr },
                 .segment = seg,
+                .operand_size = size,
             }
         };
     }
 
-    pub fn far32(seg: u16, addr: u32) Address {
+    pub fn far32(seg: u16, size: DataSize, addr: u32) Address {
         return Address {
             .FarJmp = MemoryOffsetFarJmp {
                 .addr = MOffsetDisp { .Disp32 = addr },
                 .segment = seg,
+                .operand_size = size,
             }
         };
     }
@@ -866,88 +920,211 @@ pub const Address = union(enum) {
     }
 };
 
-pub const ImmediateSize = enum {
-    Imm8 = 0,
-    Imm16 = 1,
-    Imm32 = 2,
-    Imm64 = 3,
+pub const ImmediateSize = enum(u8) {
+    const strict_flag: u8 = 0x10;
+    const size_mask: u8 = 0x03;
+    Imm8_any = 0x00,
+    Imm16_any = 0x01,
+    Imm32_any = 0x02,
+    Imm64_any = 0x03,
+    Imm8 = 0x00  | strict_flag,
+    Imm16 = 0x01 | strict_flag,
+    Imm32 = 0x02 | strict_flag,
+    Imm64 = 0x03 | strict_flag,
+};
+
+pub const ImmediateSign = enum (u1) {
+    Unsigned = 0,
+    Signed = 1,
 };
 
 /// Encodes an immediate value
-pub const Immediate = union(ImmediateSize) {
-    Imm8: u8,
-    Imm16: u16,
-    Imm32: u32,
-    Imm64: u64,
-
-    pub fn size(self: Immediate) ImmediateSize {
-        return @as(ImmediateSize, self);
-    }
+pub const Immediate = struct {
+    size: ImmediateSize,
+    _value: u64,
+    sign: ImmediateSign = .Unsigned,
 
     pub fn value(self: Immediate) u64 {
-        switch (self) {
-            .Imm8 => |im| return im,
-            .Imm16 => |im| return im,
-            .Imm32 => |im| return im,
-            .Imm64 => |im| return im,
-        }
+        return self._value;
+    }
+
+    pub fn isStrict(self: Immediate) bool {
+        return (@enumToInt(self.size) & ImmediateSize.strict_flag) != 0;
     }
 
     pub fn bitSize(self: Immediate) BitSize {
-        return @intToEnum(BitSize, @as(u8,1) << @enumToInt(self));
+        const size: u8 = @enumToInt(self.size) & ImmediateSize.size_mask;
+        return @intToEnum(BitSize, @as(u8,1) << (@intCast(u3,size)));
     }
 
-    pub fn imm(im : u64) Immediate {
-        if (im <= 0xff) {
-            return Immediate { .Imm8 = @intCast(u8, im) };
-        } else if (im <= 0xFFFF) {
-            return Immediate { .Imm16 = @intCast(u16, im) };
-        } else if (im <= 0xFFFFFFFF) {
-            return Immediate { .Imm32 = @intCast(u32, im) };
-        } else {
-            return Immediate { .Imm64 = im };
+    pub fn dataSize(self: Immediate) DataSize {
+        return DataSize.fromByteValue(self.bitSize().valueBytes());
+    }
+
+    pub fn as8(self: Immediate) u8 {
+        std.debug.assert(self.bitSize() == .Bit8);
+        return @intCast(u8, self._value);
+    }
+
+    pub fn as16(self: Immediate) u16 {
+        std.debug.assert(self.bitSize() == .Bit16);
+        return @intCast(u16, self._value);
+    }
+
+    pub fn as32(self: Immediate) u32 {
+        std.debug.assert(self.bitSize() == .Bit32);
+        return @intCast(u32, self._value);
+    }
+
+    pub fn as64(self: Immediate) u64 {
+        std.debug.assert(self.bitSize() == .Bit64);
+        return self._value;
+    }
+
+    pub fn willSignExtend(self: Immediate, op_type: OperandType) bool {
+        switch (op_type) {
+            .imm8_any,
+            .imm8 => return  (self._value & 0x80) != 0,
+            .imm16_any,
+            .imm16 => return (self._value & 0x8000) != 0,
+            .imm32_any,
+            .imm32 => return (self._value & 0x80000000) != 0,
+            .imm64_any,
+            .imm64 => return false,
+            else => return false,
         }
     }
 
-    pub fn imm8(im: u8) Immediate {
-        return Immediate { .Imm8 = im };
+    pub fn coerce(self: Immediate, bit_size: BitSize) Immediate {
+        switch (bit_size) {
+            .Bit8  => return Immediate.imm8(self.sign, @intCast(u8, self._value)),
+            .Bit16 => return Immediate.imm16(self.sign, @intCast(u16, self._value)),
+            .Bit32 => return Immediate.imm32(self.sign, @intCast(u32, self._value)),
+            .Bit64 => return Immediate.imm64(self.sign, @intCast(u64, self._value)),
+            else => unreachable,
+        }
     }
 
-    pub fn imm16(im: u16) Immediate {
-        return Immediate { .Imm16 = im };
+    pub fn imm(sign: ImmediateSign, im : u64) Immediate {
+        const mask8 = ~@as(u64, 0xff);
+        const mask16 = ~@as(u64, 0xffff);
+        const mask32 = ~@as(u64, 0xffffffff);
+        if (im <= 0xff or (sign == .Signed and ((im & mask8) == mask8))) {
+            return Immediate {
+                .size = .Imm8_any,
+                ._value = im & 0xff,
+                .sign = sign,
+            };
+        } else if (im <= 0xFFFF or (sign == .Signed and ((im & mask16) == mask16))) {
+            return Immediate {
+                .size = .Imm16_any,
+                ._value = im & 0xffff,
+                .sign = sign,
+            };
+        } else if (im <= 0xFFFFFFFF or (sign == .Signed and ((im & mask32) == mask32))) {
+            return Immediate {
+                .size = .Imm32_any,
+                ._value = im & 0xffffffff,
+                .sign = sign,
+            };
+        } else {
+            return Immediate {
+                .size = .Imm64_any,
+                ._value = im,
+                .sign = sign,
+            };
+        }
     }
 
-    pub fn imm32(im: u32) Immediate {
-        return Immediate { .Imm32 = im };
+    pub fn imm8(sign: ImmediateSign, im: u8) Immediate {
+        return Immediate {
+            .size = .Imm8,
+            ._value = im,
+            .sign = sign,
+        };
     }
 
-    pub fn imm64(im: u64) Immediate {
-        return Immediate { .Imm64 = im };
+    pub fn imm16(sign: ImmediateSign, im: u16) Immediate {
+        return Immediate {
+            .size = .Imm16,
+            ._value = im,
+            .sign = sign,
+        };
+    }
+
+    pub fn imm32(sign: ImmediateSign, im: u32) Immediate {
+        return Immediate {
+            .size = .Imm32,
+            ._value = im,
+            .sign = sign,
+        };
+    }
+
+    pub fn imm64(sign: ImmediateSign, im: u64) Immediate {
+        return Immediate {
+            .size = .Imm64,
+            ._value = im,
+            .sign = sign,
+        };
     }
 };
 
+pub const VoidOperand = struct {
+    operand_size: DataSize,
+};
+
+pub const RegisterSpecialOperand = struct {
+    register: RegisterSpecial,
+    /// Overides the default size of the register
+    operand_size: DataSize,
+};
 
 pub const Operand = union(enum) {
+    None: VoidOperand,
     Reg: Register,
     Imm: Immediate,
     Rm: ModRm,
-    RegSpecial: RegisterSpecial,
+    RegSpecial: RegisterSpecialOperand,
     Addr: Address,
 
     pub fn operandType(self: Operand) OperandType {
         switch (self) {
             .Reg => |reg| return OperandType.fromRegister(reg),
-            .Imm => |imm_| switch (imm_.bitSize()) {
-                .Bit8 => return .imm8,
-                .Bit16 => return .imm16,
-                .Bit32 => return .imm32,
-                .Bit64 => return .imm64,
-                else => unreachable,
-            },
+            .Imm => |imm_| return OperandType.fromImmediate(imm_),
             .Rm => |rm| return rm.operandType(),
-            .RegSpecial => |sreg| return OperandType.fromRegisterSpecial(sreg),
+            .RegSpecial => |sreg| return OperandType.fromRegisterSpecial(sreg.register),
             .Addr => |addr| return addr.operandType(),
             else => unreachable,
+        }
+    }
+
+    pub fn operandSize(self: Operand) BitSize {
+        switch (self) {
+            .Reg => |reg| return reg.bitSize(),
+            .Imm => |imm_| return (imm_.bitSize()),
+            .Rm => |rm| return rm.operandSize(),
+            .RegSpecial => |sreg| {
+                if (sreg.operand_size == .Default) {
+                    return sreg.register.bitSize();
+                } else {
+                    return sreg.operand_size.bitSize();
+                }
+            },
+            .Addr => |addr| return addr.operandSize(),
+            .None => |none| return none.operand_size.bitSize(),
+        }
+    }
+
+    /// If the operand has a size overide get it instead of the underlying
+    /// operand size.
+    pub fn operandDataSize(self: Operand) DataSize {
+        switch (self) {
+            .Reg => |reg| return reg.dataSize(),
+            .Imm => |imm_| return (imm_.dataSize()),
+            .Rm => |rm| return rm.operandDataSize(),
+            .RegSpecial => |sreg| return sreg.operand_size,
+            .Addr => |addr| return addr.operandDataSize(),
+            .None => |none| return none.operand_size,
         }
     }
 
@@ -969,24 +1146,76 @@ pub const Operand = union(enum) {
     }
 
     pub fn registerSpecial(reg: RegisterSpecial) Operand {
-        return Operand { .RegSpecial = reg };
+        return Operand {
+            .RegSpecial = RegisterSpecialOperand {
+                .register = reg,
+                .operand_size = .Default,
+            }
+        };
+    }
+
+    pub fn registerSpecialSized(data_size: DataSize, reg: RegisterSpecial) Operand {
+        return Operand {
+            .RegSpecial = RegisterSpecialOperand {
+                .register = reg,
+                .operand_size = data_size,
+            }
+        };
+    }
+
+    pub fn voidOperand(data_size: DataSize) Operand {
+        return Operand { .None = VoidOperand { .operand_size = data_size } };
     }
 
     pub fn immediate(im: u64) Operand {
-        return Operand { .Imm = Immediate.imm(im) };
+        return Operand { .Imm = Immediate.imm(.Unsigned, im) };
     }
 
     pub fn immediate8(im: u8) Operand {
-        return Operand { .Imm = Immediate.imm8(im) };
+        return Operand { .Imm = Immediate.imm8(.Unsigned, im) };
     }
     pub fn immediate16(im: u16) Operand {
-        return Operand { .Imm = Immediate.imm16(im) };
+        return Operand { .Imm = Immediate.imm16(.Unsigned, im) };
     }
     pub fn immediate32(im: u32) Operand {
-        return Operand { .Imm = Immediate.imm32(im) };
+        return Operand { .Imm = Immediate.imm32(.Unsigned, im) };
     }
     pub fn immediate64(im: u64) Operand {
-        return Operand { .Imm = Immediate.imm64(im) };
+        return Operand { .Imm = Immediate.imm64(.Unsigned, im) };
+    }
+
+    pub fn immediateSigned(im: i64) Operand {
+        return Operand { .Imm = Immediate.imm(.Signed, @bitCast(u64, im)) };
+    }
+
+    pub fn immediateSigned8(im: i8) Operand {
+        return Operand { .Imm = Immediate.imm8(.Signed, @bitCast(u8, im)) };
+    }
+    pub fn immediateSigned16(im: i16) Operand {
+        return Operand { .Imm = Immediate.imm16(.Signed, @bitCast(u16, im)) };
+    }
+    pub fn immediateSigned32(im: i32) Operand {
+        return Operand { .Imm = Immediate.imm32(.Signed, @bitCast(u32, im)) };
+    }
+    pub fn immediateSigned64(im: i64) Operand {
+        return Operand { .Imm = Immediate.imm64(.Signed, @bitCast(u64, im)) };
+    }
+
+    pub fn immediateSign(sign: ImmediateSign, im: u64) Operand {
+        return Operand { .Imm = Immediate.imm(sign, im) };
+    }
+
+    pub fn immediateSign8(sign: ImmediateSign, im: u8) Operand {
+        return Operand { .Imm = Immediate.imm8(sign, im) };
+    }
+    pub fn immediateSign16(sign: ImmediateSign, im: u16) Operand {
+        return Operand { .Imm = Immediate.imm16(sign, im) };
+    }
+    pub fn immediateSign32(sign: ImmediateSign, im: u32) Operand {
+        return Operand { .Imm = Immediate.imm32(sign, im) };
+    }
+    pub fn immediateSign64(sign: ImmediateSign, im: u64) Operand {
+        return Operand { .Imm = Immediate.imm64(sign, im) };
     }
 
     pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
@@ -1018,24 +1247,25 @@ pub const Operand = union(enum) {
         return Operand { .Rm = ModRm.relMemory(seg, data_size, reg, disp) };
     }
 
-    pub fn moffset16(seg: Segment, disp: u16) Operand {
-        return Operand { .Addr = Address.moffset16(seg, disp) };
+    pub fn moffset16(seg: Segment, size: DataSize, disp: u16) Operand {
+        return Operand { .Addr = Address.moffset16(seg, size, disp) };
     }
 
-    pub fn moffset32(seg: Segment, disp: u32) Operand {
-        return Operand { .Addr = Address.moffset32(seg, disp) };
+    pub fn moffset32(seg: Segment, size: DataSize, disp: u32) Operand {
+        return Operand { .Addr = Address.moffset32(seg, size, disp) };
     }
 
-    pub fn moffset64(seg: Segment, disp: u64) Operand {
-        return Operand { .Addr = Address.moffset64(seg, disp) };
+    pub fn moffset64(seg: Segment, size: DataSize, disp: u64) Operand {
+        return Operand { .Addr = Address.moffset64(seg, size, disp) };
     }
 
+    // pub fn far16(seg: u16, size: DataSize, addr: u16) Operand {
     pub fn far16(seg: u16, addr: u16) Operand {
-        return Operand { .Addr = Address.far16(seg, addr) };
+        return Operand { .Addr = Address.far16(seg, .Default, addr) };
     }
 
     pub fn far32(seg: u16, addr: u32) Operand {
-        return Operand { .Addr = Address.far32(seg, addr) };
+        return Operand { .Addr = Address.far32(seg, .Default, addr) };
     }
 
 
@@ -1057,8 +1287,20 @@ pub const Operand = union(enum) {
             .Imm => |im| {
                 try std.fmt.format(context, FmtError, output, "0x{x}", .{im.value()});
             },
-            .RegSpecial => |reg| try output(context, @tagName(reg)),
-            .Addr => |addr| try addr.format(fmt, options, context, FmtError, output),
+            .RegSpecial => |reg| {
+                if (reg.operand_size != .Default) {
+                    try output(context, @tagName(reg.operand_size));
+                    try output(context, " ");
+                }
+                try output(context, @tagName(reg.register));
+            },
+            .Addr => |addr| {
+                if (addr.operandDataSize() != .Default) {
+                    try output(context, @tagName(addr.operandDataSize()));
+                    try output(context, " ");
+                }
+                try addr.format(fmt, options, context, FmtError, output);
+            },
             else => {},
         }
     }

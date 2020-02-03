@@ -39,20 +39,26 @@ pub const Machine = struct {
         };
     }
 
-    pub fn encodeOpcode(self: Machine, opcode: Opcode, default_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeOpcode(self: Machine, opcode: Opcode, void_op: ?*const Operand, default_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
+        var prefixes = Prefixes {};
+        var rex_w: u1 = 0;
+        const addressing_size = BitSize.None;
+        const operand_size = if (void_op) |op| x: {
+            switch (op.operandDataSize()) {
+                .Default => break :x default_size.bitSize(self.mode),
+                else => |op_size| break :x op_size.bitSize(),
+            }
+        } else x: {
+            break :x default_size.bitSize(self.mode);
+        };
 
-        {
-            var prefixes = Prefixes {};
-            var rex_w: u1 = 0;
+        try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, default_size);
 
-            const operand_size = BitSize.None;
-            const addressing_size = BitSize.None;
-
-            // Even though we have no operands, we do this anyway to check the DefaultSize
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, default_size);
+        res.prefixes(prefixes);
+        if (rex_w != 0) {
+            try res.addRex(self.mode, Register.RAX, Register.RAX, default_size);
         }
-
         res.addOpcode(opcode);
         return res;
     }
@@ -94,11 +100,25 @@ pub const Machine = struct {
     pub fn encodeRmImmediate(self: Machine, opcode: Opcode, rm_op: Operand, imm: Immediate, default_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
         const rm = rm_op.coerceRm().Rm;
-        if (rm.operandSize() == .Bit64 and imm.bitSize() == .Bit32) {
-            // skip: can't encode 64 bit immediate and r/m64 at the same time
-            // but we can do r/m64 with a 32 bit immediate
-        } else if (rm.operandSize() != imm.bitSize()) {
-            return AsmError.InvalidOperand;
+
+        switch (default_size) {
+            .RM8,
+            .RM32 => {
+                if (rm.operandSize() == .Bit64 and imm.bitSize() == .Bit32) {
+                    // skip: can't encode 64 bit immediate and r/m64 at the same time
+                    // but we can do r/m64 with a 32 bit immediate
+                } else if (rm.operandSize() != imm.bitSize()) {
+                    return AsmError.InvalidOperand;
+                }
+            },
+
+            .RM32_I8 => {
+                if (imm.bitSize() != .Bit8) {
+                    return AsmError.InvalidOperand;
+                }
+            },
+
+            else => unreachable,
         }
 
         const modrm = try rm.encodeOpcodeRm(self.mode, opcode.reg_bits.?, default_size);
@@ -124,20 +144,27 @@ pub const Machine = struct {
         return res;
     }
 
-    pub fn encodeImmediate(self: Machine, opcode: Opcode, imm: Immediate, def_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeImmediate(self: Machine, opcode: Opcode, void_op: ?*const Operand, imm: Immediate, def_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
         var prefixes = Prefixes {};
         var rex_w: u1 = 0;
 
-        // compute prefixes
-        {
-            const operand_size = imm.bitSize();
-            const addressing_size = BitSize.None;
+        const addressing_size = BitSize.None;
+        const operand_size = if (void_op) |op| x: {
+            break :x op.operandDataSize().bitSize();
+        } else x: {
+            break :x imm.bitSize();
+        };
 
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
-        }
+        try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
 
         res.prefixes(prefixes);
+        if (void_op) |op| {
+            switch (op.*) {
+                .Reg => try res.addRex(self.mode, op.Reg, Register.AX, def_size),
+                else => unreachable,
+            }
+        }
         res.addOpcode(opcode);
         res.addImm(imm);
         return res;
@@ -167,7 +194,7 @@ pub const Machine = struct {
         var res = Instruction{};
         const reg = switch (op_reg) {
             .Reg => |reg| reg,
-            .RegSpecial => |sreg| sreg.segmentToReg(),
+            .RegSpecial => |sreg| sreg.register.segmentToReg(),
             else => unreachable,
         };
         const rm = op_rm.coerceRm().Rm;
@@ -280,11 +307,14 @@ pub const Machine = struct {
                 found_match = true;
             }
 
-            if (Signature.match_template(item.signature, sig)) {
+            if (Signature.matchTemplate(item.signature, sig)) {
+                // item.signature.debugPrint();
                 if (item.hasEdgeCase() and item.matchesEdgeCase(self, ops1, ops2, ops3, ops4)) {
                     continue;
                 }
-                // item.signature.debugPrint();
+                if (!item.isMachineMatch(self)) {
+                    continue;
+                }
                 return item.encode(self, ops1, ops2, ops3, ops4);
             }
         }

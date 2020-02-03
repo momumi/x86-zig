@@ -6,9 +6,12 @@ test "main test" {
 
     // include all the tests so zig actually compiles them
     // TODO: add more negative tests
-    const mov_test = @import("x86/tests/mov.zig");
-    const nop_test = @import("x86/tests/nop.zig");
-    const jmp_test = @import("x86/tests/jmp.zig");
-    const xchg_test = @import("x86/tests/xchg.zig");
-    const push_test = @import("x86/tests/push.zig");
+    _ = @import("x86/tests/call.zig");
+    _ = @import("x86/tests/cmp.zig");
+    _ = @import("x86/tests/mov.zig");
+    _ = @import("x86/tests/nop.zig");
+    _ = @import("x86/tests/jmp.zig");
+    _ = @import("x86/tests/xchg.zig");
+    _ = @import("x86/tests/pop.zig");
+    _ = @import("x86/tests/push.zig");
 }

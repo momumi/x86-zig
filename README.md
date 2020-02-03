@@ -27,7 +27,7 @@ pub fn main() anyerror!void {
     }
 
     {
-        const op1 = x86.Operand.immediate(@intCast(u8, -20 & 0xFF));
+        const op1 = x86.Operand.immediateSigned(-20);
         const instr = try machine64.build1(.JMP, op1);
         warn("{x}\t\t\tJMP\t{}\n", .{instr.asSlice(), op1});
     }

@@ -269,6 +269,19 @@ pub const RegisterSpecial = enum (u8) {
         return @intToEnum(RegisterSpecialType, 0xf0 & @enumToInt(self));
     }
 
+    pub fn dataSize(self: RegisterSpecial) DataSize {
+        const val = @enumToInt(self);
+        if (val <= @enumToInt(RegisterSpecial.GS_)) {
+            return DataSize.WORD;
+        } else {
+            unreachable;
+        }
+    }
+
+    pub fn bitSize(self: RegisterSpecial) BitSize {
+        return self.dataSize().bitSize();
+    }
+
     pub fn segmentToReg(self: RegisterSpecial) Register {
         return switch (self) {
             .ES => return Register.AX,

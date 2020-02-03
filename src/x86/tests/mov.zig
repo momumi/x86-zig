@@ -156,53 +156,53 @@ test "mov x64 RM" {
     {
         const op1 = Operand.registerSpecial(.FS);
         const op2 = Operand.memoryRm(.GS, .BYTE, .EDI, 0x33221100);
-        testOp2Error(x64, .MOV, op1, op2, AsmError.InvalidOperandCombination);
+        testOp2(x64, .MOV, op1, op2, AsmError.InvalidOperandCombination);
     }
 
     {
         const op1 = Operand.register(.AL);
-        const op2 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op2 = Operand.moffset64(.DefaultSeg, .BYTE, 0x7766554433221100);
         testOp2(x64, .MOV, op1, op2, "A0 00 11 22 33 44 55 66 77");
     }
 
     {
         const op1 = Operand.register(.AX);
-        const op2 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op2 = Operand.moffset64(.DefaultSeg, .WORD, 0x7766554433221100);
         testOp2(x64, .MOV, op1, op2, "66 A1 00 11 22 33 44 55 66 77");
     }
 
     {
         const op1 = Operand.register(.EAX);
-        const op2 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op2 = Operand.moffset64(.DefaultSeg, .DWORD, 0x7766554433221100);
         testOp2(x64, .MOV, op1, op2, "A1 00 11 22 33 44 55 66 77");
     }
 
     {
         const op1 = Operand.register(.RAX);
-        const op2 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op2 = Operand.moffset64(.DefaultSeg, .QWORD, 0x7766554433221100);
         testOp2(x64, .MOV, op1, op2, "48 A1 00 11 22 33 44 55 66 77");
     }
 
     {
-        const op1 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op1 = Operand.moffset64(.DefaultSeg, .QWORD, 0x7766554433221100);
         const op2 = Operand.register(.AL);
-        testOp2(x64, .MOV, op1, op2, "A2 00 11 22 33 44 55 66 77");
+        testOp2(x64, .MOV, op1, op2, AsmError.InvalidOperandCombination);
     }
 
     {
-        const op1 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op1 = Operand.moffset64(.DefaultSeg, .WORD, 0x7766554433221100);
         const op2 = Operand.register(.AX);
         testOp2(x64, .MOV, op1, op2, "66 A3 00 11 22 33 44 55 66 77");
     }
 
     {
-        const op1 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op1 = Operand.moffset64(.DefaultSeg, .DWORD, 0x7766554433221100);
         const op2 = Operand.register(.EAX);
         testOp2(x64, .MOV, op1, op2, "A3 00 11 22 33 44 55 66 77");
     }
 
     {
-        const op1 = Operand.moffset64(.DefaultSeg, 0x7766554433221100);
+        const op1 = Operand.moffset64(.DefaultSeg, .QWORD, 0x7766554433221100);
         const op2 = Operand.register(.RAX);
         testOp2(x64, .MOV, op1, op2, "48 A3 00 11 22 33 44 55 66 77");
     }

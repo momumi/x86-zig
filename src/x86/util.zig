@@ -91,17 +91,35 @@ pub fn debugPrint(on: bool) void {
     debug_print = on;
 }
 
-pub fn printOp(mnem: Mnemonic, instr: AsmError!Instruction, op1: ?Operand, op2: ?Operand) void {
+pub fn printOp(
+    machine: Machine,
+    mnem: Mnemonic,
+    instr: AsmError!Instruction,
+    op1: ?*const Operand,
+    op2: ?*const Operand,
+    op3: ?*const Operand,
+    op4: ?*const Operand,
+) void {
     if (!debug_print) {
         return;
     }
 
-    std.debug.warn("{} ", .{@tagName(mnem)});
+    switch (machine.mode) {
+        .x86_16 => std.debug.warn("x86-16: {} ", .{@tagName(mnem)}),
+        .x86 => std.debug.warn("x86:    {} ", .{@tagName(mnem)}),
+        .x64 => std.debug.warn("x86-64: {} ", .{@tagName(mnem)}),
+    }
     if (op1) |op| {
         std.debug.warn("{} ", .{op1});
     }
     if (op2) |op| {
         std.debug.warn(", {} ", .{op2});
+    }
+    if (op3) |op| {
+        std.debug.warn(", {} ", .{op3});
+    }
+    if (op4) |op| {
+        std.debug.warn(", {} ", .{op4});
     }
 
     if (instr) |temp| {
@@ -111,39 +129,50 @@ pub fn printOp(mnem: Mnemonic, instr: AsmError!Instruction, op1: ?Operand, op2: 
     }
 }
 
-pub fn testOp0(machine: Machine, mnem: Mnemonic, comptime hex: []const u8) void {
-    const instr = machine.build(mnem, null, null, null, null);
-    printOp(mnem, instr, null, null);
+pub fn testOp(
+    machine: Machine,
+    mnem: Mnemonic,
+    op1: ?*const Operand,
+    op2: ?*const Operand,
+    op3: ?*const Operand,
+    op4: ?*const Operand,
+    comptime thing_to_match: var,
+) void {
+    switch (@TypeOf(thing_to_match)) {
+        AsmError => {
+            testOpError(machine, mnem, op1, op2, op3, op4, thing_to_match);
+        },
+        else => {
+            testOpInstruction(machine, mnem, op1, op2, op3, op4, thing_to_match);
+        },
+    }
+}
+
+pub fn testOpInstruction(
+    machine: Machine,
+    mnem: Mnemonic,
+    op1: ?*const Operand,
+    op2: ?*const Operand,
+    op3: ?*const Operand,
+    op4: ?*const Operand,
+    comptime hex: []const u8
+) void {
+    const instr = machine.build(mnem, op1, op2, op3, op4);
+    printOp(machine, mnem, instr, op1, op2, op3, op4);
     testMem(instr, hex);
 }
 
-pub fn testOp1(machine: Machine, mnem: Mnemonic, op1: Operand, comptime hex: []const u8) void {
-    const instr = machine.build1(mnem, op1);
-    printOp(mnem, instr, op1, null);
-    testMem(instr, hex);
-}
-
-pub fn testOp2(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, comptime hex: []const u8) void {
-    const instr = machine.build2(mnem, op1, op2);
-    printOp(mnem, instr, op1, op2);
-    testMem(instr, hex);
-}
-
-pub fn testOp0Error(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, err:AsmError) void {
-    const instr = machine.build(mnem, null, null, null, null);
-    printOp(mnem, instr, null, null);
-    testError(instr, err);
-}
-
-pub fn testOp1Error(machine: Machine, mnem: Mnemonic, op1: Operand, err:AsmError) void {
-    const instr = machine.build1(mnem, op1);
-    printOp(mnem, instr, op1, null);
-    testError(instr, err);
-}
-
-pub fn testOp2Error(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, err:AsmError) void {
-    const instr = machine.build2(mnem, op1, op2);
-    printOp(mnem, instr, op1, op2);
+pub fn testOpError(
+    machine: Machine,
+    mnem: Mnemonic,
+    op1: ?*const Operand,
+    op2: ?*const Operand,
+    op3: ?*const Operand,
+    op4: ?*const Operand,
+    comptime err: AsmError,
+) void {
+    const instr = machine.build(mnem, op1, op2, op3, op4);
+    printOp(machine, mnem, instr, op1, op2, op3, op4);
     testError(instr, err);
 }
 
@@ -154,3 +183,16 @@ pub fn testError(instr: AsmError!Instruction, err: AsmError) void {
         testing.expect(actual_error == err);
     }
 }
+
+pub fn testOp0(machine: Machine, mnem: Mnemonic, comptime expected: var) void {
+    testOp(machine, mnem, null, null, null, null, expected);
+}
+
+pub fn testOp1(machine: Machine, mnem: Mnemonic, op1: Operand, comptime expected: var) void {
+    testOp(machine, mnem, &op1, null, null, null, expected);
+}
+
+pub fn testOp2(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, comptime expected: var) void {
+    testOp(machine, mnem, &op1, &op2, null, null, expected);
+}
+

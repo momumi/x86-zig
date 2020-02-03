@@ -7,6 +7,7 @@ const Mnemonic = x86.Mnemonic;
 const Instruction = x86.Instruction;
 const Machine = x86.Machine;
 const Operand = x86.operand.Operand;
+const Immediate = x86.Immediate;
 const OperandType = x86.operand.OperandType;
 
 pub const Signature = struct {
@@ -68,14 +69,14 @@ pub const Signature = struct {
         std.debug.warn("): ", .{});
     }
 
-    pub fn match_template(template: Signature, instance: Signature) bool {
+    pub fn matchTemplate(template: Signature, instance: Signature) bool {
         for (template.operands) |templ, i| {
             const rhs = instance.operands[i];
             if (templ == null and rhs == null) {
                 continue;
             } else if ((templ != null and rhs == null) or (templ == null and rhs != null)) {
                 return false;
-            } else if (!OperandType.match_template(templ.?, rhs.?)) {
+            } else if (!OperandType.matchTemplate(templ.?, rhs.?)) {
                 return false;
             }
 
@@ -102,8 +103,12 @@ pub const OpcodeEdgeCase = enum {
     /// This means we have to choose a different encoding on x86-64.
     XCHG_EAX = 0x1,
 
-    pub fn testEdgeCase(
+    /// sign-extended immediate value
+    Sign,
+
+    pub fn isEdgeCase(
         self: OpcodeEdgeCase,
+        item: InstructionItem,
         mode: Mode86,
         op1: ?*const Operand,
         op2: ?*const Operand,
@@ -113,6 +118,14 @@ pub const OpcodeEdgeCase = enum {
         switch (self) {
             .XCHG_EAX => {
                 return (mode == .x64 and op1.?.Reg == .EAX and op2.?.Reg == .EAX);
+            },
+            .Sign => {
+                const imm = op2.?.Imm;
+                if (imm.sign == .Unsigned and imm.willSignExtend(item.signature.operands[1].?)) {
+                    return true;
+                } else {
+                    return false;
+                }
             },
             .None => return false,
         }
@@ -202,6 +215,7 @@ pub const InstructionEncoding = enum {
     ZO,     // no operands
     M,      // r/m value
     I,      // immediate
+    I2,     // IGNORE           immediate
     O,      // opcode+reg.num
     O2,     // IGNORE           opcode+reg.num
     RM,     // ModRM:reg        ModRM:r/m
@@ -221,6 +235,7 @@ pub const InstructionItem = struct {
     encoding: InstructionEncoding,
     default_size: DefaultSize,
     edge_case: OpcodeEdgeCase,
+    ignore_64: bool,
 
     fn create(mnem: Mnemonic, signature: Signature, opcode: Opcode, en: InstructionEncoding,
               default_size: DefaultSize, version_and_features: var) InstructionItem {
@@ -229,6 +244,7 @@ pub const InstructionItem = struct {
         // based of the signature/encoding/default_size properties as one of
         // _8086, _386, x64
         var edge_case = OpcodeEdgeCase.None;
+        var ignore_64 = false;
 
         if (@typeInfo(@TypeOf(version_and_features)) != .Struct) {
             @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
@@ -255,6 +271,21 @@ pub const InstructionItem = struct {
             }
         }
 
+        switch (default_size) {
+            .RM32Strict => switch(signature.operands[0].?) {
+                .imm16 => ignore_64 = true,
+                else => {},
+            },
+
+            .RM64Strict => switch(signature.operands[0].?) {
+                .imm16,
+                .imm32 => ignore_64 = true,
+                else => {},
+            },
+
+            else => {},
+        }
+
         return InstructionItem {
             .mnemonic = mnem,
             .signature = signature,
@@ -262,11 +293,20 @@ pub const InstructionItem = struct {
             .encoding = en,
             .default_size = default_size,
             .edge_case = edge_case,
+            .ignore_64 = ignore_64,
         };
     }
 
     pub inline fn hasEdgeCase(self: InstructionItem) bool {
         return self.edge_case != .None;
+    }
+
+    pub inline fn isMachineMatch(self: InstructionItem, machine: Machine) bool {
+        if (self.ignore_64) {
+            return machine.mode != .x64;
+        } else {
+            return true;
+        }
     }
 
     pub fn matchesEdgeCase(
@@ -277,7 +317,17 @@ pub const InstructionItem = struct {
         op3: ?*const Operand,
         op4: ?*const Operand
     ) bool {
-        return self.edge_case.testEdgeCase(machine.mode, op1, op2, op3, op4);
+        return self.edge_case.isEdgeCase(self, machine.mode, op1, op2, op3, op4);
+    }
+
+    pub fn coerceImm(self: InstructionItem, op: ?*const Operand, pos: u8) Immediate {
+        switch (self.signature.operands[pos].?) {
+            .imm8 => return op.?.*.Imm,
+            .imm16 => return op.?.*.Imm.coerce(.Bit16),
+            .imm32 => return op.?.*.Imm.coerce(.Bit32),
+            .imm64 => return op.?.*.Imm.coerce(.Bit64),
+            else => unreachable,
+        }
     }
 
     pub fn encode(self: InstructionItem,
@@ -287,9 +337,10 @@ pub const InstructionItem = struct {
                   op3: ?*const Operand,
                   op4: ?*const Operand) AsmError!Instruction {
         switch (self.encoding) {
-            .ZO => return machine.encodeOpcode(self.opcode, self.default_size),
+            .ZO => return machine.encodeOpcode(self.opcode, op1, self.default_size),
             .M => return machine.encodeRm(self.opcode, op1.?.*, self.default_size),
-            .I => return machine.encodeImmediate(self.opcode, op1.?.*.Imm, self.default_size),
+            .I => return machine.encodeImmediate(self.opcode, op2, self.coerceImm(op1, 0), self.default_size),
+            .I2 => return machine.encodeImmediate(self.opcode, op1, self.coerceImm(op2, 1), self.default_size),
             .O => return machine.encodeOpcodeRegNum(self.opcode, op1.?.*, self.default_size),
             .O2 => return machine.encodeOpcodeRegNum(self.opcode, op2.?.*, self.default_size),
             .D => return machine.encodeAddress(self.opcode, op1.?.*.Addr, self.default_size),
@@ -329,10 +380,65 @@ const pre = InstructionPrefix;
 // Putting the most specific opcodes first enables us to reach every possible
 // encoding for an instruction.
 //
+// User supplied immediates without an explicit size are allowed to match
+// against larger immediate sizes:
+//      * imm8  <-> imm8,  imm16, imm32, imm64
+//      * imm16 <-> imm16, imm32, imm64
+//      * imm32 <-> imm32, imm64
+// So if there are multiple operand signatures that only differ by there
+// immediate size, we must place the version with the smaller immediate size
+// first. This insures that the shortest encoding is chosen when the operand
+// is an Immediate without a fixed size.
+//
 // TODO: add a comptime function to check that they have correct order.
 // TODO: make function for looking up values in this table based on the mnemonic
 //       and the operand signature.
+//
+// TODO/NOTE: in intel datasheets, instructions like call/jmp that take a relative
+//       address offset are encoded as a displacement. However, current they
+//       will be generated as an immediate.  This doesn't matter too much
+//       but when looking at the Instruction generated, it will be using an
+//       immediate instead of a displacement. Probably adapt the .D field to
+//       do this.
 pub const instruction_database = [_]InstructionItem {
+// CALL
+    instr(.CALL,    ops1(.imm16),               Op1(0xE8),              .I,  .RM32Strict, .{} ),
+    instr(.CALL,    ops1(.imm32),               Op1(0xE8),              .I,  .RM32Strict, .{} ),
+    //
+    instr(.CALL,    ops1(.rm16),                Op1r(0xFF, 2),          .M,  .RM64Strict, .{} ),
+    instr(.CALL,    ops1(.rm32),                Op1r(0xFF, 2),          .M,  .RM64Strict, .{} ),
+    instr(.CALL,    ops1(.rm64),                Op1r(0xFF, 2),          .M,  .RM64Strict, .{} ),
+    //
+    instr(.CALL,    ops1(.ptr16_16),            Op1r(0x9A, 4),          .D,  .RM32Only,   .{} ),
+    instr(.CALL,    ops1(.ptr16_32),            Op1r(0x9A, 4),          .D,  .RM32Only,   .{} ),
+    //
+    instr(.CALL,    ops1(.m16_16),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
+    instr(.CALL,    ops1(.m16_32),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
+    instr(.CALL,    ops1(.m16_64),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
+// CMP
+    instr(.CMP,     ops2(.reg_al, .imm8),       Op1(0x3C),              .I2, .RM8,        .{} ),
+    instr(.CMP,     ops2(.rm8, .imm8),          Op1r(0x80, 7),          .MI, .RM8,        .{} ),
+    instr(.CMP,     ops2(.rm16, .imm8),         Op1r(0x83, 7),          .MI, .RM32_I8,    .{edge.Sign} ),
+    instr(.CMP,     ops2(.rm32, .imm8),         Op1r(0x83, 7),          .MI, .RM32_I8,    .{edge.Sign} ),
+    instr(.CMP,     ops2(.rm64, .imm8),         Op1r(0x83, 7),          .MI, .RM32_I8,    .{edge.Sign} ),
+    //
+    instr(.CMP,     ops2(.reg_ax, .imm16),      Op1(0x3D),              .I2, .RM32,       .{} ),
+    instr(.CMP,     ops2(.reg_eax, .imm32),     Op1(0x3D),              .I2, .RM32,       .{} ),
+    instr(.CMP,     ops2(.reg_rax, .imm32),     Op1(0x3D),              .I2, .RM32,       .{edge.Sign} ),
+    //
+    instr(.CMP,     ops2(.rm16, .imm16),        Op1r(0x81, 7),          .MI, .RM32,       .{} ),
+    instr(.CMP,     ops2(.rm32, .imm32),        Op1r(0x81, 7),          .MI, .RM32,       .{} ),
+    instr(.CMP,     ops2(.rm64, .imm32),        Op1r(0x81, 7),          .MI, .RM32,       .{edge.Sign} ),
+    //
+    instr(.CMP,     ops2(.rm8, .reg8),          Op1(0x38),              .MR, .RM8,        .{} ),
+    instr(.CMP,     ops2(.rm16, .reg16),        Op1(0x39),              .MR, .RM32,       .{} ),
+    instr(.CMP,     ops2(.rm32, .reg32),        Op1(0x39),              .MR, .RM32,       .{} ),
+    instr(.CMP,     ops2(.rm64, .reg64),        Op1(0x39),              .MR, .RM32,       .{} ),
+    //
+    instr(.CMP,     ops2(.reg8, .rm8),          Op1(0x3A),              .RM, .RM8,        .{} ),
+    instr(.CMP,     ops2(.reg16, .rm16),        Op1(0x3B),              .RM, .RM32,       .{} ),
+    instr(.CMP,     ops2(.reg32, .rm32),        Op1(0x3B),              .RM, .RM32,       .{} ),
+    instr(.CMP,     ops2(.reg64, .rm64),        Op1(0x3B),              .RM, .RM32,       .{} ),
 // JMP
     instr(.JMP,     ops1(.imm8),                Op1(0xEB),              .I,  .RM8,        .{} ),
     instr(.JMP,     ops1(.imm16),               Op1(0xE9),              .I,  .RM32Strict, .{} ),
@@ -367,14 +473,14 @@ pub const instruction_database = [_]InstructionItem {
     instr(.MOV,     ops2(.reg_seg, .rm32),      Op1(0x8E),              .RM, .RM16,       .{} ),
     instr(.MOV,     ops2(.reg_seg, .rm64),      Op1(0x8E),              .RM, .RM16,       .{} ),
     // TODO: CHECK, not 100% sure how moffs is supposed to behave in all cases
-    instr(.MOV,     ops2(.reg_al, .moffs),      Op1(0xA0),              .FD, .RM8,        .{} ),
-    instr(.MOV,     ops2(.reg_ax, .moffs),      Op1(0xA1),              .FD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg_eax, .moffs),     Op1(0xA1),              .FD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg_rax, .moffs),     Op1(0xA1),              .FD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.moffs, .reg_al),      Op1(0xA2),              .TD, .RM8,        .{} ),
-    instr(.MOV,     ops2(.moffs, .reg_ax),      Op1(0xA3),              .TD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.moffs, .reg_eax),     Op1(0xA3),              .TD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.moffs, .reg_rax),     Op1(0xA3),              .TD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg_al, .moffs8),     Op1(0xA0),              .FD, .RM8,        .{} ),
+    instr(.MOV,     ops2(.reg_ax, .moffs16),    Op1(0xA1),              .FD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg_eax, .moffs32),   Op1(0xA1),              .FD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg_rax, .moffs64),   Op1(0xA1),              .FD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.moffs8, .reg_al),     Op1(0xA2),              .TD, .RM8,        .{} ),
+    instr(.MOV,     ops2(.moffs16, .reg_ax),    Op1(0xA3),              .TD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.moffs32, .reg_eax),   Op1(0xA3),              .TD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.moffs64, .reg_rax),   Op1(0xA3),              .TD, .RM32,       .{} ),
     //
     instr(.MOV,     ops2(.reg8, .imm8),         Op1(0xB0),              .OI, .RM8,        .{} ),
     instr(.MOV,     ops2(.reg16, .imm16),       Op1(0xB8),              .OI, .RM32,       .{} ),
@@ -390,14 +496,21 @@ pub const instruction_database = [_]InstructionItem {
     instr(.NOP,     ops1(.rm16),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
     instr(.NOP,     ops1(.rm32),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
     instr(.NOP,     ops1(.rm64),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
-// PUSH
-    instr(.PUSH,    ops1(.reg_cs),              Op1(0x0E),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_ss),              Op1(0x16),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_ds),              Op1(0x1E),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO,         .{} ),
-    instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO,         .{} ),
+// POP
+    instr(.POP,     ops1(.reg16),               Op1(0x58),              .O,  .RM64_16,    .{} ),
+    instr(.POP,     ops1(.reg32),               Op1(0x58),              .O,  .RM64_16,    .{} ),
+    instr(.POP,     ops1(.reg64),               Op1(0x58),              .O,  .RM64_16,    .{} ),
     //
+    instr(.POP,     ops1(.rm16),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
+    instr(.POP,     ops1(.rm32),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
+    instr(.POP,     ops1(.rm64),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
+    //
+    instr(.POP,     ops1(.reg_ds),              Op1(0x1F),              .ZO, .ZO32Only,   .{} ),
+    instr(.POP,     ops1(.reg_es),              Op1(0x07),              .ZO, .ZO32Only,   .{} ),
+    instr(.POP,     ops1(.reg_ss),              Op1(0x17),              .ZO, .ZO32Only,   .{} ),
+    instr(.POP,     ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO64_16,    .{} ),
+    instr(.POP,     ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO64_16,    .{} ),
+// PUSH
     instr(.PUSH,    ops1(.imm8),                Op1(0x6A),              .I,  .RM8 ,       .{} ),
     instr(.PUSH,    ops1(.imm16),               Op1(0x68),              .I,  .RM32,       .{} ),
     instr(.PUSH,    ops1(.imm32),               Op1(0x68),              .I,  .RM32,       .{} ),
@@ -409,6 +522,13 @@ pub const instruction_database = [_]InstructionItem {
     instr(.PUSH,    ops1(.rm16),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
     instr(.PUSH,    ops1(.rm32),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
     instr(.PUSH,    ops1(.rm64),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
+    //
+    instr(.PUSH,    ops1(.reg_cs),              Op1(0x0E),              .ZO, .ZO32Only,  .{} ),
+    instr(.PUSH,    ops1(.reg_ss),              Op1(0x16),              .ZO, .ZO32Only,  .{} ),
+    instr(.PUSH,    ops1(.reg_ds),              Op1(0x1E),              .ZO, .ZO32Only,  .{} ),
+    instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZO, .ZO32Only,  .{} ),
+    instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO64_16,   .{} ),
+    instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO64_16,   .{} ),
 // XCHG
     instr(.XCHG,    ops2(.reg_ax, .reg16),      Op1(0x90),              .O2, .RM32,       .{} ),
     instr(.XCHG,    ops2(.reg16, .reg_ax),      Op1(0x90),              .O,  .RM32,       .{} ),

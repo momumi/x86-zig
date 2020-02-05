@@ -239,16 +239,22 @@ pub const Instruction = struct {
     /// Add the immediate to the instruction
     pub fn addImm(self: *@This(), imm: Immediate) void {
         switch (imm.size) {
-            .Imm8_any,
-            .Imm8 => self.addImm8(imm.as8()),
-            .Imm16_any,
-            .Imm16 => self.addImm16(imm.as16()),
-            .Imm32_any,
-            .Imm32 => self.addImm32(imm.as32()),
-            .Imm64_any,
-            .Imm64 => self.addImm64(imm.as64()),
+            .Imm8, .Imm8_any => self.addImm8(imm.as8()),
+            .Imm16, .Imm16_any => self.addImm16(imm.as16()),
+            .Imm32, .Imm32_any => self.addImm32(imm.as32()),
+            .Imm64, .Imm64_any => self.addImm64(imm.as64()),
         }
     }
+
+    pub fn addDisp(self: *@This(), imm: Immediate) void {
+        switch (imm.size) {
+            .Imm8_any, .Imm8 => self.addDisp8(imm.as8()),
+            .Imm16_any, .Imm16 => self.addDisp16(imm.as16()),
+            .Imm32_any, .Imm32 => self.addDisp32(imm.as32()),
+            .Imm64_any, .Imm64 => self.addDisp64(imm.as64()),
+        }
+    }
+
 
     pub fn addImm8(self: *@This(), imm8: u8) void {
         self.view.immediate = self.makeViewPart(1);
@@ -332,13 +338,13 @@ pub const Instruction = struct {
             .FarJmp => |far| {
                 const disp_size = disp.bitSize();
                 assert(disp_size != .Bit64);
-                self.view.displacement = self.makeViewPart(disp_size.valueBytes() + 2);
+                self.view.immediate = self.makeViewPart(disp_size.valueBytes() + 2);
                 self.addMOffsetDisp(disp);
                 self.add16(far.segment);
             },
             .MOffset => |moff| {
                 const disp_size = disp.bitSize();
-                self.view.displacement = self.makeViewPart(disp_size.valueBytes());
+                self.view.immediate = self.makeViewPart(disp_size.valueBytes());
                 self.addMOffsetDisp(disp);
             },
         }

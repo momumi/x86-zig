@@ -1,6 +1,8 @@
 const x86 = @import("machine.zig");
 const std = @import("std");
 
+const assert = std.debug.assert;
+
 usingnamespace(@import("types.zig"));
 
 const Mnemonic = x86.Mnemonic;
@@ -42,6 +44,20 @@ pub const Signature = struct {
     {
         return Signature {
             .operands = [4]?OperandType { o1, o2, null, null },
+        };
+    }
+
+    pub fn ops3(o1: ?OperandType, o2: ?OperandType, o3: ?OperandType) Signature
+    {
+        return Signature {
+            .operands = [4]?OperandType { o1, o2, o3, null },
+        };
+    }
+
+    pub fn ops4(o1: ?OperandType, o2: ?OperandType, o3: ?OperandType, o4: ?OperandType) Signature
+    {
+        return Signature {
+            .operands = [4]?OperandType { o1, o2, o3, o4 },
         };
     }
 
@@ -107,6 +123,12 @@ pub const OpcodeEdgeCase = enum {
     /// sign-extended immediate value
     Sign,
 
+    /// Not encodable on 64 bit mode
+    No64,
+
+    /// Not encodable on 32/16 bit mode
+    No32,
+
     pub fn isEdgeCase(
         self: OpcodeEdgeCase,
         item: InstructionItem,
@@ -121,12 +143,35 @@ pub const OpcodeEdgeCase = enum {
                 return (mode == .x64 and op1.?.Reg == .EAX and op2.?.Reg == .EAX);
             },
             .Sign => {
-                const imm = op2.?.Imm;
-                if (imm.sign == .Unsigned and imm.willSignExtend(item.signature.operands[1].?)) {
+                var imm_pos: u2 = undefined;
+                if (op1 != null and op1.?.tag() == .Imm) {
+                    imm_pos = 0;
+                } else if (op2 != null and op2.?.tag() == .Imm) {
+                    imm_pos = 1;
+                } else if (op3 != null and op3.?.tag() == .Imm) {
+                    imm_pos = 2;
+                } else if (op4 != null and op4.?.tag() == .Imm) {
+                    imm_pos = 3;
+                } else {
+                    unreachable;
+                }
+                const imm = switch (imm_pos) {
+                    0 => op1.?.Imm,
+                    1 => op2.?.Imm,
+                    2 => op3.?.Imm,
+                    3 => op4.?.Imm,
+                };
+                if (imm.sign == .Unsigned and imm.willSignExtend(item.signature.operands[imm_pos].?)) {
                     return true;
                 } else {
                     return false;
                 }
+            },
+            .No64 => {
+                return mode == .x64;
+            },
+            .No32 => {
+                return mode == .x86 or mode == .x86_16;
             },
             .None => return false,
         }
@@ -229,10 +274,11 @@ pub const InstructionEncoding = enum {
     O2,     // IGNORE           opcode+reg.num
     RM,     // ModRM:reg        ModRM:r/m
     MR,     // ModRM:r/m        ModRM:reg
+    RMI,    // ModRM:reg        ModRM:r/m       immediate
     OI,     // opcode+reg.num   imm8/16/32/64
     MI,     // ModRM:r/m        imm8/16/32/64
 
-    D,
+    D,      // encode address or offset
     FD,     // AL/AX/EAX/RAX    Moffs   NA  NA
     TD,     // Moffs (w)        AL/AX/EAX/RAX   NA  NA
 };
@@ -244,7 +290,7 @@ pub const InstructionItem = struct {
     encoding: InstructionEncoding,
     default_size: DefaultSize,
     edge_case: OpcodeEdgeCase,
-    ignore_64: bool,
+    mode_edge_case: OpcodeEdgeCase,
 
     fn create(
         mnem: Mnemonic,
@@ -260,7 +306,7 @@ pub const InstructionItem = struct {
         // based of the signature/encoding/default_size properties as one of
         // _8086, _386, x64
         var edge_case = OpcodeEdgeCase.None;
-        var ignore_64 = false;
+        var mode_edge_case = OpcodeEdgeCase.None;
 
 
         if (@typeInfo(@TypeOf(version_and_features)) != .Struct) {
@@ -278,8 +324,16 @@ pub const InstructionItem = struct {
                 },
 
                 OpcodeEdgeCase => {
-                    std.debug.assert(edge_case == .None);
-                    edge_case = opt;
+                    switch (opt) {
+                        .No32, .No64 => {
+                            assert(mode_edge_case == .None);
+                            mode_edge_case = opt;
+                        },
+                        else => {
+                            assert(edge_case == .None);
+                            edge_case = opt;
+                        },
+                    }
                 },
 
                 else => |bad_type| {
@@ -290,13 +344,19 @@ pub const InstructionItem = struct {
 
         switch (default_size) {
             .RM32Strict => switch(signature.operands[0].?) {
-                .imm16 => ignore_64 = true,
+                .imm16 => {
+                    assert(mode_edge_case == .None);
+                    mode_edge_case = .No64;
+                },
                 else => {},
             },
 
             .RM64Strict => switch(signature.operands[0].?) {
                 .imm16,
-                .imm32 => ignore_64 = true,
+                .imm32 => {
+                    assert(mode_edge_case == .None);
+                    mode_edge_case = .No64;
+                },
                 else => {},
             },
 
@@ -310,7 +370,7 @@ pub const InstructionItem = struct {
             .encoding = en,
             .default_size = default_size,
             .edge_case = edge_case,
-            .ignore_64 = ignore_64,
+            .mode_edge_case = mode_edge_case,
         };
     }
 
@@ -319,11 +379,13 @@ pub const InstructionItem = struct {
     }
 
     pub inline fn isMachineMatch(self: InstructionItem, machine: Machine) bool {
-        if (self.ignore_64) {
-            return machine.mode != .x64;
-        } else {
-            return true;
+        switch (self.mode_edge_case) {
+            .None => {},
+            .No64 => if (machine.mode == .x64) return false,
+            .No32 => if (machine.mode == .x86 or machine.mode == .x86_16) return false,
+            else => unreachable,
         }
+        return true;
     }
 
     pub fn matchesEdgeCase(
@@ -364,10 +426,11 @@ pub const InstructionItem = struct {
             .I2 => return machine.encodeImmediate(self.opcode, op1, self.coerceImm(op2, 1), self.default_size),
             .O => return machine.encodeOpcodeRegNum(self.opcode, op1.?.*, self.default_size),
             .O2 => return machine.encodeOpcodeRegNum(self.opcode, op2.?.*, self.default_size),
-            .D => return machine.encodeAddress(self.opcode, op1.?.*.Addr, self.default_size),
+            .D => return machine.encodeAddress(self.opcode, op1.?.*, self.default_size),
             .OI => return machine.encodeOpcodeRegNumImmediate(self.opcode, op1.?.*, op2.?.*.Imm, self.default_size),
             .MI => return machine.encodeRmImmediate(self.opcode, op1.?.*, op2.?.*.Imm, self.default_size),
             .RM => return machine.encodeRegRm(self.opcode, op1.?.*, op2.?.*, self.default_size),
+            .RMI => return machine.encodeRegRmImmediate(self.opcode, op1.?.*, op2.?.*, self.coerceImm(op3, 2), self.default_size),
             .MR => return machine.encodeRegRm(self.opcode, op2.?.*, op1.?.*, self.default_size),
 
             .FD => return machine.encodeMOffset(self.opcode, op1.?.*, op2.?.*, self.default_size),
@@ -420,6 +483,7 @@ const Op2r = x86.Opcode.op2r;
 const ops0 = Signature.ops0;
 const ops1 = Signature.ops1;
 const ops2 = Signature.ops2;
+const ops3 = Signature.ops3;
 
 const instr = InstructionItem.create;
 
@@ -550,6 +614,18 @@ pub const instruction_database = [_]InstructionItem {
     instr(.CALL,    ops1(.m16_16),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
     instr(.CALL,    ops1(.m16_32),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
     instr(.CALL,    ops1(.m16_64),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
+// CBW
+    instr(.CBW,     ops0(),                     Op1(0x98),              .ZO16, .RM32,     .{} ),
+    instr(.CWDE,    ops0(),                     Op1(0x98),              .ZO32, .RM32,     .{} ),
+    instr(.CDQE,    ops0(),                     Op1(0x98),              .ZO64, .RM32,     .{} ),
+// CLC
+    instr(.CLC,     ops0(),                     Op1(0xF8),              .ZO, .ZO,         .{} ),
+// CLD
+    instr(.CLD,     ops0(),                     Op1(0xFC),              .ZO, .ZO,         .{} ),
+// CLI
+    instr(.CLI,     ops0(),                     Op1(0xFA),              .ZO, .ZO,         .{} ),
+// CMC
+    instr(.CMC,     ops0(),                     Op1(0xF5),              .ZO, .ZO,         .{} ),
 // CMP
     instr(.CMP,     ops2(.reg_al, .imm8),       Op1(0x3C),              .I2, .RM8,        .{} ),
     instr(.CMP,     ops2(.rm8, .imm8),          Op1r(0x80, 7),          .MI, .RM8,        .{} ),
@@ -586,37 +662,208 @@ pub const instruction_database = [_]InstructionItem {
     instr(.DAA,     ops0(),                     Op1(0x27),              .ZO, .ZO32Only,   .{} ),
 // DAS
     instr(.DAS,     ops0(),                     Op1(0x2F),              .ZO, .ZO32Only,   .{} ),
+// DEC
+    instr(.DEC,     ops1(.reg16),               Op1(0x48),              .O,  .RM32,       .{edge.No64} ),
+    instr(.DEC,     ops1(.reg32),               Op1(0x48),              .O,  .RM32,       .{edge.No64} ),
+    instr(.DEC,     ops1(.rm8),                 Op1r(0xFE, 1),          .M,  .RM8,        .{} ),
+    instr(.DEC,     ops1(.rm16),                Op1r(0xFF, 1),          .M,  .RM32,       .{} ),
+    instr(.DEC,     ops1(.rm32),                Op1r(0xFF, 1),          .M,  .RM32,       .{} ),
+    instr(.DEC,     ops1(.rm64),                Op1r(0xFF, 1),          .M,  .RM32,       .{} ),
+// DIV
+    instr(.DIV,     ops1(.rm8),                 Op1r(0xF6, 6),          .M,  .RM8,        .{} ),
+    instr(.DIV,     ops1(.rm16),                Op1r(0xF7, 6),          .M,  .RM32,       .{} ),
+    instr(.DIV,     ops1(.rm32),                Op1r(0xF7, 6),          .M,  .RM32,       .{} ),
+    instr(.DIV,     ops1(.rm64),                Op1r(0xF7, 6),          .M,  .RM32,       .{} ),
 // HLT
     instr(.HLT,     ops0(),                     Op1(0xF4),              .ZO, .ZO,         .{} ),
-// INS / INSB / INSW / INSD
-    instr(.INS,    ops1(._void8),              Op1(0x6C),              .ZO, .RM8,        .{} ),
-    instr(.INS,    ops1(._void),               Op1(0x6D),              .ZO, .RM32,       .{} ),
+// IDIV
+    instr(.IDIV,    ops1(.rm8),                 Op1r(0xF6, 7),          .M,  .RM8,        .{} ),
+    instr(.IDIV,    ops1(.rm16),                Op1r(0xF7, 7),          .M,  .RM32,       .{} ),
+    instr(.IDIV,    ops1(.rm32),                Op1r(0xF7, 7),          .M,  .RM32,       .{} ),
+    instr(.IDIV,    ops1(.rm64),                Op1r(0xF7, 7),          .M,  .RM32,       .{} ),
+// IMUL
+    instr(.IMUL,    ops1(.rm8),                 Op1r(0xF6, 5),          .M,  .RM8,        .{} ),
+    instr(.IMUL,    ops1(.rm16),                Op1r(0xF7, 5),          .M,  .RM32,       .{} ),
+    instr(.IMUL,    ops1(.rm32),                Op1r(0xF7, 5),          .M,  .RM32,       .{} ),
+    instr(.IMUL,    ops1(.rm64),                Op1r(0xF7, 5),          .M,  .RM32,       .{} ),
     //
-    instr(.INSB,   ops0(),                     Op1(0x6C),              .ZO,   .RM8,      .{} ),
-    instr(.INSW,   ops0(),                     Op1(0x6D),              .ZO16, .RM32,     .{} ),
-    instr(.INSD,   ops0(),                     Op1(0x6D),              .ZO32, .RM32,     .{} ),
+    instr(.IMUL,    ops2(.reg16, .rm16),        Op2(0x0F, 0xAF),        .RM, .RM32,       .{} ),
+    instr(.IMUL,    ops2(.reg32, .rm32),        Op2(0x0F, 0xAF),        .RM, .RM32,       .{} ),
+    instr(.IMUL,    ops2(.reg64, .rm64),        Op2(0x0F, 0xAF),        .RM, .RM32,       .{} ),
+    //
+    instr(.IMUL,    ops3(.reg16, .rm16, .imm8), Op1(0x6B),              .RMI, .RM32_I8,   .{edge.Sign, cpu._186} ),
+    instr(.IMUL,    ops3(.reg32, .rm32, .imm8), Op1(0x6B),              .RMI, .RM32_I8,   .{edge.Sign, cpu._386} ),
+    instr(.IMUL,    ops3(.reg64, .rm64, .imm8), Op1(0x6B),              .RMI, .RM32_I8,   .{edge.Sign, cpu.x64} ),
+    //
+    instr(.IMUL,    ops3(.reg16, .rm16, .imm16),Op1(0x69),              .RMI, .RM32,      .{cpu._186} ),
+    instr(.IMUL,    ops3(.reg32, .rm32, .imm32),Op1(0x69),              .RMI, .RM32,      .{cpu._386} ),
+    instr(.IMUL,    ops3(.reg64, .rm64, .imm32),Op1(0x69),              .RMI, .RM32,      .{edge.Sign, cpu.x64} ),
+// IN
+    instr(.IN,      ops2(.reg_al, .imm8),       Op1(0xE4),              .I2, .RM8,        .{} ),
+    instr(.IN,      ops2(.reg_ax, .imm8),       Op1(0xE5),              .I2, .RM32,       .{} ),
+    instr(.IN,      ops2(.reg_eax, .imm8),      Op1(0xE5),              .I2, .RM32,       .{} ),
+    instr(.IN,      ops2(.reg_al, .reg_dx),     Op1(0xEC),              .ZO, .RM8,        .{} ),
+    instr(.IN,      ops2(.reg_ax, .reg_dx),     Op1(0xED),              .ZO16, .RM32,     .{} ),
+    instr(.IN,      ops2(.reg_eax, .reg_dx),    Op1(0xED),              .ZO32, .RM32,     .{} ),
+// INC
+    instr(.INC,     ops1(.reg16),               Op1(0x40),              .O,  .RM32,       .{edge.No64} ),
+    instr(.INC,     ops1(.reg32),               Op1(0x40),              .O,  .RM32,       .{edge.No64} ),
+    instr(.INC,     ops1(.rm8),                 Op1r(0xFE, 0),          .M,  .RM8,        .{} ),
+    instr(.INC,     ops1(.rm16),                Op1r(0xFF, 0),          .M,  .RM32,       .{} ),
+    instr(.INC,     ops1(.rm32),                Op1r(0xFF, 0),          .M,  .RM32,       .{} ),
+    instr(.INC,     ops1(.rm64),                Op1r(0xFF, 0),          .M,  .RM32,       .{} ),
+// INS / INSB / INSW / INSD
+    instr(.INS,     ops1(._void8),              Op1(0x6C),              .ZO, .RM8,        .{cpu._186} ),
+    instr(.INS,     ops1(._void),               Op1(0x6D),              .ZO, .RM32,       .{cpu._186} ),
+    //
+    instr(.INSB,    ops0(),                     Op1(0x6C),              .ZO,   .RM8,      .{cpu._186} ),
+    instr(.INSW,    ops0(),                     Op1(0x6D),              .ZO16, .RM32,     .{cpu._186} ),
+    instr(.INSD,    ops0(),                     Op1(0x6D),              .ZO32, .RM32,     .{cpu._186} ),
+// INT
+    instr(.INT3,    ops0(),                     Op1(0xCC),              .ZO, .ZO,         .{} ),
+    instr(.INT,     ops1(.imm8),                Op1(0xCD),              .I,  .RM8,        .{} ),
+    instr(.INTO,    ops0(),                     Op1(0xCE),              .ZO, .ZO32Only,   .{} ),
+    instr(.INT1,    ops0(),                     Op1(0xF1),              .ZO, .ZO,         .{} ),
 // IRET
     instr(.IRET,    ops1(._void),               Op1(0xCF),              .ZO,   .RM32,     .{} ),
     instr(.IRET,    ops0(),                     Op1(0xCF),              .ZO16, .RM32,     .{} ),
     instr(.IRETD,   ops0(),                     Op1(0xCF),              .ZO32, .RM32,     .{} ),
     instr(.IRETQ,   ops0(),                     Op1(0xCF),              .ZO64, .RM32,     .{} ),
+// Jcc 
+    instr(.JCXZ,    ops1(.imm8),                Op1(0xE3),              .I, .RM8_Over16,  .{edge.Sign, edge.No64} ),
+    instr(.JECXZ,   ops1(.imm8),                Op1(0xE3),              .I, .RM8_Over32,  .{edge.Sign, } ),
+    instr(.JRCXZ,   ops1(.imm8),                Op1(0xE3),              .I, .RM8,         .{edge.Sign, edge.No32} ),
+    //
+    instr(.JA,      ops1(.imm8),                Op1(0x77),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JA,      ops1(.imm16),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JA,      ops1(.imm32),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JAE,     ops1(.imm8),                Op1(0x73),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JAE,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JAE,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JB,      ops1(.imm8),                Op1(0x72),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JB,      ops1(.imm16),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JB,      ops1(.imm32),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JBE,     ops1(.imm8),                Op1(0x76),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JBE,     ops1(.imm16),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JBE,     ops1(.imm32),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JC,      ops1(.imm8),                Op1(0x72),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JC,      ops1(.imm16),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JC,      ops1(.imm32),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JE,      ops1(.imm8),                Op1(0x74),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JE,      ops1(.imm16),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JE,      ops1(.imm32),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JG,      ops1(.imm8),                Op1(0x7F),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JG,      ops1(.imm16),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JG,      ops1(.imm32),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JGE,     ops1(.imm8),                Op1(0x7D),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JGE,     ops1(.imm16),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JGE,     ops1(.imm32),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JL,      ops1(.imm8),                Op1(0x7C),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JL,      ops1(.imm16),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JL,      ops1(.imm32),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JLE,     ops1(.imm8),                Op1(0x7E),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JLE,     ops1(.imm16),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JLE,     ops1(.imm32),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNA,     ops1(.imm8),                Op1(0x76),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNA,     ops1(.imm16),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNA,     ops1(.imm32),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNAE,    ops1(.imm8),                Op1(0x72),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNAE,    ops1(.imm16),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNAE,    ops1(.imm32),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNB,     ops1(.imm8),                Op1(0x73),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNB,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNB,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNBE,    ops1(.imm8),                Op1(0x77),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNBE,    ops1(.imm16),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNBE,    ops1(.imm32),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNC,     ops1(.imm8),                Op1(0x73),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNC,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNC,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNE,     ops1(.imm8),                Op1(0x75),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNE,     ops1(.imm16),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNE,     ops1(.imm32),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNG,     ops1(.imm8),                Op1(0x7E),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNG,     ops1(.imm16),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNG,     ops1(.imm32),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNGE,    ops1(.imm8),                Op1(0x7C),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNGE,    ops1(.imm16),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNGE,    ops1(.imm32),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNL,     ops1(.imm8),                Op1(0x7D),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNL,     ops1(.imm16),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNL,     ops1(.imm32),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNLE,    ops1(.imm8),                Op1(0x7F),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNLE,    ops1(.imm16),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNLE,    ops1(.imm32),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNO,     ops1(.imm8),                Op1(0x71),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNO,     ops1(.imm16),               Op2(0x0F, 0x81),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNO,     ops1(.imm32),               Op2(0x0F, 0x81),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNP,     ops1(.imm8),                Op1(0x7B),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNP,     ops1(.imm16),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNP,     ops1(.imm32),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNS,     ops1(.imm8),                Op1(0x79),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNS,     ops1(.imm16),               Op2(0x0F, 0x89),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNS,     ops1(.imm32),               Op2(0x0F, 0x89),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNZ,     ops1(.imm8),                Op1(0x75),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JNZ,     ops1(.imm16),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JNZ,     ops1(.imm32),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JO,      ops1(.imm8),                Op1(0x70),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JO,      ops1(.imm16),               Op2(0x0F, 0x80),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JO,      ops1(.imm32),               Op2(0x0F, 0x80),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JP,      ops1(.imm8),                Op1(0x7A),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JP,      ops1(.imm16),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JP,      ops1(.imm32),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JPE,     ops1(.imm8),                Op1(0x7A),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JPE,     ops1(.imm16),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JPE,     ops1(.imm32),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JPO,     ops1(.imm8),                Op1(0x7B),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JPO,     ops1(.imm16),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JPO,     ops1(.imm32),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JS,      ops1(.imm8),                Op1(0x78),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JS,      ops1(.imm16),               Op2(0x0F, 0x88),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JS,      ops1(.imm32),               Op2(0x0F, 0x88),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JZ,      ops1(.imm8),                Op1(0x74),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JZ,      ops1(.imm16),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JZ,      ops1(.imm32),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{edge.Sign} ),
 // JMP
-    instr(.JMP,     ops1(.imm8),                Op1(0xEB),              .I,  .RM8,        .{} ),
-    instr(.JMP,     ops1(.imm16),               Op1(0xE9),              .I,  .RM32Strict, .{} ),
-    instr(.JMP,     ops1(.imm32),               Op1(0xE9),              .I,  .RM32Strict, .{} ),
+    instr(.JMP,     ops1(.imm8),                Op1(0xEB),              .I, .RM8,         .{edge.Sign} ),
+    instr(.JMP,     ops1(.imm16),               Op1(0xE9),              .I, .RM32Strict,  .{edge.Sign} ),
+    instr(.JMP,     ops1(.imm32),               Op1(0xE9),              .I, .RM32Strict,  .{edge.Sign} ),
     //
-    instr(.JMP,     ops1(.rm16),                Op1r(0xFF, 4),          .M,  .RM64Strict, .{} ),
-    instr(.JMP,     ops1(.rm32),                Op1r(0xFF, 4),          .M,  .RM64Strict, .{} ),
-    instr(.JMP,     ops1(.rm64),                Op1r(0xFF, 4),          .M,  .RM64Strict, .{} ),
+    instr(.JMP,     ops1(.rm16),                Op1r(0xFF, 4),          .M, .RM64Strict,  .{} ),
+    instr(.JMP,     ops1(.rm32),                Op1r(0xFF, 4),          .M, .RM64Strict,  .{} ),
+    instr(.JMP,     ops1(.rm64),                Op1r(0xFF, 4),          .M, .RM64Strict,  .{} ),
     //
-    instr(.JMP,     ops1(.ptr16_16),            Op1r(0xEA, 4),          .D,  .RM32Only,   .{} ),
-    instr(.JMP,     ops1(.ptr16_32),            Op1r(0xEA, 4),          .D,  .RM32Only,   .{} ),
+    instr(.JMP,     ops1(.ptr16_16),            Op1r(0xEA, 4),          .D, .RM32Only,    .{} ),
+    instr(.JMP,     ops1(.ptr16_32),            Op1r(0xEA, 4),          .D, .RM32Only,    .{} ),
     //
-    instr(.JMP,     ops1(.m16_16),              Op1r(0xFF, 5),          .M,  .RM32,       .{} ),
-    instr(.JMP,     ops1(.m16_32),              Op1r(0xFF, 5),          .M,  .RM32,       .{} ),
-    instr(.JMP,     ops1(.m16_64),              Op1r(0xFF, 5),          .M,  .RM32,       .{} ),
+    instr(.JMP,     ops1(.m16_16),              Op1r(0xFF, 5),          .M, .RM32,        .{} ),
+    instr(.JMP,     ops1(.m16_32),              Op1r(0xFF, 5),          .M, .RM32,        .{} ),
+    instr(.JMP,     ops1(.m16_64),              Op1r(0xFF, 5),          .M, .RM32,        .{} ),
 // LAHF
     instr(.LAHF,    ops0(),                     Op1(0x9F),              .ZO, .ZO,         .{cpu.FeatLAHF} ),
+//  LDS / LSS / LES / LFS / LGS
+    instr(.LDS,     ops2(.reg16, .m16_16),      Op1(0xC5),              .RM, .RM32Only,   .{} ),
+    instr(.LDS,     ops2(.reg32, .m16_32),      Op1(0xC5),              .RM, .RM32Only,   .{} ),
+    //
+    instr(.LSS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB2),        .RM, .RM32,       .{cpu._386} ),
+    instr(.LSS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB2),        .RM, .RM32,       .{cpu._386} ),
+    instr(.LSS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB2),        .RM, .RM32,       .{cpu._386} ),
+    //
+    instr(.LES,     ops2(.reg16, .m16_16),      Op1(0xC4),              .RM, .RM32Only,   .{} ),
+    instr(.LES,     ops2(.reg32, .m16_32),      Op1(0xC4),              .RM, .RM32Only,   .{} ),
+    //
+    instr(.LFS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB4),        .RM, .RM32,       .{cpu._386} ),
+    instr(.LFS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB4),        .RM, .RM32,       .{cpu._386} ),
+    instr(.LFS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB4),        .RM, .RM32,       .{cpu._386} ),
+    //
+    instr(.LGS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB5),        .RM, .RM32,       .{cpu._386} ),
+    instr(.LGS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB5),        .RM, .RM32,       .{cpu._386} ),
+    instr(.LGS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB5),        .RM, .RM32,       .{cpu._386} ),
+    //
+// LEA
+    instr(.LEA,     ops2(.reg16, .rm_mem16),    Op1(0x8D),              .RM, .RM32,       .{} ),
+    instr(.LEA,     ops2(.reg32, .rm_mem32),    Op1(0x8D),              .RM, .RM32,       .{} ),
+    instr(.LEA,     ops2(.reg64, .rm_mem64),    Op1(0x8D),              .RM, .RM32,       .{} ),
 // LOCK
     instr(.LOCK,    ops0(),                     Op1(0xF0),              .ZO, .ZO,         .{} ),
 // LODS / LODSB / LODSW / LODSD / LODSQ
@@ -627,6 +874,10 @@ pub const instruction_database = [_]InstructionItem {
     instr(.LODSW,   ops0(),                     Op1(0xAD),              .ZO16, .RM32,     .{} ),
     instr(.LODSD,   ops0(),                     Op1(0xAD),              .ZO32, .RM32,     .{} ),
     instr(.LODSQ,   ops0(),                     Op1(0xAD),              .ZO64, .RM32,     .{} ),
+// LOOP
+    instr(.LOOP,    ops1(.imm8),                Op1(0xE2),              .I, .RM8,         .{} ),
+    instr(.LOOPE,   ops1(.imm8),                Op1(0xE1),              .I, .RM8,         .{} ),
+    instr(.LOOPNE,  ops1(.imm8),                Op1(0xE0),              .I, .RM8,         .{} ),
 // MOV
     instr(.MOV,     ops2(.rm8,  .reg8),         Op1(0x88),              .MR, .RM8,        .{} ),
     instr(.MOV,     ops2(.rm16, .reg16),        Op1(0x89),              .MR, .RM32,       .{} ),
@@ -672,11 +923,26 @@ pub const instruction_database = [_]InstructionItem {
     instr(.MOVSW,   ops0(),                     Op1(0xA5),              .ZO16, .RM32,     .{} ),
     instr(.MOVSD,   ops0(),                     Op1(0xA5),              .ZO32, .RM32,     .{} ),
     instr(.MOVSQ,   ops0(),                     Op1(0xA5),              .ZO64, .RM32,     .{} ),
+// MUL
+    instr(.MUL,     ops1(.rm8),                 Op1r(0xF6, 4),          .M,  .RM8,        .{} ),
+    instr(.MUL,     ops1(.rm16),                Op1r(0xF7, 4),          .M,  .RM32,       .{} ),
+    instr(.MUL,     ops1(.rm32),                Op1r(0xF7, 4),          .M,  .RM32,       .{} ),
+    instr(.MUL,     ops1(.rm64),                Op1r(0xF7, 4),          .M,  .RM32,       .{} ),
+// NEG
+    instr(.NEG,     ops1(.rm8),                 Op1r(0xF6, 3),          .M,  .RM8,        .{} ),
+    instr(.NEG,     ops1(.rm16),                Op1r(0xF7, 3),          .M,  .RM32,       .{} ),
+    instr(.NEG,     ops1(.rm32),                Op1r(0xF7, 3),          .M,  .RM32,       .{} ),
+    instr(.NEG,     ops1(.rm64),                Op1r(0xF7, 3),          .M,  .RM32,       .{} ),
 // NOP
     instr(.NOP,     ops0(),                     Op1(0x90),              .ZO, .ZO,         .{} ),
     instr(.NOP,     ops1(.rm16),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
     instr(.NOP,     ops1(.rm32),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
     instr(.NOP,     ops1(.rm64),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
+// NOT
+    instr(.NOT,     ops1(.rm8),                 Op1r(0xF6, 2),          .M,  .RM8,        .{} ),
+    instr(.NOT,     ops1(.rm16),                Op1r(0xF7, 2),          .M,  .RM32,       .{} ),
+    instr(.NOT,     ops1(.rm32),                Op1r(0xF7, 2),          .M,  .RM32,       .{} ),
+    instr(.NOT,     ops1(.rm64),                Op1r(0xF7, 2),          .M,  .RM32,       .{} ),
 // OR
     instr(.OR,      ops2(.reg_al, .imm8),       Op1(0x0C),              .I2, .RM8,        .{} ),
     instr(.OR,      ops2(.rm8, .imm8),          Op1r(0x80, 1),          .MI, .RM8,        .{} ),
@@ -701,13 +967,20 @@ pub const instruction_database = [_]InstructionItem {
     instr(.OR,      ops2(.reg16, .rm16),        Op1(0x0B),              .RM, .RM32,       .{} ),
     instr(.OR,      ops2(.reg32, .rm32),        Op1(0x0B),              .RM, .RM32,       .{} ),
     instr(.OR,      ops2(.reg64, .rm64),        Op1(0x0B),              .RM, .RM32,       .{} ),
+// OUT
+    instr(.OUT,     ops2(.imm8, .reg_al),       Op1(0xE6),              .I, .ZO,        .{} ),
+    instr(.OUT,     ops2(.imm8, .reg_ax),       Op1(0xE7),              .I, .RM32,       .{} ),
+    instr(.OUT,     ops2(.imm8, .reg_eax),      Op1(0xE7),              .I, .RM32,       .{} ),
+    instr(.OUT,     ops2(.reg_dx, .reg_al),     Op1(0xEE),              .ZO, .ZO,        .{} ),
+    instr(.OUT,     ops2(.reg_dx, .reg_ax),     Op1(0xEF),              .ZO16, .RM32,     .{} ),
+    instr(.OUT,     ops2(.reg_dx, .reg_eax),    Op1(0xEF),              .ZO32, .RM32,     .{} ),
 // OUTS / OUTSB / OUTSW / OUTSD
-    instr(.OUTS,    ops1(._void8),              Op1(0x6E),              .ZO, .RM8,        .{} ),
-    instr(.OUTS,    ops1(._void),               Op1(0x6F),              .ZO, .RM32,       .{} ),
+    instr(.OUTS,    ops1(._void8),              Op1(0x6E),              .ZO, .RM8,        .{cpu._186} ),
+    instr(.OUTS,    ops1(._void),               Op1(0x6F),              .ZO, .RM32,       .{cpu._186} ),
     //
-    instr(.OUTSB,   ops0(),                     Op1(0x6E),              .ZO,   .RM8,      .{} ),
-    instr(.OUTSW,   ops0(),                     Op1(0x6F),              .ZO16, .RM32,     .{} ),
-    instr(.OUTSD,   ops0(),                     Op1(0x6F),              .ZO32, .RM32,     .{} ),
+    instr(.OUTSB,   ops0(),                     Op1(0x6E),              .ZO,   .RM8,      .{cpu._186} ),
+    instr(.OUTSW,   ops0(),                     Op1(0x6F),              .ZO16, .RM32,     .{cpu._186} ),
+    instr(.OUTSD,   ops0(),                     Op1(0x6F),              .ZO32, .RM32,     .{cpu._186} ),
 // POP
     instr(.POP,     ops1(.reg16),               Op1(0x58),              .O,  .RM64_16,    .{} ),
     instr(.POP,     ops1(.reg32),               Op1(0x58),              .O,  .RM64_16,    .{} ),
@@ -730,9 +1003,9 @@ pub const instruction_database = [_]InstructionItem {
     instr(.POPFD,   ops0(),                     Op1(0x9D),              .ZO32,  .RM32Only,.{} ),
     instr(.POPFQ,   ops0(),                     Op1(0x9D),              .ZO64,  .RM64_16, .{} ),
 // PUSH
-    instr(.PUSH,    ops1(.imm8),                Op1(0x6A),              .I,  .RM8 ,       .{} ),
-    instr(.PUSH,    ops1(.imm16),               Op1(0x68),              .I,  .RM32,       .{} ),
-    instr(.PUSH,    ops1(.imm32),               Op1(0x68),              .I,  .RM32,       .{} ),
+    instr(.PUSH,    ops1(.imm8),                Op1(0x6A),              .I,  .RM8 ,       .{cpu._186} ),
+    instr(.PUSH,    ops1(.imm16),               Op1(0x68),              .I,  .RM32,       .{cpu._186} ),
+    instr(.PUSH,    ops1(.imm32),               Op1(0x68),              .I,  .RM32,       .{cpu._386} ),
     //
     instr(.PUSH,    ops1(.reg16),               Op1(0x50),              .O,  .RM64_16,    .{} ),
     instr(.PUSH,    ops1(.reg32),               Op1(0x50),              .O,  .RM64_16,    .{} ),
@@ -755,13 +1028,125 @@ pub const instruction_database = [_]InstructionItem {
     instr(.PUSHFW,   ops0(),                    Op1(0x9C),              .ZO16,  .RM64_16, .{} ),
     instr(.PUSHFD,   ops0(),                    Op1(0x9C),              .ZODef, .RM32Only,.{} ),
     instr(.PUSHFQ,   ops0(),                    Op1(0x9C),              .ZO64,  .RM64_16, .{} ),
-//  RET (might want to encode RET in this table somehow
+//  RCL / RCR / ROL / ROR
+    instr(.RCL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 2),          .M,  .RM8,        .{} ),
+    instr(.RCL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 2),          .M,  .RM8,        .{} ),
+    instr(.RCL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 2),          .MI, .RM8,        .{cpu._186} ),
+    instr(.RCL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 2),          .M,  .RM32_I8,    .{} ),
+    instr(.RCL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 2),          .M,  .RM32_I8,    .{} ),
+    instr(.RCL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 2),          .M,  .RM32_I8,    .{} ),
+    instr(.RCL,     ops2(.rm16, .imm8),         Op1r(0xC1, 2),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.RCL,     ops2(.rm32, .imm8),         Op1r(0xC1, 2),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.RCL,     ops2(.rm64, .imm8),         Op1r(0xC1, 2),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.RCL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 2),          .M,  .RM32,       .{} ),
+    instr(.RCL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 2),          .M,  .RM32,       .{} ),
+    instr(.RCL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 2),          .M,  .RM32,       .{} ),
+    //
+    instr(.RCR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 3),          .M,  .RM8,        .{} ),
+    instr(.RCR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 3),          .M,  .RM8,        .{} ),
+    instr(.RCR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 3),          .MI, .RM8,        .{cpu._186} ),
+    instr(.RCR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 3),          .M,  .RM32_I8,    .{} ),
+    instr(.RCR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 3),          .M,  .RM32_I8,    .{} ),
+    instr(.RCR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 3),          .M,  .RM32_I8,    .{} ),
+    instr(.RCR,     ops2(.rm16, .imm8),         Op1r(0xC1, 3),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.RCR,     ops2(.rm32, .imm8),         Op1r(0xC1, 3),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.RCR,     ops2(.rm64, .imm8),         Op1r(0xC1, 3),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.RCR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 3),          .M,  .RM32,       .{} ),
+    instr(.RCR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 3),          .M,  .RM32,       .{} ),
+    instr(.RCR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 3),          .M,  .RM32,       .{} ),
+    //
+    instr(.ROL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 0),          .M,  .RM8,        .{} ),
+    instr(.ROL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 0),          .M,  .RM8,        .{} ),
+    instr(.ROL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 0),          .MI, .RM8,        .{cpu._186} ),
+    instr(.ROL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 0),          .M,  .RM32_I8,    .{} ),
+    instr(.ROL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 0),          .M,  .RM32_I8,    .{} ),
+    instr(.ROL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 0),          .M,  .RM32_I8,    .{} ),
+    instr(.ROL,     ops2(.rm16, .imm8),         Op1r(0xC1, 0),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.ROL,     ops2(.rm32, .imm8),         Op1r(0xC1, 0),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.ROL,     ops2(.rm64, .imm8),         Op1r(0xC1, 0),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.ROL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 0),          .M,  .RM32,       .{} ),
+    instr(.ROL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 0),          .M,  .RM32,       .{} ),
+    instr(.ROL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 0),          .M,  .RM32,       .{} ),
+    //
+    instr(.ROR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 1),          .M,  .RM8,        .{} ),
+    instr(.ROR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 1),          .M,  .RM8,        .{} ),
+    instr(.ROR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 1),          .MI, .RM8,        .{cpu._186} ),
+    instr(.ROR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 1),          .M,  .RM32_I8,    .{} ),
+    instr(.ROR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 1),          .M,  .RM32_I8,    .{} ),
+    instr(.ROR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 1),          .M,  .RM32_I8,    .{} ),
+    instr(.ROR,     ops2(.rm16, .imm8),         Op1r(0xC1, 1),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.ROR,     ops2(.rm32, .imm8),         Op1r(0xC1, 1),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.ROR,     ops2(.rm64, .imm8),         Op1r(0xC1, 1),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.ROR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 1),          .M,  .RM32,       .{} ),
+    instr(.ROR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 1),          .M,  .RM32,       .{} ),
+    instr(.ROR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 1),          .M,  .RM32,       .{} ),
+// REP / REPE / REPZ / REPNE / REPNZ
+    instr(.REP,     ops0(),                     Op1(0xF3),              .ZO, .ZO,         .{} ),
+    instr(.REPE,    ops0(),                     Op1(0xF3),              .ZO, .ZO,         .{} ),
+    instr(.REPZ,    ops0(),                     Op1(0xF3),              .ZO, .ZO,         .{} ),
+    instr(.REPNE,   ops0(),                     Op1(0xF2),              .ZO, .ZO,         .{} ),
+    instr(.REPNZ,   ops0(),                     Op1(0xF2),              .ZO, .ZO,         .{} ),
+//  RET
+    instr(.RET,     ops0(),                     Op1(0xC3),              .ZO, .ZO,         .{} ),
+    instr(.RET,     ops1(.imm16),               Op1(0xC2),              .I,  .RM16,       .{} ),
 //  RETF
     instr(.RETF,    ops0(),                     Op1(0xCB),              .ZO, .ZO,         .{} ),
     instr(.RETF,    ops1(.imm16),               Op1(0xCA),              .I,  .RM16,       .{} ),
 //  RETN
     instr(.RETN,    ops0(),                     Op1(0xC3),              .ZO, .ZO,         .{} ),
     instr(.RETN,    ops1(.imm16),               Op1(0xC2),              .I,  .RM16,       .{} ),
+//  SAL / SAR / SHL / SHR
+    instr(.SAL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 4),          .M,  .RM8,        .{} ),
+    instr(.SAL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 4),          .M,  .RM8,        .{} ),
+    instr(.SAL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 4),          .MI, .RM8,        .{cpu._186} ),
+    instr(.SAL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
+    instr(.SAL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
+    instr(.SAL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
+    instr(.SAL,     ops2(.rm16, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.SAL,     ops2(.rm32, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.SAL,     ops2(.rm64, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.SAL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    instr(.SAL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    instr(.SAL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    //
+    instr(.SAR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 7),          .M,  .RM8,        .{} ),
+    instr(.SAR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 7),          .M,  .RM8,        .{} ),
+    instr(.SAR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 7),          .MI, .RM8,        .{cpu._186} ),
+    instr(.SAR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 7),          .M,  .RM32_I8,    .{} ),
+    instr(.SAR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 7),          .M,  .RM32_I8,    .{} ),
+    instr(.SAR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 7),          .M,  .RM32_I8,    .{} ),
+    instr(.SAR,     ops2(.rm16, .imm8),         Op1r(0xC1, 7),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.SAR,     ops2(.rm32, .imm8),         Op1r(0xC1, 7),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.SAR,     ops2(.rm64, .imm8),         Op1r(0xC1, 7),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.SAR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 7),          .M,  .RM32,       .{} ),
+    instr(.SAR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 7),          .M,  .RM32,       .{} ),
+    instr(.SAR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 7),          .M,  .RM32,       .{} ),
+    //
+    instr(.SHL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 4),          .M,  .RM8,        .{} ),
+    instr(.SHL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 4),          .M,  .RM8,        .{} ),
+    instr(.SHL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 4),          .MI, .RM8,        .{cpu._186} ),
+    instr(.SHL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
+    instr(.SHL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
+    instr(.SHL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
+    instr(.SHL,     ops2(.rm16, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.SHL,     ops2(.rm32, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.SHL,     ops2(.rm64, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.SHL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    instr(.SHL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    instr(.SHL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    //
+    instr(.SHR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 5),          .M,  .RM8,        .{} ),
+    instr(.SHR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 5),          .M,  .RM8,        .{} ),
+    instr(.SHR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 5),          .MI, .RM8,        .{cpu._186} ),
+    instr(.SHR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 5),          .M,  .RM32_I8,    .{} ),
+    instr(.SHR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 5),          .M,  .RM32_I8,    .{} ),
+    instr(.SHR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 5),          .M,  .RM32_I8,    .{} ),
+    instr(.SHR,     ops2(.rm16, .imm8),         Op1r(0xC1, 5),          .MI, .RM32_I8,    .{cpu._186} ),
+    instr(.SHR,     ops2(.rm32, .imm8),         Op1r(0xC1, 5),          .MI, .RM32_I8,    .{cpu._386} ),
+    instr(.SHR,     ops2(.rm64, .imm8),         Op1r(0xC1, 5),          .MI, .RM32_I8,    .{cpu.x64} ),
+    instr(.SHR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 5),          .M,  .RM32,       .{} ),
+    instr(.SHR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 5),          .M,  .RM32,       .{} ),
+    instr(.SHR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 5),          .M,  .RM32,       .{} ),
 // SBB
     instr(.SBB,     ops2(.reg_al, .imm8),       Op1(0x1C),              .I2, .RM8,        .{} ),
     instr(.SBB,     ops2(.rm8, .imm8),          Op1r(0x80, 3),          .MI, .RM8,        .{} ),
@@ -832,6 +1217,21 @@ pub const instruction_database = [_]InstructionItem {
     instr(.SUB,     ops2(.reg16, .rm16),        Op1(0x2B),              .RM, .RM32,       .{} ),
     instr(.SUB,     ops2(.reg32, .rm32),        Op1(0x2B),              .RM, .RM32,       .{} ),
     instr(.SUB,     ops2(.reg64, .rm64),        Op1(0x2B),              .RM, .RM32,       .{} ),
+// TEST
+    instr(.TEST,    ops2(.reg_al, .imm8),       Op1(0xA8),              .I2, .RM8,        .{} ),
+    instr(.TEST,    ops2(.reg_ax, .imm16),      Op1(0xA9),              .I2, .RM32,       .{} ),
+    instr(.TEST,    ops2(.reg_eax, .imm32),     Op1(0xA9),              .I2, .RM32,       .{} ),
+    instr(.TEST,    ops2(.reg_rax, .imm32),     Op1(0xA9),              .I2, .RM32,       .{edge.Sign} ),
+    //
+    instr(.TEST,    ops2(.rm8, .imm8),          Op1r(0xF6, 0),          .MI, .RM8,        .{} ),
+    instr(.TEST,    ops2(.rm16, .imm16),        Op1r(0xF7, 0),          .MI, .RM32,       .{} ),
+    instr(.TEST,    ops2(.rm32, .imm32),        Op1r(0xF7, 0),          .MI, .RM32,       .{} ),
+    instr(.TEST,    ops2(.rm64, .imm32),        Op1r(0xF7, 0),          .MI, .RM32,       .{} ),
+    //
+    instr(.TEST,    ops2(.rm8,  .reg8),         Op1(0x84),              .MR, .RM8,        .{} ),
+    instr(.TEST,    ops2(.rm16, .reg16),        Op1(0x85),              .MR, .RM32,       .{} ),
+    instr(.TEST,    ops2(.rm32, .reg32),        Op1(0x85),              .MR, .RM32,       .{} ),
+    instr(.TEST,    ops2(.rm64, .reg64),        Op1(0x85),              .MR, .RM32,       .{} ),
 // WAIT
     instr(.WAIT,    ops0(),                     Op1(0x9B),              .ZO, .ZO,         .{} ),
     instr(.FWAIT,   ops0(),                     Op1(0x9B),              .ZO, .ZO,         .{} ),

@@ -2,9 +2,9 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 pub const Mode86 = enum {
-    x86_16,
-    x86,
-    x64,
+    x86_16 = 0,
+    x86 = 1,
+    x64 = 2,
 };
 
 // NOTE: the names of these rules are written from the point of view of 64 bit
@@ -60,6 +60,30 @@ pub const DefaultSize = enum (u8) {
     ///     Default operand is 32 bit, 0x66 prefix for 16 bit
     RM64_16,
 
+    /// Used for JCXZ:
+    ///
+    /// 64 bit mode:
+    ///     Invalid
+    /// 32 bit mode:
+    ///     Default operand is 8 bit + address overide prefix 0x67
+    RM8_Over16,
+
+    /// Used for JECXZ:
+    ///
+    /// 64 bit mode:
+    ///     Default operand is 8 bit + address overide prefix 0x67
+    /// 32 bit mode:
+    ///     Default operand is 8 bit
+    RM8_Over32,
+
+    /// 64 bit mode:
+    ///     Default operand is 8 bit
+    /// 32/16 bit mode:
+    ///     Invalid
+    RM8_64Only,
+
+    /// 64 bit mode:
+
     /// 64 bit mode:
     ///     zero operands, valid
     /// 32 bit mode:
@@ -79,9 +103,14 @@ pub const DefaultSize = enum (u8) {
     /// Behaves like RM64_16, but the encoding uses zero operands
     ZO64_16,
 
+
     pub fn bitSize32(self: DefaultSize) BitSize {
         return switch (self) {
+            .RM8_Over16,
+            .RM8_Over32,
+            .RM8_64Only,
             .RM8 => .Bit8,
+
             .RM16 => .Bit16,
 
             .RM64_16,
@@ -101,7 +130,11 @@ pub const DefaultSize = enum (u8) {
 
     pub fn bitSize64(self: DefaultSize) BitSize {
         return switch (self) {
+            .RM8_Over16,
+            .RM8_Over32,
+            .RM8_64Only,
             .RM8 => .Bit8,
+
             .RM16 => .Bit16,
 
             .RM32_I8,
@@ -121,7 +154,7 @@ pub const DefaultSize = enum (u8) {
 
     pub fn bitSize(self: DefaultSize, mode: Mode86) BitSize {
         return switch (mode) {
-            .x86_16 => unreachable, // TODO: 
+            .x86_16 => unreachable, // TODO:
             .x86 => self.bitSize32(),
             .x64 => self.bitSize64(),
         };
@@ -152,6 +185,7 @@ pub const AsmError = error {
     InvalidOperandCombination,
     InvalidMode,
     InvalidRegister,
+    RelativeImmediateOverflow,
     // InvalidImmediate,
 };
 
@@ -445,9 +479,15 @@ pub const Prefixes = struct {
         return @sliceToBytes(self.prefixes[0..self.len]);
     }
 
-    pub fn addOverides64(self: *Prefixes, rex_w: *u1, operand_size: BitSize,
-                         addressing_size: BitSize, default_size: DefaultSize) AsmError!void {
+    pub fn addOverides64(
+        self: *Prefixes,
+        rex_w: *u1,
+        operand_size: BitSize,
+        addressing_size: BitSize,
+        default_size: DefaultSize
+    ) AsmError!void {
         switch (default_size) {
+            .RM8_64Only,
             .RM8 => switch (operand_size) {
                 .Bit8 => {},
                 else => return AsmError.InvalidOperand,
@@ -496,6 +536,12 @@ pub const Prefixes = struct {
             .ZO32Only => return AsmError.InvalidOperand,
 
             .ZO => {}, // zero operand
+
+            .RM8_Over16 => return AsmError.InvalidOperand,
+            .RM8_Over32 => {
+                self.addPrefix(.AddressOveride);
+                assert(addressing_size == .None);
+            }
         }
 
         switch (addressing_size) {
@@ -506,8 +552,13 @@ pub const Prefixes = struct {
         }
     }
 
-    pub fn addOverides32(self: *Prefixes, rex_w: *u1, operand_size: BitSize,
-                         addressing_size: BitSize, default_size: DefaultSize) AsmError!void {
+    pub fn addOverides32(
+        self: *Prefixes,
+        rex_w: *u1,
+        operand_size: BitSize,
+        addressing_size: BitSize,
+        default_size: DefaultSize
+    ) AsmError!void {
         switch (default_size) {
             .RM8 => switch (operand_size) {
                 .Bit8 => {},
@@ -532,9 +583,16 @@ pub const Prefixes = struct {
             },
 
             .RM64 => return AsmError.InvalidOperand,
+            .RM8_64Only => return AsmError.InvalidOperandCombination,
 
             .ZO32Only,
             .ZO => {}, // zero operand
+
+            .RM8_Over16 => {
+                self.addPrefix(.AddressOveride);
+                assert(addressing_size == .None);
+            },
+            .RM8_Over32 => {},
         }
 
         switch (addressing_size) {
@@ -543,10 +601,17 @@ pub const Prefixes = struct {
             .Bit32 => {}, // default
             else => return AsmError.InvalidOperand,
         }
+
     }
 
-    pub fn addOverides(self: *Prefixes, mode: Mode86, rex_w: *u1, operand_size: BitSize,
-                       addressing_size: BitSize, default_size: DefaultSize) AsmError!void {
+    pub fn addOverides(
+        self: *Prefixes,
+        mode: Mode86,
+        rex_w: *u1,
+        operand_size: BitSize,
+        addressing_size: BitSize,
+        default_size: DefaultSize
+    ) AsmError!void {
         // TODO: handle all cases properly
         switch (mode) {
             // .x86_16 => try self.addOverides64()

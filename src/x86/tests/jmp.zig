@@ -17,13 +17,44 @@ test "jmp" {
     }
 
     {
-        const op1 = Operand.immediate8(0x00);
-        testOp1(m64, .JMP, op1, "EB 00");
+        const op1 = Operand.immediate(0x80);
+        testOp1(m32, .JMP, op1, "66 E9 80 00");
+        testOp1(m64, .JMP, op1, "E9 80 00 00 00");
     }
 
     {
-        const op1 = Operand.immediate16(0x1100);
+        const op1 = Operand.immediate8(0x80);
+        testOp1(m32, .JMP, op1, AsmError.InvalidOperandCombination);
         testOp1(m64, .JMP, op1, AsmError.InvalidOperandCombination);
+    }
+
+    {
+        const op1 = Operand.immediateSigned8(@bitCast(i8, @as(u8, 0x80)));
+        testOp1(m32, .JMP, op1, "EB 80");
+        testOp1(m64, .JMP, op1, "EB 80");
+    }
+
+    {
+        const op1 = Operand.immediateSigned(0x80);
+        testOp1(m32, .JMP, op1, "66 E9 80 00");
+        testOp1(m64, .JMP, op1, "E9 80 00 00 00");
+    }
+
+    {
+        const op1 = Operand.immediateSigned(-128);
+        testOp1(m32, .JMP, op1, "EB 80");
+        testOp1(m64, .JMP, op1, "EB 80");
+    }
+
+    {
+        const op1 = Operand.immediate(0x7F);
+        testOp1(m32, .JMP, op1, "EB 7F");
+        testOp1(m64, .JMP, op1, "EB 7F");
+    }
+
+    {
+        const op1 = Operand.immediate8(0x00);
+        testOp1(m64, .JMP, op1, "EB 00");
     }
 
     {

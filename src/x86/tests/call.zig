@@ -8,7 +8,7 @@ test "call" {
     const m32 = Machine.init(.x86);
     const m64 = Machine.init(.x64);
 
-    debugPrint(true);
+    debugPrint(false);
 
     {
         const op1 = Operand.immediateSigned16(-1);

@@ -177,15 +177,14 @@ pub const Machine = struct {
         return res;
     }
 
-    pub fn encodeAddress(self: Machine, opcode: Opcode, addr: Address, def_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeAddress(self: Machine, opcode: Opcode, op: Operand, def_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
         var prefixes = Prefixes {};
         var rex_w: u1 = 0;
 
         // compute prefixes
         {
-            const disp = addr.getDisp();
-            const operand_size = disp.bitSize();
+            const operand_size = op.Addr.getDisp().bitSize();
             const addressing_size = BitSize.None;
 
             try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
@@ -193,7 +192,8 @@ pub const Machine = struct {
 
         res.prefixes(prefixes);
         res.addOpcode(opcode);
-        res.addAddress(addr);
+        res.addAddress(op.Addr);
+
         return res;
     }
 
@@ -214,6 +214,42 @@ pub const Machine = struct {
         try res.rex(self.mode, 0, modrm);
         res.addOpcode(opcode);
         res.modrm(modrm);
+
+        return res;
+    }
+
+    pub fn encodeRegRmImmediate(
+        self: Machine,
+        opcode: Opcode,
+        op_reg: Operand,
+        op_rm: Operand,
+        imm: Immediate,
+        default_size: DefaultSize
+    ) AsmError!Instruction {
+
+        const rm = op_rm.coerceRm();
+
+        switch (default_size) {
+            .RM8, .RM32 => {
+                if (rm.operandSize() == .Bit64 and imm.bitSize() == .Bit32) {
+                    // skip: can't encode 64 bit immediate and r/m64 at the same time
+                    // but we can do r/m64 with a 32 bit immediate
+                } else if (rm.Rm.operandSize() != imm.bitSize()) {
+                    return AsmError.InvalidOperand;
+                }
+            },
+
+            .RM32_I8 => {
+                if (imm.bitSize() != .Bit8) {
+                    return AsmError.InvalidOperand;
+                }
+            },
+
+            else => unreachable,
+        }
+
+        var res = try self.encodeRegRm(opcode, op_reg, rm, default_size);
+        res.addImm(imm);
 
         return res;
     }

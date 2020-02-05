@@ -31,6 +31,11 @@ test "simple 8086 opcodes" {
         testOp0(m32, .STD, "FD");
         testOp0(m32, .STI, "FB");
 
+        testOp0(m32, .CLC, "F8");
+        testOp0(m32, .CLD, "FC");
+        testOp0(m32, .CLI, "FA");
+        testOp0(m32, .CMC, "F5");
+
         testOp0(m32, .WAIT, "9B");
         testOp0(m32, .FWAIT, "9B");
 
@@ -38,6 +43,10 @@ test "simple 8086 opcodes" {
         testOp0(m32, .XLATB, "D7");
 
         testOp1(m64, .XLAT, Operand.voidOperand(.QWORD), "48 D7");
+
+        testOp0(m64, .CBW, "66 98");
+        testOp0(m64, .CWDE, "98");
+        testOp0(m64, .CDQE, "48 98");
 
         {
             // PUSHF
@@ -164,4 +173,191 @@ test "simple 8086 opcodes" {
         testOp1(m64, .AAM, op1, AsmError.InvalidOperand);
     }
 
+    {
+        const op1 = Operand.immediate8(0x0A);
+        testOp1(m32, .INT, op1, "CD 0A");
+        testOp0(m32, .INT1, "F1");
+        testOp0(m32, .INT3, "CC");
+        testOp0(m32, .INTO, "CE");
+        testOp1(m64, .INT, op1, "CD 0A");
+        testOp0(m64, .INT1, "F1");
+        testOp0(m64, .INT3, "CC");
+        testOp0(m64, .INTO, AsmError.InvalidOperand);
+    }
+
+    {
+        // IN
+        const imm8 = Operand.immediate8(0x00);
+        const al = Operand.register(.AL);
+        const ax = Operand.register(.AX);
+        const eax = Operand.register(.EAX);
+        const dx = Operand.register(.DX);
+        testOp2(m32, .IN, al, imm8, "E4 00");
+        testOp2(m32, .IN, ax, imm8, "66 E5 00");
+        testOp2(m32, .IN, eax, imm8, "E5 00");
+        testOp2(m32, .IN, al, dx, "EC");
+        testOp2(m32, .IN, ax, dx, "66 ED");
+        testOp2(m32, .IN, eax, dx, "ED");
+        // OUT
+        testOp2(m32, .OUT, imm8, al,  "E6 00");
+        testOp2(m32, .OUT, imm8, ax,  "66 E7 00");
+        testOp2(m32, .OUT, imm8, eax, "E7 00");
+        testOp2(m32, .OUT, dx, al, "EE");
+        testOp2(m32, .OUT, dx, ax, "66 EF");
+        testOp2(m32, .OUT, dx, eax, "EF");
+    }
+
+    // Unary
+    {
+        {
+            const op1 = Operand.registerRm(.AL);
+            testOp1(m32, .INC, op1, "FE C0");
+            testOp1(m32, .DEC, op1, "FE C8");
+            testOp1(m32, .NOT, op1, "F6 D0");
+            testOp1(m32, .NEG, op1, "F6 D8");
+        }
+
+        {
+            const op1 = Operand.registerRm(.AX);
+            testOp1(m32, .INC, op1, "66 FF C0");
+            testOp1(m32, .DEC, op1, "66 FF C8");
+            testOp1(m32, .NOT, op1, "66 F7 D0");
+            testOp1(m32, .NEG, op1, "66 F7 D8");
+        }
+
+        {
+            const op1 = Operand.registerRm(.EAX);
+            testOp1(m32, .INC, op1, "FF C0");
+            testOp1(m32, .DEC, op1, "FF C8");
+            testOp1(m32, .NOT, op1, "F7 D0");
+            testOp1(m32, .NEG, op1, "F7 D8");
+        }
+
+        {
+            const op1 = Operand.registerRm(.RAX);
+            testOp1(m32, .INC, op1, AsmError.InvalidOperand);
+            testOp1(m32, .DEC, op1, AsmError.InvalidOperand);
+            testOp1(m32, .NOT, op1, AsmError.InvalidOperand);
+            testOp1(m32, .NEG, op1, AsmError.InvalidOperand);
+            testOp1(m64, .INC, op1, "48 FF C0");
+            testOp1(m64, .DEC, op1, "48 FF C8");
+            testOp1(m64, .NOT, op1, "48 F7 D0");
+            testOp1(m64, .NEG, op1, "48 F7 D8");
+        }
+
+        {
+            const op1 = Operand.register(.AX);
+            testOp1(m32, .INC, op1, "66 40");
+            testOp1(m32, .DEC, op1, "66 48");
+            testOp1(m64, .INC, op1, "66 FF C0");
+            testOp1(m64, .DEC, op1, "66 FF C8");
+        }
+
+        {
+            const op1 = Operand.register(.EAX);
+            testOp1(m32, .INC, op1, "40");
+            testOp1(m32, .DEC, op1, "48");
+            testOp1(m64, .INC, op1, "FF C0");
+            testOp1(m64, .DEC, op1, "FF C8");
+        }
+    }
+
+    // LEA
+    {
+        {
+            const op1 = Operand.register(.EAX);
+            const op2 = Operand.registerRm(.EAX);
+            testOp2(m32, .LEA, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m64, .LEA, op1, op2, AsmError.InvalidOperandCombination);
+        }
+
+        {
+            const op1 = Operand.register(.AX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .WORD, .EAX, 0x11);
+            testOp2(m32, .LEA, op1, op2, "66 8D 40 11");
+            testOp2(m64, .LEA, op1, op2, "66 67 8D 40 11");
+        }
+
+        {
+            const op1 = Operand.register(.EAX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0x11);
+            testOp2(m32, .LEA, op1, op2, "8D 40 11");
+            testOp2(m64, .LEA, op1, op2, "67 8D 40 11");
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0x11);
+            testOp2(m32, .LEA, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LEA, op1, op2, "67 48 8D 40 11");
+        }
+
+        {
+            const op1 = Operand.register(.EAX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .DWORD, .RAX, 0x11);
+            testOp2(m32, .LEA, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LEA, op1, op2, "8D 40 11");
+        }
+
+    }
+
+    {
+        {
+            const op1 = Operand.register(.AX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .FAR_WORD, .EAX, 0x11);
+            testOp2(m32, .LDS, op1, op2, "66 C5 40 11");
+            testOp2(m64, .LDS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m32, .LES, op1, op2, "66 C4 40 11");
+            testOp2(m64, .LES, op1, op2, AsmError.InvalidOperand);
+            testOp2(m32, .LSS, op1, op2, "66 0F B2 40 11");
+            testOp2(m64, .LSS, op1, op2, "66 67 0F B2 40 11");
+            testOp2(m32, .LFS, op1, op2, "66 0F B4 40 11");
+            testOp2(m64, .LFS, op1, op2, "66 67 0F B4 40 11");
+            testOp2(m32, .LGS, op1, op2, "66 0F B5 40 11");
+            testOp2(m64, .LGS, op1, op2, "66 67 0F B5 40 11");
+        }
+
+        {
+            const op1 = Operand.register(.EAX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .FAR_DWORD, .EAX, 0x11);
+            testOp2(m32, .LDS, op1, op2, "C5 40 11");
+            testOp2(m64, .LDS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m32, .LES, op1, op2, "C4 40 11");
+            testOp2(m64, .LES, op1, op2, AsmError.InvalidOperand);
+            testOp2(m32, .LSS, op1, op2, "0F B2 40 11");
+            testOp2(m64, .LSS, op1, op2, "67 0F B2 40 11");
+            testOp2(m32, .LFS, op1, op2, "0F B4 40 11");
+            testOp2(m64, .LFS, op1, op2, "67 0F B4 40 11");
+            testOp2(m32, .LGS, op1, op2, "0F B5 40 11");
+            testOp2(m64, .LGS, op1, op2, "67 0F B5 40 11");
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.memoryRm(.DefaultSeg, .FAR_QWORD, .EAX, 0x11);
+            testOp2(m32, .LDS, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m64, .LDS, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m32, .LES, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m64, .LES, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m32, .LSS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LSS, op1, op2, "67 48 0F B2 40 11");
+            testOp2(m32, .LFS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LFS, op1, op2, "67 48 0F B4 40 11");
+            testOp2(m32, .LGS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LGS, op1, op2, "67 48 0F B5 40 11");
+        }
+    }
+
+    // LOOP
+    {
+        {
+            const op1 = Operand.immediate(0x11);
+            testOp1(m32, .LOOP, op1, "E2 11");
+            testOp1(m32, .LOOPE, op1, "E1 11");
+            testOp1(m32, .LOOPNE, op1, "E0 11");
+            testOp1(m64, .LOOP, op1, "E2 11");
+            testOp1(m64, .LOOPE, op1, "E1 11");
+            testOp1(m64, .LOOPNE, op1, "E0 11");
+        }
+    }
 }

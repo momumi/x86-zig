@@ -19,6 +19,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "2c 00");
         testOp2(m64, .XOR, op1, op2, "34 00");
         testOp2(m64, .CMP, op1, op2, "3c 00");
+        testOp2(m64, .TEST,op1, op2, "A8 00");
     }
 
     {
@@ -32,6 +33,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "66 2d 00 00");
         testOp2(m64, .XOR, op1, op2, "66 35 00 00");
         testOp2(m64, .CMP, op1, op2, "66 3d 00 00");
+        testOp2(m64, .TEST,op1, op2, "66 A9 00 00");
     }
 
     {
@@ -45,6 +47,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "2d 00 00 00 00");
         testOp2(m64, .XOR, op1, op2, "35 00 00 00 00");
         testOp2(m64, .CMP, op1, op2, "3d 00 00 00 00");
+        testOp2(m64, .TEST,op1, op2, "A9 00 00 00 00");
     }
 
     {
@@ -58,6 +61,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "48 2d 00 00 00 00");
         testOp2(m64, .XOR, op1, op2, "48 35 00 00 00 00");
         testOp2(m64, .CMP, op1, op2, "48 3d 00 00 00 00");
+        testOp2(m64, .TEST,op1, op2, "48 A9 00 00 00 00");
     }
 
     {
@@ -113,6 +117,20 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
     }
 
     {
+        const op1 = Operand.registerRm(.R8B);
+        const op2 = Operand.immediate8(0x00);
+        testOp2(m64, .ADD, op1, op2, "41 80 c0 00");
+        testOp2(m64, .ADC, op1, op2, "41 80 d0 00");
+        testOp2(m64, .AND, op1, op2, "41 80 e0 00");
+        testOp2(m64, .OR,  op1, op2, "41 80 c8 00");
+        testOp2(m64, .SBB, op1, op2, "41 80 d8 00");
+        testOp2(m64, .SUB, op1, op2, "41 80 e8 00");
+        testOp2(m64, .XOR, op1, op2, "41 80 f0 00");
+        testOp2(m64, .CMP, op1, op2, "41 80 f8 00");
+        testOp2(m64, .TEST,op1, op2, "41 F6 c0 00");
+    }
+
+    {
         const op1 = Operand.registerRm(.R8W);
         const op2 = Operand.immediate16(0x00);
         testOp2(m64, .ADD, op1, op2, "66 41 81 c0 00 00");
@@ -123,6 +141,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "66 41 81 e8 00 00");
         testOp2(m64, .XOR, op1, op2, "66 41 81 f0 00 00");
         testOp2(m64, .CMP, op1, op2, "66 41 81 f8 00 00");
+        testOp2(m64, .TEST,op1, op2, "66 41 F7 c0 00 00");
     }
 
     {
@@ -136,6 +155,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "41 81 e8 00 00 00 00");
         testOp2(m64, .XOR, op1, op2, "41 81 f0 00 00 00 00");
         testOp2(m64, .CMP, op1, op2, "41 81 f8 00 00 00 00");
+        testOp2(m64, .TEST,op1, op2, "41 F7 c0 00 00 00 00");
     }
 
     {
@@ -149,19 +169,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "49 81 e8 00 00 00 00");
         testOp2(m64, .XOR, op1, op2, "49 81 f0 00 00 00 00");
         testOp2(m64, .CMP, op1, op2, "49 81 f8 00 00 00 00");
-    }
-
-    {
-        const op1 = Operand.registerRm(.R8B);
-        const op2 = Operand.immediate8(0x00);
-        testOp2(m64, .ADD, op1, op2, "41 80 c0 00");
-        testOp2(m64, .ADC, op1, op2, "41 80 d0 00");
-        testOp2(m64, .AND, op1, op2, "41 80 e0 00");
-        testOp2(m64, .OR,  op1, op2, "41 80 c8 00");
-        testOp2(m64, .SBB, op1, op2, "41 80 d8 00");
-        testOp2(m64, .SUB, op1, op2, "41 80 e8 00");
-        testOp2(m64, .XOR, op1, op2, "41 80 f0 00");
-        testOp2(m64, .CMP, op1, op2, "41 80 f8 00");
+        testOp2(m64, .TEST,op1, op2, "49 F7 c0 00 00 00 00");
     }
 
     {
@@ -175,6 +183,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "28 c0");
         testOp2(m64, .XOR, op1, op2, "30 c0");
         testOp2(m64, .CMP, op1, op2, "38 c0");
+        testOp2(m64, .TEST,op1, op2, "84 c0");
     }
 
     {
@@ -188,6 +197,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "66 29 c0");
         testOp2(m64, .XOR, op1, op2, "66 31 c0");
         testOp2(m64, .CMP, op1, op2, "66 39 c0");
+        testOp2(m64, .TEST,op1, op2, "66 85 c0");
     }
 
     {
@@ -201,6 +211,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "29 c0");
         testOp2(m64, .XOR, op1, op2, "31 c0");
         testOp2(m64, .CMP, op1, op2, "39 c0");
+        testOp2(m64, .TEST,op1, op2, "85 c0");
     }
 
     {
@@ -214,6 +225,7 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .SUB, op1, op2, "48 29 c0");
         testOp2(m64, .XOR, op1, op2, "48 31 c0");
         testOp2(m64, .CMP, op1, op2, "48 39 c0");
+        testOp2(m64, .TEST,op1, op2, "48 85 c0");
     }
 
     {
@@ -268,4 +280,168 @@ test "add / adc / and / cmp / or / sbb / sub / xor" {
         testOp2(m64, .CMP, op1, op2, "48 3B c0");
     }
 
+}
+
+test "idiv / div / mul / imul" {
+    const m32 = Machine.init(.x86);
+    const m64 = Machine.init(.x64);
+
+    debugPrint(false);
+
+    {
+        {
+            const op1 = Operand.registerRm(.AL);
+            testOp1(m32, .IDIV, op1, "F6 F8");
+            testOp1(m32, .DIV,  op1, "F6 F0");
+            testOp1(m32, .MUL,  op1, "F6 E0");
+            testOp1(m32, .IMUL, op1, "F6 E8");
+            testOp1(m64, .IDIV, op1, "F6 F8");
+            testOp1(m64, .DIV,  op1, "F6 F0");
+            testOp1(m64, .MUL,  op1, "F6 E0");
+            testOp1(m64, .IMUL, op1, "F6 E8");
+        }
+
+        {
+            const op1 = Operand.registerRm(.AX);
+            testOp1(m32, .IDIV, op1, "66 F7 F8");
+            testOp1(m32, .DIV,  op1, "66 F7 F0");
+            testOp1(m32, .MUL,  op1, "66 F7 E0");
+            testOp1(m32, .IMUL, op1, "66 F7 E8");
+            testOp1(m64, .IDIV, op1, "66 F7 F8");
+            testOp1(m64, .DIV,  op1, "66 F7 F0");
+            testOp1(m64, .MUL,  op1, "66 F7 E0");
+            testOp1(m64, .IMUL, op1, "66 F7 E8");
+        }
+
+        {
+            const op1 = Operand.registerRm(.EAX);
+            testOp1(m32, .IDIV, op1, "F7 F8");
+            testOp1(m32, .DIV,  op1, "F7 F0");
+            testOp1(m32, .MUL,  op1, "F7 E0");
+            testOp1(m32, .IMUL, op1, "F7 E8");
+            testOp1(m64, .IDIV, op1, "F7 F8");
+            testOp1(m64, .DIV,  op1, "F7 F0");
+            testOp1(m64, .MUL,  op1, "F7 E0");
+            testOp1(m64, .IMUL, op1, "F7 E8");
+        }
+
+        {
+            const op1 = Operand.registerRm(.RAX);
+            testOp1(m32, .IDIV, op1, AsmError.InvalidOperand);
+            testOp1(m32, .DIV,  op1, AsmError.InvalidOperand);
+            testOp1(m32, .MUL,  op1, AsmError.InvalidOperand);
+            testOp1(m32, .IMUL, op1, AsmError.InvalidOperand);
+            testOp1(m64, .IDIV, op1, "48 F7 F8");
+            testOp1(m64, .DIV,  op1, "48 F7 F0");
+            testOp1(m64, .MUL,  op1, "48 F7 E0");
+            testOp1(m64, .IMUL, op1, "48 F7 E8");
+        }
+    }
+
+    {
+        {
+            const op1 = Operand.register(.AL);
+            const op2 = Operand.register(.AL);
+            const op3 = Operand.immediate(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+        }
+
+        {
+            const op1 = Operand.register(.AX);
+            const op2 = Operand.register(.AX);
+            const op3 = Operand.immediate(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, "66 6B C0 11");
+            testOp3(m64, .IMUL, op1, op2, op3, "66 6B C0 11");
+        }
+
+        {
+            const op1 = Operand.register(.AX);
+            const op2 = Operand.register(.AX);
+            const op3 = Operand.immediate(0x80);
+            testOp3(m32, .IMUL, op1, op2, op3, "66 69 C0 80 00");
+            testOp3(m64, .IMUL, op1, op2, op3, "66 69 C0 80 00");
+        }
+
+        {
+            const op1 = Operand.register(.AX);
+            const op2 = Operand.register(.AX);
+            const op3 = Operand.immediateSigned(-1);
+            testOp3(m32, .IMUL, op1, op2, op3, "66 6B C0 ff");
+            testOp3(m64, .IMUL, op1, op2, op3, "66 6B C0 ff");
+        }
+
+        {
+            const op1 = Operand.register(.AX);
+            const op2 = Operand.register(.AX);
+            const op3 = Operand.immediateSigned16(-1);
+            testOp3(m32, .IMUL, op1, op2, op3, "66 69 C0 ff ff");
+            testOp3(m64, .IMUL, op1, op2, op3, "66 69 C0 ff ff");
+        }
+
+        {
+            const op1 = Operand.register(.EAX);
+            const op2 = Operand.register(.EAX);
+            const op3 = Operand.immediate(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, "6B C0 11");
+            testOp3(m64, .IMUL, op1, op2, op3, "6B C0 11");
+        }
+
+        {
+            const op1 = Operand.register(.EAX);
+            const op2 = Operand.register(.EAX);
+            const op3 = Operand.immediate32(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, "69 C0 11 00 00 00");
+            testOp3(m64, .IMUL, op1, op2, op3, "69 C0 11 00 00 00");
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.register(.RAX);
+            const op3 = Operand.immediate(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, "48 6B C0 11");
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.register(.RAX);
+            const op3 = Operand.immediate32(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, "48 69 C0 11 00 00 00");
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.register(.RAX);
+            const op3 = Operand.immediate64(0x11);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.register(.RAX);
+            const op3 = Operand.immediate(0x80);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, "48 69 C0 80 00 00 00");
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.register(.RAX);
+            const op3 = Operand.immediate(0x80000000);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+        }
+
+        {
+            const op1 = Operand.register(.RAX);
+            const op2 = Operand.register(.RAX);
+            const op3 = Operand.immediateSigned(@bitCast(i32, @as(u32, 0x80000000)));
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, "48 69 C0 00 00 00 80");
+        }
+
+    }
 }

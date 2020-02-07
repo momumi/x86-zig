@@ -46,6 +46,12 @@ test "mov x64 register" {
     }
 
     {
+        const op1 = Operand.register(.RAX);
+        const op2 = Operand.immediate(0x00);
+        testOp2(x64, .MOV, op1, op2, "48 B8 00 00 00 00 00 00 00 00");
+    }
+
+    {
         const op1 = Operand.register(.R9);
         const op2 = Operand.immediate64(0x7766554433221100);
         testOp2(x64, .MOV, op1, op2, "49 B9 00 11 22 33 44 55 66 77");

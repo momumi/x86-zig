@@ -38,7 +38,7 @@ pub const View = struct {
 };
 
 pub const Instruction = struct {
-    const max_length = 15;
+    pub const max_length = 15;
     data: [max_length]u8 = undefined,
     len: u8 = 0,
     view: View = View{},
@@ -197,7 +197,7 @@ pub const Instruction = struct {
 
     pub fn opcode(self: *@This(), op: []const u8) void {
         assert(op.len <= opcode_max_len);
-        self.view.opcode = self.makeViewPart(op.len);
+        self.view.opcode = self.makeViewPart(@intCast(u8, op.len));
         self.addBytes(op);
     }
 

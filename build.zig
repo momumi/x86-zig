@@ -6,14 +6,30 @@ pub fn build(b: *Builder) void {
 
     // Exe building
     {
-        const exe = b.addExecutable("example-x86", "example.zig");
+        const exe = b.addExecutable("example", "example.zig");
         exe.setBuildMode(mode);
         exe.install();
 
         const run_cmd = exe.run();
         run_cmd.step.dependOn(b.getInstallStep());
 
-        const run_step = b.step("run", "Run the app");
+        const run_step = b.step("run", "Run example.zig");
+        run_step.dependOn(&run_cmd.step);
+        const run_step2 = b.step("example", "Run example.zig");
+        run_step2.dependOn(&run_cmd.step);
+    }
+
+    // hello example
+    {
+        const exe = b.addExecutable("example-hello", "example-hello.zig");
+        exe.setBuildMode(mode);
+        exe.linkSystemLibrary("c");
+        exe.install();
+
+        const run_cmd = exe.run();
+        run_cmd.step.dependOn(b.getInstallStep());
+
+        const run_step = b.step("example-hello", "Run the hello example");
         run_step.dependOn(&run_cmd.step);
     }
 

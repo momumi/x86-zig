@@ -177,6 +177,20 @@ pub const Machine = struct {
         return res;
     }
 
+    pub fn encodeImmImm(
+        self: Machine,
+        opcode: Opcode,
+        void_op: ?*const Operand,
+        imm1: Immediate,
+        imm2: Immediate,
+        def_size: DefaultSize
+    ) AsmError!Instruction {
+        var res = try self.encodeImmediate(opcode, void_op, imm1, def_size);
+        res.addImm(imm2);
+
+        return res;
+    }
+
     pub fn encodeAddress(self: Machine, opcode: Opcode, op: Operand, def_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
         var prefixes = Prefixes {};
@@ -319,6 +333,9 @@ pub const Machine = struct {
         res = try self.encodeRegRm(opcode, reg.segmentToReg().toOperand(), rm, .RM16);
 
         return res;
+    }
+    pub fn build0(self: Machine, mnem: Mnemonic) AsmError!Instruction {
+        return self.build(mnem, null, null, null, null);
     }
 
     pub fn build1(self: Machine, mnem: Mnemonic, ops1: Operand) AsmError!Instruction {

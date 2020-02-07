@@ -285,6 +285,7 @@ pub const DataType = enum (u8) {
     NormalMemory = 0x00,
     FarAddress = 0x10,
     FloatingPoint = 0x20,
+    VoidPointer = 0x30,
     Register = 0xF0,
 };
 
@@ -294,6 +295,7 @@ pub const DataSize = enum (u8) {
     const normal_tag: u8 = @enumToInt(DataType.NormalMemory);
     const far_address_tag: u8 = @enumToInt(DataType.FarAddress);
     const floating_point_tag: u8 = @enumToInt(DataType.FloatingPoint);
+    const void_tag: u8 = @enumToInt(DataType.VoidPointer);
 
     /// 8 bit data size
     BYTE = 1 | normal_tag,
@@ -325,6 +327,8 @@ pub const DataSize = enum (u8) {
     FP64 = 8 | floating_point_tag,
     /// 16:64 bit data size (64 bit addr followed by 16 bit segment)
     FP80 = 10 | floating_point_tag,
+
+    None = 0 | void_tag,
 
     Default = @enumToInt(BitSize.None),
 

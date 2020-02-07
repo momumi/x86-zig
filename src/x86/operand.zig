@@ -22,6 +22,7 @@ pub const OperandType = enum(u16) {
     const tag_imm_any = 0xA0;
     const tag_moffs = 0xB0;
     const tag_void = 0xC0;
+    const tag_rm_mem = 0xD0;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -99,12 +100,16 @@ pub const OperandType = enum(u16) {
     _void32 = 3 | tag_void,
     _void64 = 4 | tag_void,
 
+    // matches memory of any type
+    rm_mem = 0 | tag_rm_mem,
+
     ptr16_16 = 0x110,
     ptr16_32 = 0x120,
 
     m16_16 = 0x130,
     m16_32 = 0x140,
     m16_64 = 0x150,
+
 
 
     // creg,
@@ -177,10 +182,10 @@ pub const OperandType = enum(u16) {
             .rm16 => (other_tag == .rm16 or other_tag == .reg16),
             .rm32 => (other_tag == .rm32 or other_tag == .reg32),
             .rm64 => (other_tag == .rm64 or other_tag == .reg64),
-            .imm8 => (other == .imm8 or other == .imm8_any),
-            .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any),
-            .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any),
-            .imm64 => (other == .imm64 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm64_any),
+            .imm8 => (other == .imm8 or other == .imm8_any or other == .imm_1),
+            .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any or other == .imm_1),
+            .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm_1),
+            .imm64 => (other == .imm64 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm64_any or other == .imm_1),
             else => (template == other or template == other_tag),
         };
     }
@@ -399,6 +404,7 @@ pub const ModRm = union(enum) {
             .Mem,
             .Sib,
             .Rel => switch (self.operandDataSize()) {
+                .None => OperandType.rm_mem,
                 .BYTE => OperandType.rm_mem8,
                 .WORD => OperandType.rm_mem16,
                 .DWORD  => OperandType.rm_mem32,

@@ -24,6 +24,7 @@ pub const Machine = struct {
     mode: Mode86,
     base_fill: u3 = 0b000,
     index_fill: u3 = 0b000,
+    reg_bits_fill: u3 = 0b000,
 
     pub fn init(mode: Mode86) Machine {
         return Machine {
@@ -63,7 +64,7 @@ pub const Machine = struct {
 
         try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, default_size);
 
-        res.prefixes(prefixes);
+        res.addPrefixes(prefixes, opcode);
         if (rex_w != 0) {
             try res.addRex(self.mode, Register.RAX, Register.RAX, default_size);
         }
@@ -89,7 +90,15 @@ pub const Machine = struct {
         var res = Instruction{};
         var prefixes = Prefixes {};
         var rex_w: u1 = 0;
-        const reg = op_reg.Reg;
+        const reg = switch (op_reg) {
+            .Reg => |reg| reg,
+            .RegSpecial => |sreg| switch (sreg.register.registerSpecialType()) {
+                .Segment => sreg.register.toRegister(),
+                .Float => sreg.register.toRegister(),
+                else => unreachable,
+            },
+            else => unreachable,
+        };
 
         // compute prefixes
         {
@@ -99,7 +108,7 @@ pub const Machine = struct {
             try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, default_size);
         }
 
-        res.prefixes(prefixes);
+        res.addPrefixes(prefixes, opcode);
         try res.addRex(self.mode, null, reg, default_size);
         res.addOpcodeRegNum(opcode, reg);
         return res;
@@ -128,10 +137,11 @@ pub const Machine = struct {
             else => unreachable,
         }
 
-        const modrm = try rm.encodeOpcodeRm(self.mode, opcode.reg_bits.?, default_size);
+        const reg_bits = if (opcode.reg_bits) |bits| bits else self.reg_bits_fill;
+        const modrm = try rm.encodeOpcodeRm(self.mode, reg_bits, default_size);
 
-        res.prefixes(modrm.prefixes);
-        try res.rex(self.mode, 0, modrm);
+        res.addPrefixes(modrm.prefixes, opcode);
+        try res.addRexRm(self.mode, 0, modrm);
         res.addOpcode(opcode);
         res.modrm(modrm);
         res.addImm(imm);
@@ -142,10 +152,11 @@ pub const Machine = struct {
         var res = Instruction{};
 
         const rm = op_rm.coerceRm().Rm;
-        const modrm = try rm.encodeOpcodeRm(self.mode, opcode.reg_bits.?, def_size);
+        const reg_bits = if (opcode.reg_bits) |bits| bits else self.reg_bits_fill;
+        const modrm = try rm.encodeOpcodeRm(self.mode, reg_bits, def_size);
 
-        res.prefixes(modrm.prefixes);
-        try res.rex(self.mode, 0, modrm);
+        res.addPrefixes(modrm.prefixes, opcode);
+        try res.addRexRm(self.mode, 0, modrm);
         res.addOpcode(opcode);
         res.modrm(modrm);
         return res;
@@ -165,7 +176,7 @@ pub const Machine = struct {
 
         try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
 
-        res.prefixes(prefixes);
+        res.addPrefixes(prefixes, opcode);
         if (void_op) |op| {
             switch (op.*) {
                 .Reg => try res.addRex(self.mode, op.Reg, Register.AX, def_size),
@@ -204,7 +215,7 @@ pub const Machine = struct {
             try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
         }
 
-        res.prefixes(prefixes);
+        res.addPrefixes(prefixes, opcode);
         res.addOpcode(opcode);
         res.addAddress(op.Addr);
 
@@ -215,17 +226,28 @@ pub const Machine = struct {
         var res = Instruction{};
         const reg = switch (op_reg) {
             .Reg => |reg| reg,
-            .RegSpecial => |sreg| sreg.register.segmentToReg(),
+            .RegSpecial => |sreg| switch (sreg.register.registerSpecialType()) {
+                .Segment => sreg.register.toRegister(),
+                .Float => sreg.register.toRegister(),
+                else => unreachable,
+            },
             else => unreachable,
         };
         const rm = op_rm.coerceRm().Rm;
-        if (def_size != .RM16 and reg.bitSize() != rm.operandSize()) {
-            return AsmError.InvalidOperand;
+
+        switch (def_size) {
+            .RM16 => {},
+            .RM32_RM => {},
+
+            else => if (reg.bitSize() != rm.operandSize()) {
+                return AsmError.InvalidOperand;
+            },
         }
+
         const modrm = try rm.encodeReg(self.mode, reg, def_size);
 
-        res.prefixes(modrm.prefixes);
-        try res.rex(self.mode, 0, modrm);
+        res.addPrefixes(modrm.prefixes, opcode);
+        try res.addRexRm(self.mode, 0, modrm);
         res.addOpcode(opcode);
         res.modrm(modrm);
 
@@ -296,7 +318,7 @@ pub const Machine = struct {
             try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
         }
 
-        res.prefixes(prefixes);
+        res.addPrefixes(prefixes, opcode);
         try res.rexRaw(self.mode, util.rexValue(rex_w, 0, 0, 0));
         res.addOpcode(opcode);
 

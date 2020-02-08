@@ -1,15 +1,11 @@
 const std = @import("std");
-const warn = std.debug.warn;
-
 const x86 = @import("src/x86.zig");
 
 const c = @cImport({
     @cInclude("unistd.h");
     @cInclude("sys/mman.h");
-    @cInclude("string.h");
 });
 
-const Op = x86.Operand;
 const reg = x86.Operand.register;
 const imm = x86.Operand.immediate;
 

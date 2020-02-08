@@ -18,4 +18,6 @@ test "main test" {
     _ = @import("x86/tests/rotate.zig");
     _ = @import("x86/tests/math_8086.zig");
     _ = @import("x86/tests/simple_8086.zig");
+    _ = @import("x86/tests/float_x87.zig");
+    _ = @import("x86/tests/extra.zig");
 }

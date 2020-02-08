@@ -23,6 +23,7 @@ pub const OperandType = enum(u16) {
     const tag_moffs = 0xB0;
     const tag_void = 0xC0;
     const tag_rm_mem = 0xD0;
+    const tag_reg_st = 0xF0;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -102,6 +103,17 @@ pub const OperandType = enum(u16) {
 
     // matches memory of any type
     rm_mem = 0 | tag_rm_mem,
+    rm_mem80 = 1 | tag_rm_mem,
+
+    reg_st = 0 | tag_reg_st,
+    reg_st0 = 1 | tag_reg_st,
+    reg_st1 = 2 | tag_reg_st,
+    reg_st2 = 3 | tag_reg_st,
+    reg_st3 = 4 | tag_reg_st,
+    reg_st4 = 5 | tag_reg_st,
+    reg_st5 = 6 | tag_reg_st,
+    reg_st6 = 7 | tag_reg_st,
+    reg_st7 = 8 | tag_reg_st,
 
     ptr16_16 = 0x110,
     ptr16_32 = 0x120,
@@ -109,8 +121,6 @@ pub const OperandType = enum(u16) {
     m16_16 = 0x130,
     m16_32 = 0x140,
     m16_64 = 0x150,
-
-
 
     // creg,
     // dreg,
@@ -160,7 +170,10 @@ pub const OperandType = enum(u16) {
                 return @intToEnum(OperandType, ((@enumToInt(reg) & 0x07) + 1) | tag_seg_reg);
             },
 
-            .Float => unreachable,
+            .Float => {
+                return @intToEnum(OperandType, ((@enumToInt(reg) & 0x07) + 1) | tag_reg_st);
+            },
+
             .MMX => unreachable,
             .Control => unreachable,
             .Debug => unreachable,
@@ -404,11 +417,12 @@ pub const ModRm = union(enum) {
             .Mem,
             .Sib,
             .Rel => switch (self.operandDataSize()) {
-                .None => OperandType.rm_mem,
+                .Void => OperandType.rm_mem,
                 .BYTE => OperandType.rm_mem8,
                 .WORD => OperandType.rm_mem16,
                 .DWORD  => OperandType.rm_mem32,
                 .QWORD  => OperandType.rm_mem64,
+                .TBYTE  => OperandType.rm_mem80,
                 .FAR_WORD  => OperandType.m16_16,
                 .FAR_DWORD  => OperandType.m16_32,
                 .FAR_QWORD  => OperandType.m16_64,
@@ -1195,6 +1209,7 @@ pub const Operand = union(OperandTag) {
         switch (self) {
             .Reg => |reg| return Operand.registerRm(reg),
             .Rm => return self,
+            .RegSpecial => |sreg| return Operand.registerRm(sreg.register.toRegister()),
             else => unreachable,
         }
     }

@@ -112,23 +112,15 @@ pub const Instruction = struct {
         self.len += 1;
     }
 
-    pub fn prefixes(self: *@This(), prefix: Prefixes) void {
-        if (prefix.len == 0) {
+    pub fn addPrefixes(self: *@This(), prefix: Prefixes, opcode: Opcode) void {
+        if (prefix.len == 0 and opcode.prefix_count == 0) {
             return;
         }
-        self.view.prefix = self.makeViewPart(prefix.len);
+        self.view.prefix = self.makeViewPart(prefix.len + opcode.prefix_count);
+        self.addBytes(opcode.prefixesAsSlice());
         self.addBytes(prefix.asSlice());
     }
 
-    pub fn sizeOveridePrefix(self: *@This(), mode: Mode86, size: BitSize) void {
-        if (
-            (mode == .x86_16 and size == .Bit32)
-            or (mode != .x86_16 and size == .Bit16)
-        ) {
-            self.view.prefix = self.makeViewPart(1);
-            self.addByte(0x66);
-        }
-    }
 
     // TODO: need to handle more cases, and those interacting with different addressing modes
     pub fn addRex(self: *@This(), mode: Mode86, reg: ?Register, rm: ?Register, default_size: DefaultSize) AsmError!void {
@@ -175,7 +167,7 @@ pub const Instruction = struct {
         }
     }
 
-    pub fn rex(self: *@This(), mode: Mode86, w: u1, rm: ModRmResult) AsmError!void {
+    pub fn addRexRm(self: *@This(), mode: Mode86, w: u1, rm: ModRmResult) AsmError!void {
         const rex_byte = rm.rex(w);
 
         if (rm.needs_rex and rm.needs_no_rex) {
@@ -193,17 +185,6 @@ pub const Instruction = struct {
             self.view.ext = self.makeViewPart(1);
             self.addByte(rex_byte);
         }
-    }
-
-    pub fn opcode(self: *@This(), op: []const u8) void {
-        assert(op.len <= opcode_max_len);
-        self.view.opcode = self.makeViewPart(@intCast(u8, op.len));
-        self.addBytes(op);
-    }
-
-    pub fn opcodeByte(self: *@This(), op: u8) void {
-        self.view.opcode = self.makeViewPart(1);
-        self.addByte(op);
     }
 
     pub fn modrm(self: *@This(), rm: ModRmResult) void {
@@ -255,24 +236,32 @@ pub const Instruction = struct {
         }
     }
 
+    fn makeViewImmediate(self: *@This(), size: u8) void {
+        if (self.view.immediate.size != 0) {
+            self.view.immediate.size += size;
+        } else {
+            self.view.immediate = self.makeViewPart(size);
+        }
+        assert(self.view.immediate.size <= 8);
+    }
 
     pub fn addImm8(self: *@This(), imm8: u8) void {
-        self.view.immediate = self.makeViewPart(1);
+        self.makeViewImmediate(1);
         self.add8(imm8);
     }
 
     pub fn addImm16(self: *@This(), imm16: u16) void {
-        self.view.immediate = self.makeViewPart(2);
+        self.makeViewImmediate(2);
         self.add16(imm16);
     }
 
     pub fn addImm32(self: *@This(), imm32: u32) void {
-        self.view.immediate = self.makeViewPart(4);
+        self.makeViewImmediate(4);
         self.add32(imm32);
     }
 
     pub fn addImm64(self: *@This(), imm64: u64) void {
-        self.view.immediate = self.makeViewPart(8);
+        self.makeViewImmediate(8);
         self.add64(imm64);
     }
 

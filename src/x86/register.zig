@@ -1,3 +1,4 @@
+const std = @import("std");
 usingnamespace(@import("types.zig"));
 
 // When we want to refer to a register but don't care about it's bit size
@@ -116,6 +117,11 @@ pub const Register = enum(u8) {
     BPL = 0x05 | rex_flag, // would be CH without REX flag
     SIL = 0x06 | rex_flag, // would be DH without REX flag
     DIL = 0x07 | rex_flag, // would be BH without REX flag
+
+    pub fn create(reg_size: RegisterSize, reg_num: u8) Register {
+        std.debug.assert(reg_num <= 0x0F);
+        return @intToEnum(Register, (@enumToInt(reg_size)<<4) | reg_num);
+    }
 
     pub fn needsRex(self: Register) bool {
         return (@enumToInt(self) & Register.rex_flag) == Register.rex_flag;
@@ -282,22 +288,8 @@ pub const RegisterSpecial = enum (u8) {
         return self.dataSize().bitSize();
     }
 
-    pub fn segmentToReg(self: RegisterSpecial) Register {
-        return switch (self) {
-            .ES => return Register.AX,
-            .CS => return Register.CX,
-            .SS => return Register.DX,
-            .DS => return Register.BX,
-            .FS => return Register.SP,
-            .GS => return Register.BP,
-            .ES_ => return Register.R8W,
-            .CS_ => return Register.R9W,
-            .SS_ => return Register.R10W,
-            .DS_ => return Register.R11W,
-            .FS_ => return Register.R12W,
-            .GS_ => return Register.R13W,
-            else => unreachable,
-        };
+    pub fn toRegister(self: RegisterSpecial) Register {
+        return Register.create(.Reg16, 0x0f & @enumToInt(self));
     }
 };
 

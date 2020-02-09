@@ -22,9 +22,15 @@ const Signature = database.Signature;
 
 pub const Machine = struct {
     mode: Mode86,
+    /// TODO: Used for instructions were the mod field of modrm is ignored by CPU
+    /// Eg: MOV Control/Debug registers
+    mod_fill: u2 = 0b11,
+    /// Used for instructions where reg field of modrm is ignored by CPU, (eg: SETcc)
+    reg_bits_fill: u3 = 0b000,
+    // TODO: might not need these
     base_fill: u3 = 0b000,
     index_fill: u3 = 0b000,
-    reg_bits_fill: u3 = 0b000,
+    // prefix_order: ? = null;
 
     pub fn init(mode: Mode86) Machine {
         return Machine {
@@ -47,6 +53,17 @@ pub const Machine = struct {
             .x64 => .QWORD,
         };
     }
+
+    /// If the operand is a .Reg, convert it to the equivalent .Rm
+    pub fn coerceRm(self: Machine, op: Operand) Operand {
+        switch (op) {
+            .Reg => |reg| return Operand.registerRm(reg),
+            .Rm => return op,
+            .RegSpecial => |sreg| return Operand.registerRm(sreg.register.toRegister(self.mode)),
+            else => unreachable,
+        }
+    }
+
 
     pub fn encodeOpcode(self: Machine, opcode: Opcode, void_op: ?*const Operand, default_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
@@ -93,8 +110,8 @@ pub const Machine = struct {
         const reg = switch (op_reg) {
             .Reg => |reg| reg,
             .RegSpecial => |sreg| switch (sreg.register.registerSpecialType()) {
-                .Segment => sreg.register.toRegister(),
-                .Float => sreg.register.toRegister(),
+                .Segment => sreg.register.toRegister(self.mode),
+                .Float => sreg.register.toRegister(self.mode),
                 else => unreachable,
             },
             else => unreachable,
@@ -116,7 +133,7 @@ pub const Machine = struct {
 
     pub fn encodeRmImmediate(self: Machine, opcode: Opcode, rm_op: Operand, imm: Immediate, default_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
-        const rm = rm_op.coerceRm().Rm;
+        const rm = self.coerceRm(rm_op).Rm;
 
         switch (default_size) {
             .RM8, .RM32 => {
@@ -151,7 +168,7 @@ pub const Machine = struct {
     pub fn encodeRm(self: Machine, opcode: Opcode, op_rm: Operand, def_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
 
-        const rm = op_rm.coerceRm().Rm;
+        const rm = self.coerceRm(op_rm).Rm;
         const reg_bits = if (opcode.reg_bits) |bits| bits else self.reg_bits_fill;
         const modrm = try rm.encodeOpcodeRm(self.mode, reg_bits, def_size);
 
@@ -227,17 +244,18 @@ pub const Machine = struct {
         const reg = switch (op_reg) {
             .Reg => |reg| reg,
             .RegSpecial => |sreg| switch (sreg.register.registerSpecialType()) {
-                .Segment => sreg.register.toRegister(),
-                .Float => sreg.register.toRegister(),
+                .Segment,
+                .Float,
+                .Control,
+                .Debug => sreg.register.toRegister(self.mode),
                 else => unreachable,
             },
             else => unreachable,
         };
-        const rm = op_rm.coerceRm().Rm;
+        const rm = self.coerceRm(op_rm).Rm;
 
         switch (def_size) {
-            .RM16 => {},
-            .RM32_RM => {},
+            .RM16, .RM32_RM, .RM32_Reg => {},
 
             else => if (reg.bitSize() != rm.operandSize()) {
                 return AsmError.InvalidOperand;
@@ -263,7 +281,7 @@ pub const Machine = struct {
         default_size: DefaultSize
     ) AsmError!Instruction {
 
-        const rm = op_rm.coerceRm();
+        const rm = self.coerceRm(op_rm);
 
         switch (default_size) {
             .RM8, .RM32 => {
@@ -394,7 +412,7 @@ pub const Machine = struct {
                 return item.encode(self, ops1, ops2, ops3, ops4);
             }
         }
-        return AsmError.InvalidOperandCombination;
+        return AsmError.InvalidOperand;
     }
 
 };

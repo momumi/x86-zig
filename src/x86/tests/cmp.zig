@@ -59,8 +59,8 @@ test "cmp" {
     {
         const op1 = Operand.register(.RAX);
         const op2 = Operand.immediateSigned64(0xff);
-        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperandCombination);
-        testOp2(m64, .CMP, op1, op2, AsmError.InvalidOperandCombination);
+        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperand);
+        testOp2(m64, .CMP, op1, op2, AsmError.InvalidOperand);
     }
 
     {

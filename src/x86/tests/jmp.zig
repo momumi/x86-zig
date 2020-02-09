@@ -13,7 +13,7 @@ test "jmp" {
     {
         const op1 = Operand.immediate16(0x1100);
         testOp1(m32, .JMP, op1, "66 E9 00 11");
-        testOp1(m64, .JMP, op1, AsmError.InvalidOperandCombination);
+        testOp1(m64, .JMP, op1, AsmError.InvalidOperand);
     }
 
     {
@@ -24,8 +24,8 @@ test "jmp" {
 
     {
         const op1 = Operand.immediate8(0x80);
-        testOp1(m32, .JMP, op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JMP, op1, AsmError.InvalidOperandCombination);
+        testOp1(m32, .JMP, op1, AsmError.InvalidOperand);
+        testOp1(m64, .JMP, op1, AsmError.InvalidOperand);
     }
 
     {

@@ -343,8 +343,8 @@ test "idiv / div / mul / imul" {
             const op1 = Operand.register(.AL);
             const op2 = Operand.register(.AL);
             const op3 = Operand.immediate(0x11);
-            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
-            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
         }
 
         {
@@ -415,8 +415,8 @@ test "idiv / div / mul / imul" {
             const op1 = Operand.register(.RAX);
             const op2 = Operand.register(.RAX);
             const op3 = Operand.immediate64(0x11);
-            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
-            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
         }
 
         {
@@ -431,8 +431,8 @@ test "idiv / div / mul / imul" {
             const op1 = Operand.register(.RAX);
             const op2 = Operand.register(.RAX);
             const op3 = Operand.immediate(0x80000000);
-            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
-            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperandCombination);
+            testOp3(m32, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
+            testOp3(m64, .IMUL, op1, op2, op3, AsmError.InvalidOperand);
         }
 
         {

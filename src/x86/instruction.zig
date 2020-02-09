@@ -117,8 +117,8 @@ pub const Instruction = struct {
             return;
         }
         self.view.prefix = self.makeViewPart(prefix.len + opcode.prefix_count);
-        self.addBytes(opcode.prefixesAsSlice());
         self.addBytes(prefix.asSlice());
+        self.addBytes(opcode.prefixesAsSlice());
     }
 
 
@@ -171,7 +171,7 @@ pub const Instruction = struct {
         const rex_byte = rm.rex(w);
 
         if (rm.needs_rex and rm.needs_no_rex) {
-            return AsmError.InvalidOperandCombination;
+            return AsmError.InvalidOperand;
         }
 
         if (rex_byte != 0x40 or rm.needs_rex) {
@@ -179,7 +179,7 @@ pub const Instruction = struct {
                 return AsmError.InvalidMode;
             }
             if (rm.needs_no_rex) {
-                return AsmError.InvalidOperandCombination;
+                return AsmError.InvalidOperand;
             }
 
             self.view.ext = self.makeViewPart(1);
@@ -327,13 +327,13 @@ pub const Instruction = struct {
             .FarJmp => |far| {
                 const disp_size = disp.bitSize();
                 assert(disp_size != .Bit64);
-                self.view.immediate = self.makeViewPart(disp_size.valueBytes() + 2);
+                self.view.immediate = self.makeViewPart(@intCast(u8,disp_size.valueBytes()) + 2);
                 self.addMOffsetDisp(disp);
                 self.add16(far.segment);
             },
             .MOffset => |moff| {
                 const disp_size = disp.bitSize();
-                self.view.immediate = self.makeViewPart(disp_size.valueBytes());
+                self.view.immediate = self.makeViewPart(@intCast(u8, disp_size.valueBytes()));
                 self.addMOffsetDisp(disp);
             },
         }

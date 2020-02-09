@@ -120,7 +120,10 @@ pub const Register = enum(u8) {
 
     pub fn create(reg_size: RegisterSize, reg_num: u8) Register {
         std.debug.assert(reg_num <= 0x0F);
-        return @intToEnum(Register, (@enumToInt(reg_size)<<4) | reg_num);
+        switch (reg_size) {
+            .Reg64 => return @intToEnum(Register, (@enumToInt(reg_size)<<4) | reg_num | rex_flag),
+            else => return @intToEnum(Register, (@enumToInt(reg_size)<<4) | reg_num),
+        }
     }
 
     pub fn needsRex(self: Register) bool {
@@ -237,6 +240,7 @@ pub const RegisterSpecial = enum (u8) {
     MM6_,
     MM7_ = 0x2F,
 
+    // Most of these are not valid to use, but keep them for completeness
     CR0 = 0x30,
     CR1,
     CR2,
@@ -254,6 +258,7 @@ pub const RegisterSpecial = enum (u8) {
     CR14,
     CR15 = 0x3F,
 
+    // Most of these are not valid to use, but keep them for completeness
     DR0 = 0x40,
     DR1,
     DR2,
@@ -288,8 +293,19 @@ pub const RegisterSpecial = enum (u8) {
         return self.dataSize().bitSize();
     }
 
-    pub fn toRegister(self: RegisterSpecial) Register {
-        return Register.create(.Reg16, 0x0f & @enumToInt(self));
+    pub fn toRegister(self: RegisterSpecial, mode: Mode86) Register {
+        switch (self.registerSpecialType()) {
+            .Float, .Segment => return Register.create(.Reg16, 0x0f & @enumToInt(self)),
+            .Debug, .Control => {
+                const reg_size = switch (mode) {
+                    .x86_16 => unreachable,
+                    .x86 => RegisterSize.Reg32,
+                    .x64 => RegisterSize.Reg64,
+                };
+                return Register.create(reg_size, 0x0f & @enumToInt(self));
+            },
+            else => unreachable,
+        }
     }
 };
 

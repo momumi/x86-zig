@@ -162,7 +162,7 @@ test "mov x64 RM" {
     {
         const op1 = Operand.registerSpecial(.FS);
         const op2 = Operand.memoryRm(.GS, .BYTE, .EDI, 0x33221100);
-        testOp2(x64, .MOV, op1, op2, AsmError.InvalidOperandCombination);
+        testOp2(x64, .MOV, op1, op2, AsmError.InvalidOperand);
     }
 
     {
@@ -192,7 +192,7 @@ test "mov x64 RM" {
     {
         const op1 = Operand.moffset64(.DefaultSeg, .QWORD, 0x7766554433221100);
         const op2 = Operand.register(.AL);
-        testOp2(x64, .MOV, op1, op2, AsmError.InvalidOperandCombination);
+        testOp2(x64, .MOV, op1, op2, AsmError.InvalidOperand);
     }
 
     {

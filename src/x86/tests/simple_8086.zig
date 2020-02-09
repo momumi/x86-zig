@@ -267,8 +267,8 @@ test "simple 8086 opcodes" {
         {
             const op1 = Operand.register(.EAX);
             const op2 = Operand.registerRm(.EAX);
-            testOp2(m32, .LEA, op1, op2, AsmError.InvalidOperandCombination);
-            testOp2(m64, .LEA, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m32, .LEA, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LEA, op1, op2, AsmError.InvalidOperand);
         }
 
         {
@@ -335,10 +335,10 @@ test "simple 8086 opcodes" {
         {
             const op1 = Operand.register(.RAX);
             const op2 = Operand.memoryRm(.DefaultSeg, .FAR_QWORD, .EAX, 0x11);
-            testOp2(m32, .LDS, op1, op2, AsmError.InvalidOperandCombination);
-            testOp2(m64, .LDS, op1, op2, AsmError.InvalidOperandCombination);
-            testOp2(m32, .LES, op1, op2, AsmError.InvalidOperandCombination);
-            testOp2(m64, .LES, op1, op2, AsmError.InvalidOperandCombination);
+            testOp2(m32, .LDS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LDS, op1, op2, AsmError.InvalidOperand);
+            testOp2(m32, .LES, op1, op2, AsmError.InvalidOperand);
+            testOp2(m64, .LES, op1, op2, AsmError.InvalidOperand);
             testOp2(m32, .LSS, op1, op2, AsmError.InvalidOperand);
             testOp2(m64, .LSS, op1, op2, "67 48 0F B2 40 11");
             testOp2(m32, .LFS, op1, op2, AsmError.InvalidOperand);

@@ -13,7 +13,7 @@ test "call" {
     {
         const op1 = Operand.immediateSigned16(-1);
         testOp1(m32, .CALL, op1, "66 E8 ff ff");
-        testOp1(m64, .CALL, op1, AsmError.InvalidOperandCombination);
+        testOp1(m64, .CALL, op1, AsmError.InvalidOperand);
     }
 
     {

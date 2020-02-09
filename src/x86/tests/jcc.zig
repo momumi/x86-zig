@@ -12,8 +12,8 @@ test "jcc" {
         const op1 = Operand.immediate(0x11);
         testOp1(m32, .JCXZ,   op1, "67 E3 11");
         testOp1(m32, .JECXZ,  op1, "E3 11");
-        testOp1(m32, .JRCXZ,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JCXZ,   op1, AsmError.InvalidOperandCombination);
+        testOp1(m32, .JRCXZ,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JCXZ,   op1, AsmError.InvalidOperand);
         testOp1(m64, .JECXZ,  op1, "67 E3 11");
         testOp1(m64, .JRCXZ,  op1, "E3 11");
     }
@@ -246,36 +246,36 @@ test "jcc" {
         testOp1(m32, .JS,   op1, "66 0F 88 80 00");
         testOp1(m32, .JZ,   op1, "66 0F 84 80 00");
 
-        testOp1(m64, .JA,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JAE,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JB,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JBE,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JC,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JE,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JG,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JGE,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JL,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JLE,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNA,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNAE, op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNB,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNBE, op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNC,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNE,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNG,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNGE, op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNL,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNLE, op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNO,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNP,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNS,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JNZ,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JO,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JP,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JPE,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JPO,  op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JS,   op1, AsmError.InvalidOperandCombination);
-        testOp1(m64, .JZ,   op1, AsmError.InvalidOperandCombination);
+        testOp1(m64, .JA,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JAE,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JB,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JBE,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JC,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JE,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JG,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JGE,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JL,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JLE,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNA,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNAE, op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNB,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNBE, op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNC,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNE,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNG,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNGE, op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNL,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNLE, op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNO,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNP,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNS,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JNZ,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JO,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JP,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JPE,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JPO,  op1, AsmError.InvalidOperand);
+        testOp1(m64, .JS,   op1, AsmError.InvalidOperand);
+        testOp1(m64, .JZ,   op1, AsmError.InvalidOperand);
     }
 
     {

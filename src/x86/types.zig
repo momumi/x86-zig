@@ -40,6 +40,9 @@ pub const DefaultSize = enum (u8) {
     /// Same as RM32, but use the r/m operand size only ignoring the other operand
     RM32_RM,
 
+    /// Same as RM32, but use the reg operand size only ignoring the other operand
+    RM32_Reg,
+
     // /// Same as RM32, but use the reg operand size only ignoring the other operand
     // RM32_REG,
 
@@ -112,6 +115,8 @@ pub const DefaultSize = enum (u8) {
     /// Behaves like RM64_16, but the encoding uses zero operands
     ZO64_16,
 
+    /// Forces REX.W bit set
+    REX_W,
 
     pub fn bitSize32(self: DefaultSize) BitSize {
         return switch (self) {
@@ -127,6 +132,7 @@ pub const DefaultSize = enum (u8) {
             .RM64Strict,
             .RM32_I8,
             .RM32_RM,
+            .RM32_Reg,
             .RM32Strict,
             .RM32Only,
             .RM32 => .Bit32,
@@ -135,6 +141,7 @@ pub const DefaultSize = enum (u8) {
 
             .RM,
             .ZO,
+            .REX_W,
             .ZO32Only => .Bit0,
         };
     }
@@ -150,6 +157,7 @@ pub const DefaultSize = enum (u8) {
 
             .RM32_I8,
             .RM32_RM,
+            .RM32_Reg,
             .RM32Strict,
             .RM32Only,
             .RM32 => .Bit32,
@@ -161,6 +169,7 @@ pub const DefaultSize = enum (u8) {
 
             .RM,
             .ZO,
+            .REX_W,
             .ZO32Only => .Bit0,
         };
     }
@@ -195,28 +204,30 @@ pub const Segment = enum (u8) {
 pub const AsmError = error {
     InvalidMemoryAddressing,
     InvalidOperand,
-    InvalidOperandCombination,
     InvalidMode,
     InvalidRegister,
     RelativeImmediateOverflow,
     // InvalidImmediate,
 };
 
-pub const BitSize = enum (u8) {
+pub const BitSize = enum (u16) {
     Bit0  = 0,
     Bit8  = 1,
     Bit16 = 2,
     Bit32 = 4,
     Bit64 = 8,
     Bit80 = 10,
+    Bit128 = 16,
+    Bit256 = 32,
+    Bit512 = 64,
 
-    None = 0xf0,
+    None = 0xffff,
 
     pub fn value(self: BitSize) u16 {
         return 8 * @enumToInt(self);
     }
 
-    pub fn valueBytes(self: BitSize) u8 {
+    pub fn valueBytes(self: BitSize) u16 {
         return @enumToInt(self);
     }
 };
@@ -229,6 +240,7 @@ pub const Opcode = struct {
     prefixes: [max_prefix_lenth]u8 = undefined,
     prefix_count: u8 = 0,
     reg_bits: ?u3 = null,
+    prefix_allowed: bool = true,
 
     pub fn asSlice(self: Opcode) []const u8 {
         return self.opcode[0..self.len];
@@ -238,7 +250,12 @@ pub const Opcode = struct {
         return self.prefixes[0..self.prefix_count];
     }
 
-    fn create_generic(prefix: []u8, opcode_bytes: []u8, reg_bits: ?u3) Opcode {
+    fn create_generic(
+        prefix_allowed: bool,
+        prefix: []u8, 
+        opcode_bytes: []u8, 
+        reg_bits: ?u3
+    ) Opcode {
         var res = Opcode {};
 
         for (prefix) |pre, i| {
@@ -257,71 +274,93 @@ pub const Opcode = struct {
     }
 
     pub fn op1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0}, reg_bits);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0}, reg_bits);
     }
 
     pub fn op2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0, byte1}, reg_bits);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1}, reg_bits);
     }
 
     pub fn op3r(byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0, byte1, byte2}, reg_bits);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2}, reg_bits);
     }
 
     pub fn op4r(byte0: u8, byte1: u8, byte2: u8, byte3: u8, reg_bits: u3) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0, byte1, byte2, byte3}, reg_bits);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2, byte3}, reg_bits);
     }
 
     pub fn preOp1r(prefix: u8, byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(&[_]u8{prefix}, &[_]u8{byte0}, reg_bits);
+        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0}, reg_bits);
     }
 
     pub fn preOp2r(prefix: u8, byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(&[_]u8{prefix}, &[_]u8{byte0, byte1}, reg_bits);
+        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0, byte1}, reg_bits);
     }
 
+    pub fn npOp1r(byte0: u8, reg_bits: u3) Opcode {
+        return create_generic(false, &[_]u8{}, &[_]u8{byte0}, reg_bits);
+    }
+
+    pub fn npOp2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
+        return create_generic(false, &[_]u8{}, &[_]u8{byte0, byte1}, reg_bits);
+    }
 
     pub fn op1(byte0: u8) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0}, null);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0}, null);
     }
 
     pub fn op2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0, byte1}, null);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1}, null);
     }
 
     pub fn op3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0, byte1, byte2}, null);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2}, null);
     }
 
     pub fn op4(byte0: u8, byte1: u8, byte2: u8, byte3: u8) Opcode {
-        return create_generic(&[_]u8{}, &[_]u8{byte0, byte1, byte2, byte3}, null);
+        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2, byte3}, null);
     }
 
     pub fn preOp1(prefix: u8, byte0: u8) Opcode {
-        return create_generic(&[_]u8{prefix}, &[_]u8{byte0}, null);
+        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0}, null);
     }
 
     pub fn preOp2(prefix: u8, byte0: u8, byte1: u8) Opcode {
-        return create_generic(&[_]u8{prefix}, &[_]u8{byte0, byte1}, null);
+        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0, byte1}, null);
     }
 
+    pub fn preOp3(prefix: u8, byte0: u8, byte1: u8, byte2: u8) Opcode {
+        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0, byte1, byte2}, null);
+    }
+
+    pub fn npOp1(byte0: u8) Opcode {
+        return create_generic(false, &[_]u8{}, &[_]u8{byte0}, null);
+    }
+
+    pub fn npOp2(byte0: u8, byte1: u8) Opcode {
+        return create_generic(false, &[_]u8{}, &[_]u8{byte0, byte1}, null);
+    }
+
+    pub fn npOp3(byte0: u8, byte1: u8, byte2: u8) Opcode {
+        return create_generic(false, &[_]u8{}, &[_]u8{byte0, byte1, byte2}, null);
+    }
 };
 
-pub const DataType = enum (u8) {
-    NormalMemory = 0x00,
-    FarAddress = 0x10,
-    FloatingPoint = 0x20,
-    VoidPointer = 0x30,
-    Register = 0xF0,
+pub const DataType = enum (u16) {
+    NormalMemory = 0x0000,
+    FarAddress = 0x01000,
+    FloatingPoint = 0x0200,
+    VoidPointer = 0x0300,
+    Register = 0x0F00,
 };
 
-pub const DataSize = enum (u8) {
-    const tag_mask: u8 = 0xF0;
-    const size_mask: u8 = 0x0F;
-    const normal_tag: u8 = @enumToInt(DataType.NormalMemory);
-    const far_address_tag: u8 = @enumToInt(DataType.FarAddress);
-    const floating_point_tag: u8 = @enumToInt(DataType.FloatingPoint);
-    const void_tag: u8 = @enumToInt(DataType.VoidPointer);
+pub const DataSize = enum (u16) {
+    const tag_mask: u16 = 0xFF00;
+    const size_mask: u16 = 0x00FF;
+    const normal_tag: u16 = @enumToInt(DataType.NormalMemory);
+    const far_address_tag: u16 = @enumToInt(DataType.FarAddress);
+    const floating_point_tag: u16 = @enumToInt(DataType.FloatingPoint);
+    const void_tag: u16 = @enumToInt(DataType.VoidPointer);
 
     /// 8 bit data size
     BYTE = 1 | normal_tag,
@@ -331,6 +370,8 @@ pub const DataSize = enum (u8) {
     DWORD = 4 | normal_tag,
     /// 64 bit data size
     QWORD = 8 | normal_tag,
+    /// 128 bit data size (DQWORD)
+    OWORD = 16 | normal_tag,
 
     /// 80 bit data size
     TBYTE = 10 | normal_tag,
@@ -363,7 +404,7 @@ pub const DataSize = enum (u8) {
     // /// 512 bit data size
     // ZWORD = 6,
 
-    pub fn fromByteValue(bytes: u8) DataSize {
+    pub fn fromByteValue(bytes: u16) DataSize {
         return @intToEnum(DataSize, bytes | normal_tag);
     }
 
@@ -528,6 +569,7 @@ pub const Prefixes = struct {
 
             .RM32_I8,
             .RM32_RM,
+            .RM32_Reg,
             .RM32 => switch (operand_size) {
                 .Bit16 => self.addPrefix(.OperandOveride),
                 .Bit32 => {}, // default
@@ -563,6 +605,8 @@ pub const Prefixes = struct {
             .ZO32Only => return AsmError.InvalidOperand,
 
             .RM, .ZO => {}, // zero operand
+
+            .REX_W => rex_w.* = 1,
 
             .RM8_Over16 => return AsmError.InvalidOperand,
             .RM8_Over32 => {
@@ -600,6 +644,7 @@ pub const Prefixes = struct {
             .RM32_I8,
             .RM32,
             .RM32_RM,
+            .RM32_Reg,
             .RM32Strict,
             .RM32Only,
             .ZO64_16,
@@ -611,11 +656,13 @@ pub const Prefixes = struct {
             },
 
             .RM64 => return AsmError.InvalidOperand,
-            .RM8_64Only => return AsmError.InvalidOperandCombination,
+            .RM8_64Only => return AsmError.InvalidOperand,
 
             .RM,
             .ZO32Only,
             .ZO => {}, // zero operand
+
+            .REX_W => rex_w.* = 1,
 
             .RM8_Over16 => {
                 self.addPrefix(.AddressOveride);

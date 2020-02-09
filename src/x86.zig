@@ -1,9 +1,6 @@
 pub usingnamespace(@import("x86/machine.zig"));
 
 test "main test" {
-    const x86 = @import("x86/machine.zig");
-    const machine = x86.Machine.init(.x64);
-
     // include all the tests so zig actually compiles them
     // TODO: add more negative tests
     _ = @import("x86/tests/call.zig");
@@ -20,4 +17,9 @@ test "main test" {
     _ = @import("x86/tests/simple_8086.zig");
     _ = @import("x86/tests/float_x87.zig");
     _ = @import("x86/tests/extra.zig");
+    _ = @import("x86/tests/80286.zig");
+    _ = @import("x86/tests/80386.zig");
+    _ = @import("x86/tests/80486.zig");
+    _ = @import("x86/tests/pentium.zig");
+    _ = @import("x86/tests/bit_manipulation.zig");
 }

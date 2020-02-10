@@ -31,10 +31,11 @@ pub const OperandType = enum(u16) {
     const tag_mem_16_16 = 0x1400;
     const tag_mem_16_32 = 0x1500;
     const tag_mem_16_64 = 0x1600;
-    const tag_mmx = 0x1700;
+    const tag_mm = 0x1700;
     const tag_xmm = 0x1800;
     const tag_ymm = 0x1900;
     const tag_zmm = 0x1A00;
+    const tag_mm_mem = 0x1B00;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -126,7 +127,7 @@ pub const OperandType = enum(u16) {
     rm_seg,
     rm_cr,
     rm_dr,
-    rm_mmx,
+    rm_mm,
     rm_xmm,
     rm_ymm,
     rm_zmm,
@@ -184,15 +185,15 @@ pub const OperandType = enum(u16) {
     m16_32 = 0 | tag_mem_16_32,
     m16_64 = 0 | tag_mem_16_64,
 
-    mmx = 0 | tag_mmx,
-    mm0 = 1 | tag_mmx,
+    mm = 0 | tag_mm,
+    mm0 = 1 | tag_mm,
     mm1,
     mm2,
     mm3,
     mm4,
     mm5,
     mm6,
-    mm7 = 8 | tag_mmx,
+    mm7 = 8 | tag_mm,
 
     xmm = 0 | tag_xmm,
     xmm0 = 1 | tag_xmm,
@@ -296,7 +297,11 @@ pub const OperandType = enum(u16) {
     zmm30,
     zmm31 = 32 | tag_zmm,
 
-    invalid,
+    // ... = 0 | tag_mm_mem,
+    mm_m64 = 1 | tag_mm_mem,
+    xmm_m128,
+    ymm_m256,
+    zmm_m512,
 
     pub fn getContainerType(self: OperandType) OperandType {
         return @intToEnum(OperandType, @enumToInt(self) & 0xFFF0);
@@ -358,6 +363,8 @@ pub const OperandType = enum(u16) {
             .rm16 => (other_tag == .rm16 or other_tag == .reg16),
             .rm32 => (other_tag == .rm32 or other_tag == .reg32),
             .rm64 => (other_tag == .rm64 or other_tag == .reg64),
+            .mm_m64 => (other_tag == .mm or other == .rm_mem64 or other == .rm_mm),
+            .xmm_m128 => (other_tag == .xmm or other == .rm_mem128 or other == .rm_xmm),
             .imm8 => (other == .imm8 or other == .imm8_any or other == .imm_1),
             .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any or other == .imm_1),
             .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm_1),
@@ -509,7 +516,7 @@ pub const ModRmResult = struct {
 
     pub fn rexRequirements(self: *@This(), reg: Register, default_size: DefaultSize) void {
         // Don't need to check this if the instruction uses 64 bit by default
-        if (!default_size.is64()) {
+        if (!default_size.is64Default()) {
             self.needs_rex = self.needs_rex or reg.needsRex();
         }
         self.needs_no_rex = self.needs_no_rex or reg.needsNoRex();
@@ -584,7 +591,7 @@ pub const ModRm = union(enum) {
                 .Segment => OperandType.rm_seg,
                 .Control => OperandType.rm_cr,
                 .Debug => OperandType.rm_dr,
-                .MMX => OperandType.rm_mmx,
+                .MMX => OperandType.rm_mm,
                 .XMM => OperandType.rm_xmm,
                 .YMM => OperandType.rm_ymm,
                 .ZMM => OperandType.rm_zmm,
@@ -623,7 +630,7 @@ pub const ModRm = union(enum) {
         res.reg = modrm_reg.numberRm();
         res.reg_size = modrm_reg.bitSize();
         res.rexRequirements(modrm_reg, default_size);
-        if (modrm_reg.bitSize() == .Bit64 and !default_size.is64()) {
+        if (modrm_reg.bitSize() == .Bit64 and !default_size.is64Default()) {
             res.rex_w = 1;
         }
 

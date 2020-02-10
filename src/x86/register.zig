@@ -389,7 +389,11 @@ pub const Register = enum (u16) {
             .Control,
             .Debug,
             .MMX,
+            .XMM,
             .Float => return DataSize.Void,
+
+            // .MMX => return DataSize.QWORD,
+            // .XMM => return DataSize.OWORD,
             else => unreachable,
         }
     }

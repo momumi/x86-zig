@@ -17,7 +17,7 @@ test "pentium" {
 
     {
         testOp1(m32, .CMPXCHG8B,  rm_mem64,  "0F C7 08");
-        testOp1(m32, .CMPXCHG16B, rm_mem128, AsmError.InvalidMode);
+        testOp1(m32, .CMPXCHG16B, rm_mem128, AsmError.InvalidOperand);
         testOp1(m64, .CMPXCHG8B,  rm_mem64,  "67 0F C7 08");
         testOp1(m64, .CMPXCHG16B, rm_mem128, "67 48 0F C7 08");
     }

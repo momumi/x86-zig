@@ -9,19 +9,19 @@ const c = @cImport({
 const reg = x86.Operand.register;
 const imm = x86.Operand.immediate;
 
-const SyscallLinux64 = struct {
+pub const SyscallLinux64 = struct {
     // /usr/include/asm/unistd_64.h
     pub const write = 1;
     pub const exit = 60;
 };
 
-const STDIN  = 0;
-const STDOUT = 1;
-const STDERR = 2;
+pub const STDIN  = 0;
+pub const STDOUT = 1;
+pub const STDERR = 2;
 
 // Our memory is not executable by default, so we need to mmap an executable
 // block from which to run our program
-fn makeExecutableMemory(instr_list: []const x86.Instruction) *c_void {
+pub fn makeExecutableMemory(instr_list: []const x86.Instruction) *c_void {
     const buffer_size = instr_list.len * x86.Instruction.max_length;
     var buf = c.mmap(
         null,

@@ -9,6 +9,7 @@ const Machine = x86.Machine;
 const Operand = x86.Operand;
 const Mnemonic = x86.Mnemonic;
 
+pub const debug: bool = true;
 var debug_print: bool = false;
 
 pub fn rexValue(w: u1, r: u1, x: u1, b: u1) u8 {

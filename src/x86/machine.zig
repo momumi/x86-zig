@@ -20,6 +20,8 @@ pub const Register = register.Register;
 const Address = operand.Address;
 const Signature = database.Signature;
 
+const warn = if (util.debug) std.debug.warn else util.warnDummy;
+
 pub const Machine = struct {
     mode: Mode86,
     /// TODO: Used for instructions were the mod field of modrm is ignored by CPU
@@ -145,7 +147,10 @@ pub const Machine = struct {
                 }
             },
 
-            else => unreachable,
+            else => if (default_size.needsSizeCheck() and imm.bitSize() != rm.operandSize()) {
+                return AsmError.InvalidOperand;
+            }
+,
         }
 
         const reg_bits = if (opcode.reg_bits) |bits| bits else self.reg_bits_fill;
@@ -238,12 +243,9 @@ pub const Machine = struct {
         const reg = op_reg.Reg;
         const rm = self.coerceRm(op_rm).Rm;
 
-        switch (def_size) {
-            .RM16, .RM32_RM, .RM32_Reg, .RM64_RM, .RM64_Reg => {},
-
-            else => if (reg.bitSize() != rm.operandSize()) {
-                return AsmError.InvalidOperand;
-            },
+        if (def_size.needsSizeCheck() and reg.bitSize() != rm.operandSize()) {
+            warn("operand size mismatch: reg({}), rm({})\n", .{reg.bitSize(), rm.operandSize()});
+            return AsmError.InvalidOperand;
         }
 
         const modrm = try rm.encodeReg(self.mode, reg, def_size);
@@ -333,31 +335,6 @@ pub const Machine = struct {
         return res;
     }
 
-    pub fn encodeSegmentRegRm(self: Machine, opcode: Opcode, reg: RegisterSpecial, rm: Operand) AsmError!Instruction {
-        // Segment register has special set of allowed RHS Rm values:
-        // 8E /r            MOV Sreg,r/m16
-        // REX.W + 8E /r    MOV Sreg,r/m64
-        //
-        // Although, not explictily document, we should be able to also do
-        // 8E /r            MOV Sreg,r/m32
-        //
-        // because:
-        //
-        // 1. Even if the CPU only "works" with the 16/64 bit versions, it would then
-        //      ignore the 0x66 prefix. But in that case, it would have identical
-        //      to the r/m16 version which would be the behaviour we expect from
-        //      r/m32.
-        //
-        // So we can still encode it like any other r/m16, r/m32, r/m64 value.
-        // However, I think the reason it is documented like this is because it
-        // wants to give r/m16 the smallest representation (ie it doesn't need
-        // the 0x66 prefix).
-        var res = Instruction{};
-
-        res = try self.encodeRegRm(opcode, reg.segmentToReg().toOperand(), rm, .RM16);
-
-        return res;
-    }
     pub fn build0(self: Machine, mnem: Mnemonic) AsmError!Instruction {
         return self.build(mnem, null, null, null, null);
     }

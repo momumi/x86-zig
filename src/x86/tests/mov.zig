@@ -185,21 +185,22 @@ test "mov x64 RM" {
 
     {
         const op1 = Operand.register(.FS);
-        const op2 = Operand.memoryRm(.GS, .QWORD, .EDI, 0x33221100);
-        testOp2(m64, .MOV, op1, op2, "65 67 48 8e a7 00 11 22 33");
-    }
-
-    {
-        const op1 = Operand.register(.FS);
         const op2 = Operand.memoryRm(.GS, .WORD, .EDI, 0x33221100);
-        testOp2(m64, .MOV, op1, op2, "65 67 8e a7 00 11 22 33");
+        testOp2(m64, .MOV, op1, op2, "65 66 67 8e a7 00 11 22 33");
     }
 
     {
         const op1 = Operand.register(.FS);
         const op2 = Operand.memoryRm(.GS, .DWORD, .EDI, 0x33221100);
-        testOp2(m64, .MOV, op1, op2, "65 66 67 8e a7 00 11 22 33");
+        testOp2(m64, .MOV, op1, op2, "65 67 8e a7 00 11 22 33");
     }
+
+    {
+        const op1 = Operand.register(.FS);
+        const op2 = Operand.memoryRm(.GS, .QWORD, .EDI, 0x33221100);
+        testOp2(m64, .MOV, op1, op2, "65 67 48 8e a7 00 11 22 33");
+    }
+
 
     {
         const op1 = Operand.register(.FS);

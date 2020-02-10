@@ -12,6 +12,7 @@ const x86 = @import("src/x86.zig");
 pub fn main() anyerror!void {
     const machine64 = x86.Machine.init(.x64);
 
+    // MOV RAX, R15
     {
         const op1 = x86.Operand.register(.RAX);
         const op2 = x86.Operand.register(.R15);
@@ -19,6 +20,7 @@ pub fn main() anyerror!void {
         warn("{x}\t\t\tMOV\t{}, {}\n", .{instr.asSlice(), op1, op2});
     }
 
+    // MOV DWORD PTR [FS: 8*ECX + EBX + 0x33221100], EAX
     {
         const op1 = x86.Operand.memorySib(.FS, .DWORD, 8, .ECX, .EBX, 0x33221100);
         const op2 = x86.Operand.register(.EAX);
@@ -26,6 +28,7 @@ pub fn main() anyerror!void {
         warn("{x}\tMOV\t{}, {}\n", .{instr.asSlice(), op1, op2});
     }
 
+    // JMP -20
     {
         const op1 = x86.Operand.immediateSigned(-20);
         const instr = try machine64.build1(.JMP, op1);
@@ -34,6 +37,15 @@ pub fn main() anyerror!void {
 }
 ```
 
+## Building examples
+
+### example-hello
+
+Assembles, loads to RAM, and executes a simple hello world program (Linux-x64).
+
+```
+zig build example-hello
+```
 
 ## License
 

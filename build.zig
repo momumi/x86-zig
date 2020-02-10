@@ -33,6 +33,20 @@ pub fn build(b: *Builder) void {
         run_step.dependOn(&run_cmd.step);
     }
 
+    // mmx example
+    {
+        const exe = b.addExecutable("example-mmx", "example-mmx.zig");
+        exe.setBuildMode(mode);
+        exe.linkSystemLibrary("c");
+        exe.install();
+
+        const run_cmd = exe.run();
+        run_cmd.step.dependOn(b.getInstallStep());
+
+        const run_step = b.step("example-mmx", "Run the mmx example");
+        run_step.dependOn(&run_cmd.step);
+    }
+
     // Library building
     {
         const lib = b.addStaticLibrary("x86-zig", "src/x86.zig");

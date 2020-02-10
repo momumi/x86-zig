@@ -189,10 +189,17 @@ pub const DefaultSize = enum (u8) {
         };
     }
 
-    pub fn is64(self: DefaultSize) bool {
+    pub fn is64Default(self: DefaultSize) bool {
         return switch (self) {
-            .ZO64_16, .RM64, .RM64Strict, .RM64_16, .RM64_RM, .RM64_Reg => true,
+            .ZO64_16, .RM64, .RM64Strict, .RM64_16, .RM64_RM, .RM64_Reg, .ZO => true,
             else => false,
+        };
+    }
+
+    pub fn needsSizeCheck(self: DefaultSize) bool {
+        return switch (self) {
+            .RM32_RM, .RM32_Reg, .RM64_RM, .RM64_Reg, .ZO => false,
+            else => true,
         };
     }
 };
@@ -666,6 +673,7 @@ pub const Prefixes = struct {
                 else => return AsmError.InvalidOperand,
             },
 
+            .REX_W,
             .RM64_Reg,
             .RM64_RM,
             .RM64 => return AsmError.InvalidOperand,
@@ -675,8 +683,6 @@ pub const Prefixes = struct {
             .RM,
             .ZO32Only,
             .ZO => {}, // zero operand
-
-            .REX_W => rex_w.* = 1,
 
             .RM8_Over16 => {
                 self.addPrefix(.AddressOveride);

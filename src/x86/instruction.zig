@@ -171,7 +171,7 @@ pub const Instruction = struct {
         const rex_byte = rm.rex(w);
 
         if (rm.needs_rex and rm.needs_no_rex) {
-            return AsmError.InvalidOperand;
+            return AsmError.InvalidRegisterCombination;
         }
 
         if (rex_byte != 0x40 or rm.needs_rex) {
@@ -179,7 +179,7 @@ pub const Instruction = struct {
                 return AsmError.InvalidMode;
             }
             if (rm.needs_no_rex) {
-                return AsmError.InvalidOperand;
+                return AsmError.InvalidRegisterCombination;
             }
 
             self.view.ext = self.makeViewPart(1);

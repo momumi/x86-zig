@@ -6,7 +6,6 @@ pub const machine = @import("machine.zig");
 usingnamespace(@import("types.zig"));
 
 const Register = register.Register;
-const RegisterSpecial = register.RegisterSpecial;
 
 pub const OperandType = enum(u16) {
     const tag_reg8 = 0x0000;
@@ -23,14 +22,19 @@ pub const OperandType = enum(u16) {
     const tag_moffs = 0x0B00;
     const tag_void = 0x0C00;
     const tag_rm_mem = 0x0D00;
-    const tag_reg_st = 0x0E00;
-    const tag_reg_control = 0x0F00;
-    const tag_reg_debug = 0x1000;
-    const tag_ptr_16_16 = 0x1100;
-    const tag_ptr_16_32 = 0x1200;
-    const tag_mem_16_16 = 0x1300;
-    const tag_mem_16_32 = 0x1400;
-    const tag_mem_16_64 = 0x1500;
+    const tag_rm_reg = 0x0E00;
+    const tag_reg_st = 0x0F00;
+    const tag_reg_control = 0x1000;
+    const tag_reg_debug = 0x1100;
+    const tag_ptr_16_16 = 0x1200;
+    const tag_ptr_16_32 = 0x1300;
+    const tag_mem_16_16 = 0x1400;
+    const tag_mem_16_32 = 0x1500;
+    const tag_mem_16_64 = 0x1600;
+    const tag_mmx = 0x1700;
+    const tag_xmm = 0x1800;
+    const tag_ymm = 0x1900;
+    const tag_zmm = 0x1A00;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -115,6 +119,18 @@ pub const OperandType = enum(u16) {
     rm_mem256 = 3 | tag_rm_mem,
     rm_mem512 = 4 | tag_rm_mem,
 
+    // don't really use most of these values, but include them so we have
+    // something to assign ModRm.Reg values
+    rm_reg = 0 | tag_rm_reg,
+    rm_st,
+    rm_seg,
+    rm_cr,
+    rm_dr,
+    rm_mmx,
+    rm_xmm,
+    rm_ymm,
+    rm_zmm,
+
     reg_st = 0 | tag_reg_st,
     reg_st0 = 1 | tag_reg_st,
     reg_st1 = 2 | tag_reg_st,
@@ -127,20 +143,39 @@ pub const OperandType = enum(u16) {
 
     reg_cr = 0 | tag_reg_control,
     reg_cr0 = 1 | tag_reg_control,
-    reg_cr2 = 3 | tag_reg_control,
-    reg_cr3 = 4 | tag_reg_control,
-    reg_cr4 = 5 | tag_reg_control,
-    reg_cr8 = 9 | tag_reg_control,
+    reg_cr1,
+    reg_cr2,
+    reg_cr3,
+    reg_cr4,
+    reg_cr5,
+    reg_cr6,
+    reg_cr7,
+    reg_cr8,
+    reg_cr9,
+    reg_cr10,
+    reg_cr11,
+    reg_cr12,
+    reg_cr13,
+    reg_cr14,
+    reg_cr15 = 16 | tag_reg_control,
 
     reg_dr = 0 | tag_reg_debug,
     reg_dr0 = 1 | tag_reg_debug,
-    reg_dr1 = 2 | tag_reg_debug,
-    reg_dr2 = 3 | tag_reg_debug,
-    reg_dr3 = 4 | tag_reg_debug,
-    reg_dr4 = 5 | tag_reg_debug,
-    reg_dr5 = 6 | tag_reg_debug,
-    reg_dr6 = 7 | tag_reg_debug,
-    reg_dr7 = 8 | tag_reg_debug,
+    reg_dr1,
+    reg_dr2,
+    reg_dr3,
+    reg_dr4,
+    reg_dr5,
+    reg_dr6,
+    reg_dr7,
+    reg_dr8,
+    reg_dr9,
+    reg_dr10,
+    reg_dr11,
+    reg_dr12,
+    reg_dr13,
+    reg_dr14,
+    reg_dr15 = 16 | tag_reg_debug,
 
     ptr16_16 = 0 | tag_ptr_16_16,
     ptr16_32 = 0 | tag_ptr_16_32,
@@ -149,8 +184,117 @@ pub const OperandType = enum(u16) {
     m16_32 = 0 | tag_mem_16_32,
     m16_64 = 0 | tag_mem_16_64,
 
-    // creg,
-    // dreg,
+    mmx = 0 | tag_mmx,
+    mm0 = 1 | tag_mmx,
+    mm1,
+    mm2,
+    mm3,
+    mm4,
+    mm5,
+    mm6,
+    mm7 = 8 | tag_mmx,
+
+    xmm = 0 | tag_xmm,
+    xmm0 = 1 | tag_xmm,
+    xmm1,
+    xmm2,
+    xmm3,
+    xmm4,
+    xmm5,
+    xmm6,
+    xmm7,
+    xmm8,
+    xmm9,
+    xmm10,
+    xmm11,
+    xmm12,
+    xmm13,
+    xmm14,
+    xmm15,
+    xmm16,
+    xmm17,
+    xmm18,
+    xmm19,
+    xmm20,
+    xmm21,
+    xmm22,
+    xmm23,
+    xmm24,
+    xmm25,
+    xmm26,
+    xmm27,
+    xmm28,
+    xmm29,
+    xmm30,
+    xmm31 = 32 | tag_xmm,
+
+    ymm = 0 | tag_ymm,
+    ymm0 = 1 | tag_ymm,
+    ymm1,
+    ymm2,
+    ymm3,
+    ymm4,
+    ymm5,
+    ymm6,
+    ymm7,
+    ymm8,
+    ymm9,
+    ymm10,
+    ymm11,
+    ymm12,
+    ymm13,
+    ymm14,
+    ymm15,
+    ymm16,
+    ymm17,
+    ymm18,
+    ymm19,
+    ymm20,
+    ymm21,
+    ymm22,
+    ymm23,
+    ymm24,
+    ymm25,
+    ymm26,
+    ymm27,
+    ymm28,
+    ymm29,
+    ymm30,
+    ymm31 = 32 | tag_ymm,
+
+    zmm = 0 | tag_zmm,
+    zmm0 = 1 | tag_zmm,
+    zmm1,
+    zmm2,
+    zmm3,
+    zmm4,
+    zmm5,
+    zmm6,
+    zmm7,
+    zmm8,
+    zmm9,
+    zmm10,
+    zmm11,
+    zmm12,
+    zmm13,
+    zmm14,
+    zmm15,
+    zmm16,
+    zmm17,
+    zmm18,
+    zmm19,
+    zmm20,
+    zmm21,
+    zmm22,
+    zmm23,
+    zmm24,
+    zmm25,
+    zmm26,
+    zmm27,
+    zmm28,
+    zmm29,
+    zmm30,
+    zmm31 = 32 | tag_zmm,
 
     invalid,
 
@@ -159,16 +303,22 @@ pub const OperandType = enum(u16) {
     }
 
     pub fn fromRegister(reg: Register) OperandType {
+        if (reg.registerType() != .General) {
+            return @intToEnum(OperandType, @enumToInt(reg) + 1);
+        }
+
+        // General purpose register
         if (reg.number() <= Register.BX.number()) {
             const size_tag: u16 = @as(u16, @enumToInt(reg) & 0x30) << 4;
             const num_tag: u16 = @as(u16, @enumToInt(reg) & 0x03) + 1;
             return @intToEnum(OperandType, size_tag | num_tag);
         } else {
-            return switch (reg.size()) {
-                .Reg8 => OperandType.reg8,
-                .Reg16 => OperandType.reg16,
-                .Reg32 => OperandType.reg32,
-                .Reg64 => OperandType.reg64,
+            return switch (reg.bitSize()) {
+                .Bit8 => OperandType.reg8,
+                .Bit16 => OperandType.reg16,
+                .Bit32 => OperandType.reg32,
+                .Bit64 => OperandType.reg64,
+                else => unreachable,
             };
         }
     }
@@ -191,20 +341,6 @@ pub const OperandType = enum(u16) {
             .Imm32_any => return OperandType.imm32_any,
             .Imm64_any => return OperandType.imm64_any,
         }
-    }
-
-    pub fn fromRegisterSpecial(reg: RegisterSpecial) OperandType {
-        const reg_num = @as(u16, (@enumToInt(reg) & 0x07) + 1);
-        const tag: u16 = switch (reg.registerSpecialType()) {
-            .Segment => tag_seg_reg,
-            .Float => tag_reg_st,
-            .Control => tag_reg_control,
-            .Debug => tag_reg_debug,
-
-            .MMX => unreachable,
-        };
-
-        return @intToEnum(OperandType, reg_num | tag);
     }
 
     // For user supplied immediates without an explicit size are allowed to match
@@ -434,11 +570,24 @@ pub const ModRm = union(enum) {
 
     pub fn operandType(self: @This()) OperandType {
         return switch (self) {
-            .Reg => |reg| switch (reg.size()) {
-                .Reg8 => OperandType.rm_reg8,
-                .Reg16 => OperandType.rm_reg16,
-                .Reg32 => OperandType.rm_reg32,
-                .Reg64 => OperandType.rm_reg64,
+            .Reg => |reg| switch (reg.registerType()) {
+                .General => switch (reg.bitSize()) {
+                    .Bit8 => OperandType.rm_reg8,
+                    .Bit16 => OperandType.rm_reg16,
+                    .Bit32 => OperandType.rm_reg32,
+                    .Bit64 => OperandType.rm_reg64,
+                    else => unreachable,
+                },
+
+                .Float => OperandType.reg_st,
+
+                .Segment => OperandType.rm_seg,
+                .Control => OperandType.rm_cr,
+                .Debug => OperandType.rm_dr,
+                .MMX => OperandType.rm_mmx,
+                .XMM => OperandType.rm_xmm,
+                .YMM => OperandType.rm_ymm,
+                .ZMM => OperandType.rm_zmm,
             },
 
             .Mem,
@@ -691,7 +840,7 @@ pub const ModRm = union(enum) {
         return ModRm { .Rel = RelMemory.relMemory(seg, data_size, reg, disp) };
     }
 
-    /// data_size [reg + disp]
+    /// data_size [seg: reg + disp]
     pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: u32) ModRm {
         return ModRm {
             .Mem = Memory {
@@ -755,7 +904,7 @@ pub const ModRm = union(enum) {
         };
     }
 
-    /// data_size [(scale*index) + base + disp]
+    /// data_size [seg: (scale*index) + base + disp]
     pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) ModRm {
         // When base is not used, only 32bit diplacements are valid
         const mem_disp = if (base == null) x: {
@@ -1138,18 +1287,11 @@ pub const VoidOperand = struct {
     operand_size: DataSize,
 };
 
-pub const RegisterSpecialOperand = struct {
-    register: RegisterSpecial,
-    /// Overides the default size of the register
-    operand_size: DataSize,
-};
-
 pub const OperandTag = enum {
     None,
     Reg,
     Imm,
     Rm,
-    RegSpecial,
     Addr,
 };
 
@@ -1158,7 +1300,6 @@ pub const Operand = union(OperandTag) {
     Reg: Register,
     Imm: Immediate,
     Rm: ModRm,
-    RegSpecial: RegisterSpecialOperand,
     Addr: Address,
 
     pub fn tag(self: Operand) OperandTag {
@@ -1170,7 +1311,6 @@ pub const Operand = union(OperandTag) {
             .Reg => |reg| return OperandType.fromRegister(reg),
             .Imm => |imm_| return OperandType.fromImmediate(imm_),
             .Rm => |rm| return rm.operandType(),
-            .RegSpecial => |sreg| return OperandType.fromRegisterSpecial(sreg.register),
             .Addr => |addr| return addr.operandType(),
             // TODO: get size
             .None => return OperandType._void,
@@ -1183,13 +1323,6 @@ pub const Operand = union(OperandTag) {
             .Reg => |reg| return reg.bitSize(),
             .Imm => |imm_| return (imm_.bitSize()),
             .Rm => |rm| return rm.operandSize(),
-            .RegSpecial => |sreg| {
-                if (sreg.operand_size == .Default) {
-                    return sreg.register.bitSize();
-                } else {
-                    return sreg.operand_size.bitSize();
-                }
-            },
             .Addr => |addr| return addr.operandSize(),
             .None => |none| return none.operand_size.bitSize(),
         }
@@ -1202,7 +1335,6 @@ pub const Operand = union(OperandTag) {
             .Reg => |reg| return reg.dataSize(),
             .Imm => |imm_| return (imm_.dataSize()),
             .Rm => |rm| return rm.operandDataSize(),
-            .RegSpecial => |sreg| return sreg.operand_size,
             .Addr => |addr| return addr.operandDataSize(),
             .None => |none| return none.operand_size,
         }
@@ -1214,24 +1346,6 @@ pub const Operand = union(OperandTag) {
 
     pub fn registerRm(reg: Register) Operand {
         return Operand { .Rm = ModRm.register(reg) };
-    }
-
-    pub fn registerSpecial(reg: RegisterSpecial) Operand {
-        return Operand {
-            .RegSpecial = RegisterSpecialOperand {
-                .register = reg,
-                .operand_size = .Default,
-            }
-        };
-    }
-
-    pub fn registerSpecialSized(data_size: DataSize, reg: RegisterSpecial) Operand {
-        return Operand {
-            .RegSpecial = RegisterSpecialOperand {
-                .register = reg,
-                .operand_size = data_size,
-            }
-        };
     }
 
     pub fn voidOperand(data_size: DataSize) Operand {
@@ -1272,6 +1386,7 @@ pub const Operand = union(OperandTag) {
         return Operand { .Imm = Immediate.createSigned(.Imm64, @intCast(i64, im)) };
     }
 
+    /// Same as memorySib, except it may choose to encode it as memoryRm if the encoding is shorter
     pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
         var modrm: ModRm = undefined;
         if (index == null and base != null) edge_case: {
@@ -1289,16 +1404,39 @@ pub const Operand = union(OperandTag) {
         return Operand { .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
     }
 
+    /// Same memory() except uses the default segment
+    pub fn memoryDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
+        return memory(.DefaultSeg, data_size, scale, index, base, disp);
+    }
+
+    /// data_size [seg: reg + disp]
     pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: u32) Operand {
         return Operand { .Rm = ModRm.memoryRm(seg, data_size, reg, disp) };
     }
 
+    /// data_size [DefaultSeg: reg + disp]
+    pub fn memoryRmDef(data_size: DataSize, reg: Register, disp: u32) Operand {
+        return Operand { .Rm = ModRm.memoryRm(.DefaultSeg, data_size, reg, disp) };
+    }
+
+    /// data_size [seg: (scale*index) + base + disp8]
     pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
         return Operand { .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
     }
 
+    /// data_size [DefaultSeg: (scale*index) + base + disp8]
+    pub fn memorySibDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
+        return Operand { .Rm = ModRm.memorySib(.DefaultSeg, data_size, scale, index, base, disp) };
+    }
+
+    /// data_size [Seg: EIP/RIP + disp]
     pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: u32) Operand {
         return Operand { .Rm = ModRm.relMemory(seg, data_size, reg, disp) };
+    }
+
+    /// data_size [DefaultSeg: EIP/RIP + disp]
+    pub fn relMemoryDef(data_size: DataSize, reg: RelRegister, disp: u32) Operand {
+        return Operand { .Rm = ModRm.relMemory(.DefaultSeg, data_size, reg, disp) };
     }
 
     pub fn moffset16(seg: Segment, size: DataSize, disp: u16) Operand {
@@ -1344,13 +1482,6 @@ pub const Operand = union(OperandTag) {
                 } else {
                     try std.fmt.format(context, FmtError, output, "0x{x}", .{im.value()});
                 }
-            },
-            .RegSpecial => |reg| {
-                if (reg.operand_size != .Default) {
-                    try output(context, @tagName(reg.operand_size));
-                    try output(context, " ");
-                }
-                try output(context, @tagName(reg.register));
             },
             .Addr => |addr| {
                 if (addr.operandDataSize() != .Default) {

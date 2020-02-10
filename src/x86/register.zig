@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 usingnamespace(@import("types.zig"));
 
 // When we want to refer to a register but don't care about it's bit size
@@ -21,16 +22,30 @@ pub const RegisterName = enum (u8) {
     R15 = 0x0F,
 };
 
-pub const RegisterSize = enum (u8) {
-    Reg8  = 0,
-    Reg16 = 1,
-    Reg32 = 2,
-    Reg64 = 3,
+pub const RegisterType = enum(u16) {
+    General = 0x0000,
+    Segment = 0x0800,
+    Float = 0x0F00,
+    Control = 0x1000,
+    Debug = 0x1100,
+    MMX = 0x1700,
+    XMM = 0x1800,
+    YMM = 0x1900,
+    ZMM = 0x1A00,
 };
 
-/// General purpose registers 8/16/32/64 bits
-pub const Register = enum(u8) {
-    const rex_flag: u8 = 0x40;
+/// Special control and debug registers
+pub const Register = enum (u16) {
+    const tag_mask = 0xFF00;
+    const tag_general = @enumToInt(RegisterType.General);
+    const tag_segment = @enumToInt(RegisterType.Segment);
+    const tag_float = @enumToInt(RegisterType.Float);
+    const tag_control = @enumToInt(RegisterType.Control);
+    const tag_debug = @enumToInt(RegisterType.Debug);
+    const tag_mmx = @enumToInt(RegisterType.MMX);
+    const tag_xmm = @enumToInt(RegisterType.XMM);
+    const tag_ymm = @enumToInt(RegisterType.YMM);
+    const tag_zmm = @enumToInt(RegisterType.ZMM);
 
     // We use special format for these registers:
     // u8: .RSSNNNN
@@ -40,7 +55,9 @@ pub const Register = enum(u8) {
     // R: needs REX prefix
     // .: unused
 
-    AL = 0x00,
+    const rex_flag: u8 = 0x40;
+    const gpr_size_mask: u8 = 0x30;
+    AL = 0x00 | tag_general,
     CL,
     DL,
     BL,
@@ -55,10 +72,10 @@ pub const Register = enum(u8) {
     R12B,
     R13B,
     R14B,
-    R15B = 0x0F,
+    R15B = 0x0F | tag_general,
 
     // 16 bit registers
-    AX = 0x10,
+    AX = 0x10 | tag_general,
     CX,
     DX,
     BX,
@@ -73,10 +90,10 @@ pub const Register = enum(u8) {
     R12W,
     R13W,
     R14W,
-    R15W = 0x1F,
+    R15W = 0x1F | tag_general,
 
     // 32 bit registers
-    EAX = 0x20,
+    EAX = 0x20 | tag_general,
     ECX,
     EDX,
     EBX,
@@ -91,11 +108,11 @@ pub const Register = enum(u8) {
     R12D,
     R13D,
     R14D,
-    R15D = 0x2F,
+    R15D = 0x2F | tag_general,
 
     // We use a flag 0x80 to mark registers that require REX prefix
     // 64 bit register
-    RAX = 0x30 | rex_flag,
+    RAX = 0x30 | rex_flag | tag_general,
     RCX,
     RDX,
     RBX,
@@ -110,120 +127,50 @@ pub const Register = enum(u8) {
     R12,
     R13,
     R14,
-    R15 = 0x3F | rex_flag,
+    R15 = 0x3F | rex_flag | tag_general,
 
     // special 8 bit registers added in x86-64:
-    SPL = 0x04 | rex_flag, // would be AH without REX flag
-    BPL = 0x05 | rex_flag, // would be CH without REX flag
-    SIL = 0x06 | rex_flag, // would be DH without REX flag
-    DIL = 0x07 | rex_flag, // would be BH without REX flag
+    SPL = 0x04 | rex_flag | tag_general, // would be AH without REX flag
+    BPL = 0x05 | rex_flag | tag_general, // would be CH without REX flag
+    SIL = 0x06 | rex_flag | tag_general, // would be DH without REX flag
+    DIL = 0x07 | rex_flag | tag_general, // would be BH without REX flag
 
-    pub fn create(reg_size: RegisterSize, reg_num: u8) Register {
-        std.debug.assert(reg_num <= 0x0F);
-        switch (reg_size) {
-            .Reg64 => return @intToEnum(Register, (@enumToInt(reg_size)<<4) | reg_num | rex_flag),
-            else => return @intToEnum(Register, (@enumToInt(reg_size)<<4) | reg_num),
-        }
-    }
-
-    pub fn needsRex(self: Register) bool {
-        return (@enumToInt(self) & Register.rex_flag) == Register.rex_flag;
-    }
-
-    pub fn needsNoRex(self: Register) bool {
-        return switch (self) {
-            .AH, .CH, .DH, .BH => true,
-            else => false,
-        };
-    }
-
-    pub fn toOperand(self: Register) Operand {
-        return Operand { .Reg = self };
-    }
-
-    pub fn size(self: Register) RegisterSize {
-        return @intToEnum(RegisterSize, @intCast(u2, (@enumToInt(self) >> 4) & 0x03));
-    }
-
-    pub fn bitSize(self: Register) BitSize {
-        return @intToEnum(BitSize, @as(u8,1) << @intCast(u3, @enumToInt(self.size())));
-    }
-
-    pub fn dataSize(self: Register) DataSize {
-        return @intToEnum(DataSize, @as(u8,1) << @intCast(u3, @enumToInt(self.size())));
-    }
-
-    pub fn name(self: Register) RegisterName {
-        return switch (self) {
-            .AH, .CH, .DH, .BH => @intToEnum(RegisterName, self.number() & 0x03),
-            else => @intToEnum(RegisterName, self.number()),
-        };
-    }
-
-    pub fn number(self: Register) u8 {
-        return (@enumToInt(self) & 0x0F);
-    }
-
-    pub fn numberLowBits(self: Register) u8 {
-        return @intCast(u3, (@enumToInt(self) & 0x07));
-    }
-
-    pub fn numberRm(self: Register) u3 {
-        return @intCast(u3, (@enumToInt(self) & 0x07));
-    }
-
-    pub fn numberRex(self: Register) u1 {
-        return @intCast(u1, (@enumToInt(self) >> 3) & 0x01);
-    }
-};
-
-pub const RegisterSpecialType = enum(u8) {
-    Segment = 0x00,
-    Float = 0x10,
-    MMX = 0x20,
-    Control = 0x30,
-    Debug = 0x40,
-};
-
-/// Special control and debug registers
-pub const RegisterSpecial = enum (u8) {
-    // TODO:
     // Segment registers
-    ES = 0x00,
+    ES = 0x00 | tag_segment,
     CS,
     SS,
     DS,
     FS,
-    GS = 0x05,
+    GS = 0x05 | tag_segment,
 
     /// Segment registers with extension bit set in REX
     /// These registers are identical to the other segment registers, but we
     /// include them for completness.
-    ES_ = 0x08,
+    ES_ = 0x08 | tag_segment,
     CS_,
     SS_,
     DS_,
     FS_,
-    GS_ = 0x0d,
+    GS_ = 0x0d | tag_segment,
 
-    ST0 = 0x10,
+    ST0 = 0x00 | tag_float,
     ST1,
     ST2,
     ST3,
     ST4,
     ST5,
     ST6,
-    ST7 = 0x17,
-    // ST0_ = 0x18,
+    ST7 = 0x07 | tag_float,
+    // ST0_ = 0x18 | tag_float,
     // ST1_,
     // ST2_,
     // ST3_,
     // ST4_,
     // ST5_,
     // ST6_,
-    // ST7_ = 0x1F,
+    // ST7_ = 0x1F | tag_float,
 
-    MM0 = 0x20,
+    MM0 = 0x00 | tag_mmx,
     MM1,
     MM2,
     MM3,
@@ -238,10 +185,10 @@ pub const RegisterSpecial = enum (u8) {
     MM4_,
     MM5_,
     MM6_,
-    MM7_ = 0x2F,
+    MM7_ = 0x0F | tag_mmx,
 
     // Most of these are not valid to use, but keep them for completeness
-    CR0 = 0x30,
+    CR0 = 0x00 | tag_control,
     CR1,
     CR2,
     CR3,
@@ -256,10 +203,10 @@ pub const RegisterSpecial = enum (u8) {
     CR12,
     CR13,
     CR14,
-    CR15 = 0x3F,
+    CR15 = 0x0F | tag_control,
 
     // Most of these are not valid to use, but keep them for completeness
-    DR0 = 0x40,
+    DR0 = 0x00 | tag_debug,
     DR1,
     DR2,
     DR3,
@@ -274,48 +221,9 @@ pub const RegisterSpecial = enum (u8) {
     DR12,
     DR13,
     DR14,
-    DR15 = 0x4F,
+    DR15 = 0x0F | tag_debug,
 
-    pub fn registerSpecialType(self: RegisterSpecial) RegisterSpecialType {
-        return @intToEnum(RegisterSpecialType, 0xf0 & @enumToInt(self));
-    }
-
-    pub fn dataSize(self: RegisterSpecial) DataSize {
-        const val = @enumToInt(self);
-        if (val <= @enumToInt(RegisterSpecial.GS_)) {
-            return DataSize.WORD;
-        } else {
-            unreachable;
-        }
-    }
-
-    pub fn bitSize(self: RegisterSpecial) BitSize {
-        return self.dataSize().bitSize();
-    }
-
-    pub fn toRegister(self: RegisterSpecial, mode: Mode86) Register {
-        switch (self.registerSpecialType()) {
-            .Float, .Segment => return Register.create(.Reg16, 0x0f & @enumToInt(self)),
-            .Debug, .Control => {
-                const reg_size = switch (mode) {
-                    .x86_16 => unreachable,
-                    .x86 => RegisterSize.Reg32,
-                    .x64 => RegisterSize.Reg64,
-                };
-                return Register.create(reg_size, 0x0f & @enumToInt(self));
-            },
-            else => unreachable,
-        }
-    }
-};
-
-const RegisterSimd = enum(u8) {
-    const avx_mask = 0xC0;
-    const xmm_tag = 0x40;
-    const ymm_tag = 0x80;
-    const zmm_tag = 0xC0;
-
-    XMM0 = 0x00 | xmm_tag,
+    XMM0 = 0x00 | tag_xmm,
     XMM1,
     XMM2,
     XMM3,
@@ -346,9 +254,9 @@ const RegisterSimd = enum(u8) {
     XMM28,
     XMM29,
     XMM30,
-    XMM31 = 0x1F | xmm_tag,
+    XMM31 = 0x1F | tag_xmm,
 
-    YMM0 = 0x00 | ymm_tag,
+    YMM0 = 0x00 | tag_ymm,
     YMM1,
     YMM2,
     YMM3,
@@ -379,9 +287,9 @@ const RegisterSimd = enum(u8) {
     YMM28,
     YMM29,
     YMM30,
-    YMM31 = 0x1F | ymm_tag,
+    YMM31 = 0x1F | tag_ymm,
 
-    ZMM0 = 0x1F | zmm_tag,
+    ZMM0 = 0x00 | tag_zmm,
     ZMM1,
     ZMM2,
     ZMM3,
@@ -412,5 +320,82 @@ const RegisterSimd = enum(u8) {
     ZMM28,
     ZMM29,
     ZMM30,
-    ZMM31 = 0x1F | zmm_tag,
+    ZMM31 = 0x1F | tag_zmm,
+
+    pub fn create(reg_size: BitSize, reg_num: u8) Register {
+        std.debug.assert(reg_num <= 0x0F);
+        switch (reg_size) {
+            // TODO: does this need to handle AH vs SIL edge case?
+            .Bit8 => return @intToEnum(Register, (0<<4) | reg_num),
+            .Bit16 => return @intToEnum(Register, (1<<4) | reg_num),
+            .Bit32 => return @intToEnum(Register, (2<<4) | reg_num),
+            .Bit64 => return @intToEnum(Register, (3<<4) | reg_num | rex_flag),
+            else => unreachable,
+        }
+    }
+
+    pub fn needsRex(self: Register) bool {
+        if (self.registerType() == .General) {
+            return (@enumToInt(self) & rex_flag) == rex_flag;
+        } else {
+            return false;
+        }
+    }
+
+    pub fn needsNoRex(self: Register) bool {
+        return switch (self) {
+            .AH, .CH, .DH, .BH => true,
+            else => false,
+        };
+    }
+
+    pub fn name(self: Register) RegisterName {
+        assert(self.registerType() == .General);
+        return switch (self) {
+            .AH, .CH, .DH, .BH => @intToEnum(RegisterName, self.number() & 0x03),
+            else => @intToEnum(RegisterName, self.number()),
+        };
+    }
+
+    pub fn number(self: Register) u8 {
+        if (self.registerType() == .General) {
+            return @intCast(u8, @enumToInt(self) & 0x0F);
+        } else {
+            return @intCast(u8, @enumToInt(self) & 0xFF);
+        }
+    }
+
+    pub fn numberRm(self: Register) u3 {
+        return @intCast(u3, @enumToInt(self) & 0x07);
+    }
+
+    pub fn numberRex(self: Register) u1 {
+        return @intCast(u1, (@enumToInt(self) >> 3) & 0x01);
+    }
+
+    pub fn registerType(self: Register) RegisterType {
+        return @intToEnum(RegisterType, tag_mask & @enumToInt(self));
+    }
+
+    pub fn dataSize(self: Register) DataSize {
+        switch (self.registerType()) {
+            .General => {
+                const masked = @intCast(u8, @enumToInt(self) & gpr_size_mask);
+                const byte_size = @as(u8, 1) << @intCast(u3, (masked >> 4));
+                return DataSize.fromByteValue(byte_size);
+            },
+            .Segment => return DataSize.WORD,
+
+            .Control,
+            .Debug,
+            .MMX,
+            .Float => return DataSize.Void,
+            else => unreachable,
+        }
+    }
+
+    pub fn bitSize(self: Register) BitSize {
+        return self.dataSize().bitSize();
+    }
+
 };

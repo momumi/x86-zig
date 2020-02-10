@@ -6,7 +6,7 @@ test "x87 floating point instructions" {
     const m32 = Machine.init(.x86);
     const m64 = Machine.init(.x64);
 
-    const sreg = Operand.registerSpecial;
+    const sreg = Operand.register;
     const memRm = Operand.memoryRm;
 
     debugPrint(false);

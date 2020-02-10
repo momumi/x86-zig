@@ -59,7 +59,6 @@ pub const Machine = struct {
         switch (op) {
             .Reg => |reg| return Operand.registerRm(reg),
             .Rm => return op,
-            .RegSpecial => |sreg| return Operand.registerRm(sreg.register.toRegister(self.mode)),
             else => unreachable,
         }
     }
@@ -109,11 +108,6 @@ pub const Machine = struct {
         var rex_w: u1 = 0;
         const reg = switch (op_reg) {
             .Reg => |reg| reg,
-            .RegSpecial => |sreg| switch (sreg.register.registerSpecialType()) {
-                .Segment => sreg.register.toRegister(self.mode),
-                .Float => sreg.register.toRegister(self.mode),
-                else => unreachable,
-            },
             else => unreachable,
         };
 
@@ -241,21 +235,11 @@ pub const Machine = struct {
 
     pub fn encodeRegRm(self: Machine, opcode: Opcode, op_reg: Operand, op_rm: Operand, def_size: DefaultSize) AsmError!Instruction {
         var res = Instruction{};
-        const reg = switch (op_reg) {
-            .Reg => |reg| reg,
-            .RegSpecial => |sreg| switch (sreg.register.registerSpecialType()) {
-                .Segment,
-                .Float,
-                .Control,
-                .Debug => sreg.register.toRegister(self.mode),
-                else => unreachable,
-            },
-            else => unreachable,
-        };
+        const reg = op_reg.Reg;
         const rm = self.coerceRm(op_rm).Rm;
 
         switch (def_size) {
-            .RM16, .RM32_RM, .RM32_Reg => {},
+            .RM16, .RM32_RM, .RM32_Reg, .RM64_RM, .RM64_Reg => {},
 
             else => if (reg.bitSize() != rm.operandSize()) {
                 return AsmError.InvalidOperand;
@@ -412,6 +396,7 @@ pub const Machine = struct {
                 return item.encode(self, ops1, ops2, ops3, ops4);
             }
         }
+
         return AsmError.InvalidOperand;
     }
 

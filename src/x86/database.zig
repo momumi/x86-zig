@@ -227,7 +227,7 @@ pub const CpuVersion = enum {
     /// Added in Pentium
     Pent,
     /// Added in Pentium MMX
-    PentMMX,
+    MMX,
     /// Added in AMD K6
     K6,
     /// Added in Pentium Pro
@@ -473,7 +473,7 @@ pub const InstructionItem = struct {
 fn genMnemonicLookupTable() [Mnemonic.count]u16 {
     comptime {
         var result: [Mnemonic.count]u16 = undefined;
-        var current_mnem = Mnemonic._mnemonic_count;
+        var current_mnem = Mnemonic._mnemonic_final;
 
         _ = @setEvalBranchQuota(5000);
 
@@ -484,6 +484,10 @@ fn genMnemonicLookupTable() [Mnemonic.count]u16 {
         for (instruction_database) |item, i| {
             if (item.mnemonic != current_mnem) {
                 current_mnem = item.mnemonic;
+
+                if (current_mnem == ._mnemonic_final) {
+                    break;
+                }
                 if (result[@enumToInt(current_mnem)] != 0xffff) {
                     @compileError("Mnemonic mislocated in lookup table. " ++ @tagName(current_mnem));
                 }
@@ -1003,17 +1007,17 @@ pub const instruction_database = [_]InstructionItem {
     instr(.MOV,     ops2(.rm32, .imm32),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
     instr(.MOV,     ops2(.rm64, .imm32),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
     // 386 MOV to/from Control Registers
-    instr(.MOV,     ops2(.reg32, .reg_cr),      Op2(0x0F, 0x20),        .MR, .RM32,       .{No64, _386} ),
-    instr(.MOV,     ops2(.reg64, .reg_cr),      Op2(0x0F, 0x20),        .MR, .RM64,       .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg32, .reg_cr),      Op2(0x0F, 0x20),        .MR, .RM32_RM,    .{No64, _386} ),
+    instr(.MOV,     ops2(.reg64, .reg_cr),      Op2(0x0F, 0x20),        .MR, .RM64_RM,    .{No32, x86_64} ),
     //
-    instr(.MOV,     ops2(.reg_cr, .reg32),      Op2(0x0F, 0x22),        .RM, .RM32,       .{No64, _386} ),
-    instr(.MOV,     ops2(.reg_cr, .reg64),      Op2(0x0F, 0x22),        .RM, .RM64,       .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg_cr, .reg32),      Op2(0x0F, 0x22),        .RM, .RM32_RM,    .{No64, _386} ),
+    instr(.MOV,     ops2(.reg_cr, .reg64),      Op2(0x0F, 0x22),        .RM, .RM64_RM,    .{No32, x86_64} ),
     // 386 MOV to/from Debug Registers
-    instr(.MOV,     ops2(.reg32, .reg_dr),      Op2(0x0F, 0x21),        .MR, .RM32,       .{No64, _386} ),
-    instr(.MOV,     ops2(.reg64, .reg_dr),      Op2(0x0F, 0x21),        .MR, .RM64,       .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg32, .reg_dr),      Op2(0x0F, 0x21),        .MR, .RM32_RM,    .{No64, _386} ),
+    instr(.MOV,     ops2(.reg64, .reg_dr),      Op2(0x0F, 0x21),        .MR, .RM64_RM,    .{No32, x86_64} ),
     //
-    instr(.MOV,     ops2(.reg_dr, .reg32),      Op2(0x0F, 0x23),        .RM, .RM32,       .{No64, _386} ),
-    instr(.MOV,     ops2(.reg_dr, .reg64),      Op2(0x0F, 0x23),        .RM, .RM64,       .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg_dr, .reg32),      Op2(0x0F, 0x23),        .RM, .RM32_RM,       .{No64, _386} ),
+    instr(.MOV,     ops2(.reg_dr, .reg64),      Op2(0x0F, 0x23),        .RM, .RM64_RM,       .{No32, x86_64} ),
 // MOVS / MOVSB / MOVSW / MOVSD / MOVSQ
     instr(.MOVS,    ops1(._void8),              Op1(0xA4),              .ZO, .RM8,        .{} ),
     instr(.MOVS,    ops1(._void),               Op1(0xA5),              .ZO, .RM32,       .{} ),
@@ -1089,11 +1093,29 @@ pub const instruction_database = [_]InstructionItem {
     instr(.POP,     ops1(.rm32),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
     instr(.POP,     ops1(.rm64),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
     //
-    instr(.POP,     ops1(.reg_ds),              Op1(0x1F),              .ZO, .ZO32Only,   .{} ),
-    instr(.POP,     ops1(.reg_es),              Op1(0x07),              .ZO, .ZO32Only,   .{} ),
-    instr(.POP,     ops1(.reg_ss),              Op1(0x17),              .ZO, .ZO32Only,   .{} ),
-    instr(.POP,     ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO64_16,    .{} ),
-    instr(.POP,     ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO64_16,    .{} ),
+    instr(.POP,     ops1(.reg_ds),              Op1(0x1F),              .ZODef, .ZO32Only,.{} ),
+    instr(.POP,     ops1(.reg_es),              Op1(0x07),              .ZODef, .ZO32Only,.{} ),
+    instr(.POP,     ops1(.reg_ss),              Op1(0x17),              .ZODef, .ZO32Only,.{} ),
+    instr(.POP,     ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO,         .{} ),
+    instr(.POP,     ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO,         .{} ),
+    //
+    instr(.POPW,    ops1(.reg_ds),              Op1(0x1F),              .ZO16, .ZO32Only, .{} ),
+    instr(.POPW,    ops1(.reg_es),              Op1(0x07),              .ZO16, .ZO32Only, .{} ),
+    instr(.POPW,    ops1(.reg_ss),              Op1(0x17),              .ZO16, .ZO32Only, .{} ),
+    instr(.POPW,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO16, .ZO64_16,  .{} ),
+    instr(.POPW,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO16, .ZO64_16,  .{} ),
+    //
+    instr(.POPD,    ops1(.reg_ds),              Op1(0x1F),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.POPD,    ops1(.reg_es),              Op1(0x07),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.POPD,    ops1(.reg_ss),              Op1(0x17),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.POPD,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO32, .ZO64_16,  .{No64} ),
+    instr(.POPD,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO32, .ZO64_16,  .{No64} ),
+    //
+    instr(.POPQ,    ops1(.reg_ds),              Op1(0x1F),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.POPQ,    ops1(.reg_es),              Op1(0x07),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.POPQ,    ops1(.reg_ss),              Op1(0x17),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.POPQ,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO64, .ZO64_16,  .{No32} ),
+    instr(.POPQ,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO64, .ZO64_16,  .{No32} ),
 // POPA
     instr(.POPA,    ops0(),                     Op1(0x60),              .ZODef, .RM32,    .{No64, _186} ),
     instr(.POPAW,   ops0(),                     Op1(0x60),              .ZO16,  .RM32,    .{No64, _186} ),
@@ -1118,12 +1140,33 @@ pub const instruction_database = [_]InstructionItem {
     instr(.PUSH,    ops1(.rm32),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
     instr(.PUSH,    ops1(.rm64),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
     //
-    instr(.PUSH,    ops1(.reg_cs),              Op1(0x0E),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_ss),              Op1(0x16),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_ds),              Op1(0x1E),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZO, .ZO32Only,   .{} ),
-    instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO64_16,    .{} ),
-    instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO64_16,    .{} ),
+    instr(.PUSH,    ops1(.reg_cs),              Op1(0x0E),              .ZODef, .ZO32Only,.{} ),
+    instr(.PUSH,    ops1(.reg_ss),              Op1(0x16),              .ZODef, .ZO32Only,.{} ),
+    instr(.PUSH,    ops1(.reg_ds),              Op1(0x1E),              .ZODef, .ZO32Only,.{} ),
+    instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZODef, .ZO32Only,.{} ),
+    instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO,         .{} ),
+    instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO,         .{} ),
+    //
+    instr(.PUSHW,   ops1(.reg_cs),              Op1(0x0E),              .ZO16, .ZO32Only, .{} ),
+    instr(.PUSHW,   ops1(.reg_ss),              Op1(0x16),              .ZO16, .ZO32Only, .{} ),
+    instr(.PUSHW,   ops1(.reg_ds),              Op1(0x1E),              .ZO16, .ZO32Only, .{} ),
+    instr(.PUSHW,   ops1(.reg_es),              Op1(0x06),              .ZO16, .ZO32Only, .{} ),
+    instr(.PUSHW,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO16, .ZO64_16,  .{} ),
+    instr(.PUSHW,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO16, .ZO64_16,  .{} ),
+    //
+    instr(.PUSHD,   ops1(.reg_cs),              Op1(0x0E),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.PUSHD,   ops1(.reg_ss),              Op1(0x16),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.PUSHD,   ops1(.reg_ds),              Op1(0x1E),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.PUSHD,   ops1(.reg_es),              Op1(0x06),              .ZO32, .ZO32Only, .{No64} ),
+    instr(.PUSHD,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO32, .ZO64_16,  .{No64} ),
+    instr(.PUSHD,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO32, .ZO64_16,  .{No64} ),
+    //
+    instr(.PUSHQ,   ops1(.reg_cs),              Op1(0x0E),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.PUSHQ,   ops1(.reg_ss),              Op1(0x16),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.PUSHQ,   ops1(.reg_ds),              Op1(0x1E),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.PUSHQ,   ops1(.reg_es),              Op1(0x06),              .ZO64, .ZO32Only, .{No32} ),
+    instr(.PUSHQ,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO64, .ZO64_16,  .{No32} ),
+    instr(.PUSHQ,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO64, .ZO64_16,  .{No32} ),
 // PUSHA
     instr(.PUSHA,   ops0(),                     Op1(0x60),              .ZODef, .RM32,    .{No64, _186} ),
     instr(.PUSHAW,  ops0(),                     Op1(0x60),              .ZO16,  .RM32,    .{No64, _186} ),
@@ -1878,7 +1921,7 @@ pub const instruction_database = [_]InstructionItem {
 // Pentium MMX
 //
 // RDPMC
-    instr(.RDPMC,      ops0(),                   Op2(0x0F, 0x33),        .ZO, .ZO,         .{Pent} ),
+    instr(.RDPMC,      ops0(),                   Op2(0x0F, 0x33),        .ZO, .ZO,         .{cpu.MMX} ),
 
 //
 // K6
@@ -2149,5 +2192,28 @@ pub const instruction_database = [_]InstructionItem {
 // VMXON
     instr(.VMXON,    ops1(.rm_mem64),             Op3r(0x0F, 0x01, 0xC7, 6), .M, .RM64,   .{cpu.VT_x} ),
 
+//
+// MMX instructions
+//
+// EMMS
+    instr(.EMMS,     ops0(),                    npOp2(0x0F, 0x77),           .ZO, .ZO,      .{cpu.MMX} ),
+// MOVD / MOVQ
+    instr(.MOVD,     ops2(.mmx, .rm32),         npOp2(0x0F, 0x6E),           .RM, .RM32_RM, .{cpu.MMX} ),
+    instr(.MOVD,     ops2(.rm32, .mmx),         npOp2(0x0F, 0x7E),           .MR, .RM32_RM, .{cpu.MMX} ),
+    instr(.MOVD,     ops2(.mmx, .rm64),         npOp2(0x0F, 0x6E),           .RM, .RM32_RM, .{cpu.MMX} ),
+    instr(.MOVD,     ops2(.rm64, .mmx),         npOp2(0x0F, 0x7E),           .MR, .RM32_RM, .{cpu.MMX} ),
+    //
+    instr(.MOVQ,     ops2(.mmx, .mmx),          npOp2(0x0F, 0x6F),           .RM, .ZO,      .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.mmx, .mmx),          npOp2(0x0F, 0x7F),           .MR, .ZO,      .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.mmx, .rm_mmx),       npOp2(0x0F, 0x6F),           .RM, .RM64_RM, .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.rm_mmx, .mmx),       npOp2(0x0F, 0x7F),           .MR, .RM64_RM, .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.mmx, .rm_mem64),     npOp2(0x0F, 0x6F),           .RM, .RM64_RM, .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.rm_mem64, .mmx),     npOp2(0x0F, 0x7F),           .MR, .RM64_RM, .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.mmx, .rm64),         npOp2(0x0F, 0x6E),           .RM, .RM64_RM, .{cpu.MMX} ),
+    instr(.MOVQ,     ops2(.rm64, .mmx),         npOp2(0x0F, 0x7E),           .MR, .RM64_RM, .{cpu.MMX} ),
+
+
+    // Dummy sigil value that marks the end of the table
+    instr(._mnemonic_final,  ops0(), Opcode{}, .ZO, .ZO, .{} ),
 };
 

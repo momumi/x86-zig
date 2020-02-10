@@ -17,31 +17,31 @@ test "pop" {
     }
 
     {
-        const op1 = Operand.registerSpecialSized(.WORD, .FS);
-        testOp1(m64, .POP, op1, "66 0F A1");
-        testOp1(m32, .POP, op1, "66 0F A1");
-    }
-
-    {
-        const op1 = Operand.registerSpecialSized(.DWORD, .FS);
-        testOp1(m32, .POP, op1, "0F A1");
-        testOp1(m64, .POP, op1, AsmError.InvalidOperand);
-    }
-
-    {
-        const op1 = Operand.registerSpecialSized(.QWORD, .FS);
-        testOp1(m32, .POP, op1, AsmError.InvalidOperand);
-        testOp1(m64, .POP, op1, "0F A1");
-    }
-
-    {
-        const op1 = Operand.registerSpecial(.FS);
+        const op1 = Operand.register(.FS);
         testOp1(m32, .POP, op1, "0F A1");
         testOp1(m64, .POP, op1, "0F A1");
     }
 
     {
-        const op1 = Operand.registerSpecial(.DS);
+        const op1 = Operand.register(.FS);
+        testOp1(m32, .POPW, op1, "66 0F A1");
+        testOp1(m64, .POPW, op1, "66 0F A1");
+    }
+
+    {
+        const op1 = Operand.register(.FS);
+        testOp1(m32, .POPD, op1, "0F A1");
+        testOp1(m64, .POPD, op1, AsmError.InvalidOperand);
+    }
+
+    {
+        const op1 = Operand.register(.FS);
+        testOp1(m32, .POPQ, op1, AsmError.InvalidOperand);
+        testOp1(m64, .POPQ, op1, "0F A1");
+    }
+
+    {
+        const op1 = Operand.register(.DS);
         testOp1(m32, .POP, op1, "1F");
         testOp1(m64, .POP, op1, AsmError.InvalidOperand);
     }

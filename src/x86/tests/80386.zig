@@ -132,12 +132,13 @@ test "80386" {
     {
         const reg32 = Operand.register(.EAX);
         const reg64 = Operand.register(.RAX);
-        const cr0 = Operand.registerSpecial(.CR0);
-        const cr2 = Operand.registerSpecial(.CR2);
-        const cr8 = Operand.registerSpecial(.CR8);
-        const dr0 = Operand.registerSpecial(.DR0);
-        const dr1 = Operand.registerSpecial(.DR1);
-        const dr8 = Operand.registerSpecial(.DR8);
+        const cr0 = Operand.register(.CR0);
+        const cr2 = Operand.register(.CR2);
+        const cr8 = Operand.register(.CR8);
+        const dr0 = Operand.register(.DR0);
+        const dr1 = Operand.register(.DR1);
+        const dr8 = Operand.register(.DR8);
+
         {
             testOp2(m32, .MOV,  reg32, cr0, "0F 20 C0");
             testOp2(m32, .MOV,  reg64, cr0, AsmError.InvalidOperand);

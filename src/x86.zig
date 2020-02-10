@@ -3,6 +3,7 @@ pub usingnamespace(@import("x86/machine.zig"));
 test "main test" {
     // include all the tests so zig actually compiles them
     // TODO: add more negative tests
+
     _ = @import("x86/tests/call.zig");
     _ = @import("x86/tests/cmp.zig");
     _ = @import("x86/tests/mov.zig");
@@ -22,4 +23,5 @@ test "main test" {
     _ = @import("x86/tests/80486.zig");
     _ = @import("x86/tests/pentium.zig");
     _ = @import("x86/tests/bit_manipulation.zig");
+    _ = @import("x86/tests/mmx.zig");
 }

@@ -43,8 +43,11 @@ pub const DefaultSize = enum (u8) {
     /// Same as RM32, but use the reg operand size only ignoring the other operand
     RM32_Reg,
 
-    // /// Same as RM32, but use the reg operand size only ignoring the other operand
-    // RM32_REG,
+    /// Same as RM64, but use the r/m operand size only ignoring the other operand
+    RM64_RM,
+
+    /// Same as RM64, but use the reg operand size only ignoring the other operand
+    RM64_Reg,
 
     /// 64 bit mode:
     ///     Default operand is 32 bit, 16/64 bit invalid
@@ -137,6 +140,8 @@ pub const DefaultSize = enum (u8) {
             .RM32Only,
             .RM32 => .Bit32,
 
+            .RM64_RM,
+            .RM64_Reg,
             .RM64 => .Bit64,
 
             .RM,
@@ -165,6 +170,8 @@ pub const DefaultSize = enum (u8) {
             .RM64Strict,
             .ZO64_16,
             .RM64_16,
+            .RM64_RM,
+            .RM64_Reg,
             .RM64 => .Bit64,
 
             .RM,
@@ -184,7 +191,7 @@ pub const DefaultSize = enum (u8) {
 
     pub fn is64(self: DefaultSize) bool {
         return switch (self) {
-            .ZO64_16, .RM64, .RM64Strict, .RM64_16 => true,
+            .ZO64_16, .RM64, .RM64Strict, .RM64_16, .RM64_RM, .RM64_Reg => true,
             else => false,
         };
     }
@@ -205,6 +212,7 @@ pub const AsmError = error {
     InvalidMemoryAddressing,
     InvalidOperand,
     InvalidMode,
+    InvalidRegisterCombination,
     InvalidRegister,
     RelativeImmediateOverflow,
     // InvalidImmediate,
@@ -577,6 +585,8 @@ pub const Prefixes = struct {
                 else => return AsmError.InvalidOperand,
             },
 
+            .RM64_RM,
+            .RM64_Reg,
             .RM64 => switch (operand_size) {
                 .Bit64 => {},
                 else => return AsmError.InvalidOperand,
@@ -630,6 +640,7 @@ pub const Prefixes = struct {
         addressing_size: BitSize,
         default_size: DefaultSize
     ) AsmError!void {
+
         switch (default_size) {
             .RM8 => switch (operand_size) {
                 .Bit8 => {},
@@ -655,7 +666,10 @@ pub const Prefixes = struct {
                 else => return AsmError.InvalidOperand,
             },
 
+            .RM64_Reg,
+            .RM64_RM,
             .RM64 => return AsmError.InvalidOperand,
+
             .RM8_64Only => return AsmError.InvalidOperand,
 
             .RM,

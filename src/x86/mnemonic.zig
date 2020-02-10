@@ -1,6 +1,6 @@
 
 pub const Mnemonic = enum {
-    pub const count: usize = @enumToInt(Mnemonic._mnemonic_count);
+    pub const count: usize = @enumToInt(Mnemonic._mnemonic_final);
     pub const first: Mnemonic = Mnemonic.AAA;
     pub const last: Mnemonic = Mnemonic.XTEST;
     AAA,
@@ -551,6 +551,9 @@ pub const Mnemonic = enum {
     PMULLW,
     PMULUDQ,
     POP,
+    POPW,
+    POPD,
+    POPQ,
     POPA,
     POPAW,
     POPAD,
@@ -604,6 +607,9 @@ pub const Mnemonic = enum {
     PUNPCKLQDQ,
     PUNPCKLWD,
     PUSH,
+    PUSHW,
+    PUSHD,
+    PUSHQ,
     PUSHA,
     PUSHAW,
     PUSHAD,
@@ -1090,5 +1096,5 @@ pub const Mnemonic = enum {
     VMWRITE,
     VMXOFF,
     VMXON,
-    _mnemonic_count,
+    _mnemonic_final,
 };

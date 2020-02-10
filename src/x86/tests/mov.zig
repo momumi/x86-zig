@@ -48,7 +48,31 @@ test "mov x64 register" {
     {
         const op1 = Operand.register(.RAX);
         const op2 = Operand.immediate(0x00);
-        testOp2(x64, .MOV, op1, op2, "48 B8 00 00 00 00 00 00 00 00");
+        testOp2(x64, .MOV, op1, op2, "B8 00 00 00 00");
+    }
+
+    {
+        const op1 = Operand.register(.RAX);
+        const op2 = Operand.immediateSigned(0x00);
+        testOp2(x64, .MOV, op1, op2, "B8 00 00 00 00");
+    }
+
+    {
+        const op1 = Operand.register(.RAX);
+        const op2 = Operand.immediate(0x80000000);
+        testOp2(x64, .MOV, op1, op2, "B8 00 00 00 80");
+    }
+
+    {
+        const op1 = Operand.register(.RAX);
+        const op2 = Operand.immediateSigned(-1);
+        testOp2(x64, .MOV, op1, op2, "48 B8 FFFF FFFF FFFF FFFF");
+    }
+
+    {
+        const op1 = Operand.register(.RAX);
+        const op2 = Operand.immediateSigned(-0x8000);
+        testOp2(x64, .MOV, op1, op2, "48 B8 00 80 FFFF FFFF FFFF");
     }
 
     {

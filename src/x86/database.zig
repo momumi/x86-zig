@@ -120,8 +120,16 @@ pub const OpcodeEdgeCase = enum {
     /// This means we have to choose a different encoding on x86-64.
     XCHG_EAX = 0x1,
 
-    /// sign-extended immediate value
+    /// sign-extended immediate value (ie this opcode sign extends)
     Sign,
+
+    /// mark an encoding that will only work if the immediate doesn't need a
+    /// sign extension (ie this opcode zero extends)
+    ///
+    /// eg: `MOV r64, imm32` can be encode in the same way as `MOV r32, imm32`
+    /// as long as the immediate is non-negative since all operations on 32 bit
+    /// registers implicitly zero extend
+    NoSign,
 
     /// Not encodable on 64 bit mode
     No64,
@@ -145,8 +153,11 @@ pub const OpcodeEdgeCase = enum {
             .XCHG_EAX => {
                 return (mode == .x64 and op1.?.Reg == .EAX and op2.?.Reg == .EAX);
             },
-            .Sign => {
+            .NoSign, .Sign => {
+                const sign = self;
+
                 var imm_pos: u2 = undefined;
+                // figure out which operand is the immediate
                 if (op1 != null and op1.?.tag() == .Imm) {
                     imm_pos = 0;
                 } else if (op2 != null and op2.?.tag() == .Imm) {
@@ -164,10 +175,18 @@ pub const OpcodeEdgeCase = enum {
                     2 => op3.?.Imm,
                     3 => op4.?.Imm,
                 };
-                if (imm.sign == .Unsigned and imm.willSignExtend(item.signature.operands[imm_pos].?)) {
-                    return true;
-                } else {
-                    return false;
+                switch (sign) {
+                    // Matches edgecase when it's an unsigned immediate that will get sign extended
+                    .Sign => {
+                        const is_unsigned = imm.sign == .Unsigned;
+                        return (is_unsigned and imm.willSignExtend(item.signature.operands[imm_pos].?));
+                    },
+                    // Matches edgecase when it's a signed immedate that needs its sign extended
+                    .NoSign => {
+                        const is_signed = imm.sign == .Signed;
+                        return (is_signed and imm.isNegative());
+                    },
+                    else => unreachable,
                 }
             },
             .No64 => unreachable,
@@ -956,13 +975,13 @@ pub const instruction_database = [_]InstructionItem {
     instr(.MOV,     ops2(.reg32, .rm32),        Op1(0x8B),              .RM, .RM32,       .{} ),
     instr(.MOV,     ops2(.reg64, .rm64),        Op1(0x8B),              .RM, .RM32,       .{} ),
     //
-    instr(.MOV,     ops2(.rm16, .reg_seg),      Op1(0x8C),              .MR, .RM16,    .{} ),
-    instr(.MOV,     ops2(.rm32, .reg_seg),      Op1(0x8C),              .MR, .RM16,    .{} ),
-    instr(.MOV,     ops2(.rm64, .reg_seg),      Op1(0x8C),              .MR, .RM16,    .{} ),
+    instr(.MOV,     ops2(.rm16, .reg_seg),      Op1(0x8C),              .MR, .RM16,       .{} ),
+    instr(.MOV,     ops2(.rm32, .reg_seg),      Op1(0x8C),              .MR, .RM16,       .{} ),
+    instr(.MOV,     ops2(.rm64, .reg_seg),      Op1(0x8C),              .MR, .RM16,       .{} ),
     //
-    instr(.MOV,     ops2(.reg_seg, .rm16),      Op1(0x8E),              .RM, .RM16,    .{} ),
-    instr(.MOV,     ops2(.reg_seg, .rm32),      Op1(0x8E),              .RM, .RM16,    .{} ),
-    instr(.MOV,     ops2(.reg_seg, .rm64),      Op1(0x8E),              .RM, .RM16,    .{} ),
+    instr(.MOV,     ops2(.reg_seg, .rm16),      Op1(0x8E),              .RM, .RM16,       .{} ),
+    instr(.MOV,     ops2(.reg_seg, .rm32),      Op1(0x8E),              .RM, .RM16,       .{} ),
+    instr(.MOV,     ops2(.reg_seg, .rm64),      Op1(0x8E),              .RM, .RM16,       .{} ),
     // TODO: CHECK, not 100% sure how moffs is supposed to behave in all cases
     instr(.MOV,     ops2(.reg_al, .moffs8),     Op1(0xA0),              .FD, .RM8,        .{} ),
     instr(.MOV,     ops2(.reg_ax, .moffs16),    Op1(0xA1),              .FD, .RM32,       .{} ),
@@ -976,6 +995,7 @@ pub const instruction_database = [_]InstructionItem {
     instr(.MOV,     ops2(.reg8, .imm8),         Op1(0xB0),              .OI, .RM8,        .{} ),
     instr(.MOV,     ops2(.reg16, .imm16),       Op1(0xB8),              .OI, .RM32,       .{} ),
     instr(.MOV,     ops2(.reg32, .imm32),       Op1(0xB8),              .OI, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg64, .imm32),       Op1(0xB8),              .OI, .RM64,       .{edge.NoSign} ),
     instr(.MOV,     ops2(.reg64, .imm64),       Op1(0xB8),              .OI, .RM32,       .{} ),
     //
     instr(.MOV,     ops2(.rm8, .imm8),          Op1r(0xC6, 0),          .MI, .RM8,        .{} ),

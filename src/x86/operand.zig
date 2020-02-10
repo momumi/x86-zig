@@ -1009,10 +1009,15 @@ pub const ImmediateSign = enum (u1) {
 pub const Immediate = struct {
     size: ImmediateSize,
     _value: u64,
-    sign: ImmediateSign = .Unsigned,
+    sign: ImmediateSign,
 
     pub fn value(self: Immediate) u64 {
         return self._value;
+    }
+
+    pub fn asSignedValue(self: Immediate) i64 {
+        std.debug.assert(self.sign == .Signed);
+        return @bitCast(i64, self._value);
     }
 
     pub fn isStrict(self: Immediate) bool {
@@ -1030,17 +1035,17 @@ pub const Immediate = struct {
 
     pub fn as8(self: Immediate) u8 {
         std.debug.assert(self.bitSize() == .Bit8);
-        return @intCast(u8, self._value);
+        return @intCast(u8, self._value & 0xff);
     }
 
     pub fn as16(self: Immediate) u16 {
         std.debug.assert(self.bitSize() == .Bit16);
-        return @intCast(u16, self._value);
+        return @intCast(u16, self._value & 0xffff);
     }
 
     pub fn as32(self: Immediate) u32 {
         std.debug.assert(self.bitSize() == .Bit32);
-        return @intCast(u32, self._value);
+        return @intCast(u32, self._value & 0xffffffff);
     }
 
     pub fn as64(self: Immediate) u64 {
@@ -1050,22 +1055,36 @@ pub const Immediate = struct {
 
     pub fn willSignExtend(self: Immediate, op_type: OperandType) bool {
         switch (op_type) {
-            .imm8_any, .imm8 => return  (self._value & 0x80) != 0,
-            .imm16_any, .imm16 => return (self._value & 0x8000) != 0,
-            .imm32_any, .imm32 => return (self._value & 0x80000000) != 0,
-            .imm64_any, .imm64 => return false,
-            else => return false,
+            .imm8_any, .imm8 => return (self._value & (1<<7)) == (1<<7),
+            .imm16_any, .imm16 => return (self._value & (1<<15)) == (1<<15),
+            .imm32_any, .imm32 => return (self._value & (1<<31)) == (1<<31),
+            .imm64_any, .imm64 => return (self._value & (1<<63)) == (1<<63),
+            else => unreachable,
+        }
+    }
+
+    pub fn isNegative(self: Immediate) bool {
+        if (self.sign == .Unsigned) {
+            return false;
+        }
+        switch (self.size) {
+            .Imm8_any, .Imm8 => return (self._value & (1<<7)) == (1<<7),
+            .Imm16_any, .Imm16 => return (self._value & (1<<15)) == (1<<15),
+            .Imm32_any, .Imm32 => return (self._value & (1<<31)) == (1<<31),
+            .Imm64_any, .Imm64 => return (self._value & (1<<63)) == (1<<63),
         }
     }
 
     pub fn coerce(self: Immediate, bit_size: BitSize) Immediate {
+        var result = self;
         switch (bit_size) {
-            .Bit8  => return Immediate.imm8(self.sign, @intCast(u8, self._value)),
-            .Bit16 => return Immediate.imm16(self.sign, @intCast(u16, self._value)),
-            .Bit32 => return Immediate.imm32(self.sign, @intCast(u32, self._value)),
-            .Bit64 => return Immediate.imm64(self.sign, @intCast(u64, self._value)),
+            .Bit8  => result.size = .Imm8,
+            .Bit16 => result.size = .Imm16,
+            .Bit32 => result.size = .Imm32,
+            .Bit64 => result.size = .Imm64,
             else => unreachable,
         }
+        return result;
     }
 
     pub fn immSigned(im: i64) Immediate {
@@ -1073,29 +1092,13 @@ pub const Immediate = struct {
         const maxInt = std.math.maxInt;
 
         if (minInt(i8) <= im and im <= maxInt(i8)) {
-            return Immediate {
-                .size = .Imm8_any,
-                ._value = @bitCast(u64, im) & 0xff,
-                .sign = .Signed,
-            };
+            return createSigned(.Imm8_any, im);
         } else if (minInt(i16) <= im and im <= maxInt(i16)) {
-            return Immediate {
-                .size = .Imm16_any,
-                ._value = @bitCast(u64, im) & 0xffff,
-                .sign = .Signed,
-            };
+            return createSigned(.Imm16_any, im);
         } else if (minInt(i32) <= im and im <= maxInt(i32)) {
-            return Immediate {
-                .size = .Imm32_any,
-                ._value = @bitCast(u64, im) & 0xffffffff,
-                .sign = .Signed,
-            };
+            return createSigned(.Imm32_any, im);
         } else {
-            return Immediate {
-                .size = .Imm64_any,
-                ._value = @bitCast(u64, im),
-                .sign = .Signed,
-            };
+            return createSigned(.Imm64_any, im);
         }
     }
 
@@ -1103,63 +1106,32 @@ pub const Immediate = struct {
         const maxInt = std.math.maxInt;
 
         if (im <= maxInt(u8)) {
-            return Immediate {
-                .size = .Imm8_any,
-                ._value = im & 0xff,
-                .sign = .Unsigned,
-            };
+            return createUnsigned(.Imm8_any, im);
         } else if (im <= maxInt(u16)) {
-            return Immediate {
-                .size = .Imm16_any,
-                ._value = im & 0xffff,
-                .sign = .Unsigned,
-            };
+            return createUnsigned(.Imm16_any, im);
         } else if (im <= maxInt(u32)) {
-            return Immediate {
-                .size = .Imm32_any,
-                ._value = im & 0xffffffff,
-                .sign = .Unsigned,
-            };
+            return createUnsigned(.Imm32_any, im);
         } else {
-            return Immediate {
-                .size = .Imm64_any,
-                ._value = im,
-                .sign = .Unsigned,
-            };
+            return createUnsigned(.Imm64_any, im);
         }
     }
 
-    pub fn imm8(sign: ImmediateSign, im: u8) Immediate {
+    pub fn createUnsigned(size: ImmediateSize, val: u64) Immediate {
         return Immediate {
-            .size = .Imm8,
-            ._value = im,
-            .sign = sign,
+            .size = size,
+            ._value = val,
+            .sign = .Unsigned,
         };
     }
 
-    pub fn imm16(sign: ImmediateSign, im: u16) Immediate {
+    pub fn createSigned(size: ImmediateSize, val: i64) Immediate {
         return Immediate {
-            .size = .Imm16,
-            ._value = im,
-            .sign = sign,
+            .size = size,
+            ._value = @bitCast(u64, val),
+            .sign = .Signed,
         };
     }
 
-    pub fn imm32(sign: ImmediateSign, im: u32) Immediate {
-        return Immediate {
-            .size = .Imm32,
-            ._value = im,
-            .sign = sign,
-        };
-    }
-
-    pub fn imm64(sign: ImmediateSign, im: u64) Immediate {
-        return Immediate {
-            .size = .Imm64,
-            ._value = im,
-            .sign = sign,
-        };
-    }
 };
 
 pub const VoidOperand = struct {
@@ -1271,16 +1243,16 @@ pub const Operand = union(OperandTag) {
     }
 
     pub fn immediate8(im: u8) Operand {
-        return Operand { .Imm = Immediate.imm8(.Unsigned, im) };
+        return Operand { .Imm = Immediate.createUnsigned(.Imm8, im) };
     }
     pub fn immediate16(im: u16) Operand {
-        return Operand { .Imm = Immediate.imm16(.Unsigned, im) };
+        return Operand { .Imm = Immediate.createUnsigned(.Imm16, im) };
     }
     pub fn immediate32(im: u32) Operand {
-        return Operand { .Imm = Immediate.imm32(.Unsigned, im) };
+        return Operand { .Imm = Immediate.createUnsigned(.Imm32, im) };
     }
     pub fn immediate64(im: u64) Operand {
-        return Operand { .Imm = Immediate.imm64(.Unsigned, im) };
+        return Operand { .Imm = Immediate.createUnsigned(.Imm64, im) };
     }
 
     pub fn immediateSigned(im: i64) Operand {
@@ -1288,16 +1260,16 @@ pub const Operand = union(OperandTag) {
     }
 
     pub fn immediateSigned8(im: i8) Operand {
-        return Operand { .Imm = Immediate.imm8(.Signed, @bitCast(u8, im)) };
+        return Operand { .Imm = Immediate.createSigned(.Imm8, @intCast(i64, im)) };
     }
     pub fn immediateSigned16(im: i16) Operand {
-        return Operand { .Imm = Immediate.imm16(.Signed, @bitCast(u16, im)) };
+        return Operand { .Imm = Immediate.createSigned(.Imm16, @intCast(i64, im)) };
     }
     pub fn immediateSigned32(im: i32) Operand {
-        return Operand { .Imm = Immediate.imm32(.Signed, @bitCast(u32, im)) };
+        return Operand { .Imm = Immediate.createSigned(.Imm32, @intCast(i64, im)) };
     }
     pub fn immediateSigned64(im: i64) Operand {
-        return Operand { .Imm = Immediate.imm64(.Signed, @bitCast(u64, im)) };
+        return Operand { .Imm = Immediate.createSigned(.Imm64, @intCast(i64, im)) };
     }
 
     pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
@@ -1367,7 +1339,11 @@ pub const Operand = union(OperandTag) {
             .Reg => |reg| try output(context, @tagName(reg)),
             .Rm => |rm| try rm.format(fmt, options, context, FmtError, output),
             .Imm => |im| {
-                try std.fmt.format(context, FmtError, output, "0x{x}", .{im.value()});
+                if (im.sign == .Signed and im.isNegative()) {
+                    try std.fmt.format(context, FmtError, output, "{}", .{im.asSignedValue()});
+                } else {
+                    try std.fmt.format(context, FmtError, output, "0x{x}", .{im.value()});
+                }
             },
             .RegSpecial => |reg| {
                 if (reg.operand_size != .Default) {

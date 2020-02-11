@@ -327,9 +327,9 @@ pub const Machine = struct {
         res.addOpcode(opcode);
 
         switch (moff.disp) {
-            .Disp16 => |disp| res.addDisp16(disp),
-            .Disp32 => |disp| res.addDisp32(disp),
-            .Disp64 => |disp| res.addDisp64(disp),
+            .Disp16 => |disp| res.addImm16(disp),
+            .Disp32 => |disp| res.addImm32(disp),
+            .Disp64 => |disp| res.addImm64(disp),
         }
 
         return res;

@@ -130,9 +130,81 @@ test "mov x64 RM" {
     }
 
     {
+        const op1 = Operand.memorySib(.DefaultSeg, .QWORD, 1, .RAX, .RAX, -1);
+        const op2 = Operand.immediate32(0x33221100);
+        testOp2(m64, .MOV, op1, op2, "48 C7 44 00 ff 00 11 22 33");
+    }
+
+    {
+        const op1 = Operand.memorySib(.DefaultSeg, .QWORD, 1, .RAX, .RAX, -129);
+        const op2 = Operand.immediate32(0x33221100);
+        testOp2(m64, .MOV, op1, op2, "48 C7 84 00 7f ff ff ff 00 11 22 33");
+    }
+
+    {
+        const op1 = Operand.memorySib(.DefaultSeg, .QWORD, 1, .RAX, .RAX, 0x80);
+        const op2 = Operand.immediate32(0x33221100);
+        testOp2(m64, .MOV, op1, op2, "48 C7 84 00 80 00 00 00 00 11 22 33");
+    }
+
+    {
         const op1 = Operand.memorySib(.DefaultSeg, .QWORD, 1, .RAX, .RAX, 0x00);
         const op2 = Operand.register(.RAX);
         testOp2(m64, .MOV, op1, op2, "48 89 04 00");
+    }
+
+    {
+        const op1 = Operand.memoryDef(.QWORD, 1, null, .RBP, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, "48 89 45 00");
+    }
+
+    {
+        const op1 = Operand.memoryDef(.QWORD, 1, null, .R13, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, "49 89 45 00");
+    }
+
+    {
+        const op1 = Operand.memoryDef(.QWORD, 4, .RSP, null, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, AsmError.InvalidMemoryAddressing);
+    }
+
+    {
+        const op1 = Operand.memoryDef(.QWORD, 4, .RBP, null, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, "48 89 04 ad 00 00 00 00");
+    }
+
+    {
+        const op1 = Operand.memorySib8(.DefaultSeg, .QWORD, 4, .RBP, null, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, AsmError.InvalidMemoryAddressing);
+    }
+
+    {
+        const op1 = Operand.memorySib8(.DefaultSeg, .QWORD, 1, null, null, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, AsmError.InvalidMemoryAddressing);
+    }
+
+    {
+        const op1 = Operand.memoryRm8(.DefaultSeg, .QWORD, .RSP, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, AsmError.InvalidMemoryAddressing);
+    }
+
+    {
+        const op1 = Operand.memoryDef(.QWORD, 4, .R13, null, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, "4a 89 04 ad 00 00 00 00");
+    }
+
+    {
+        const op1 = Operand.memoryDef(.QWORD, 1, null, .RSP, 0x00);
+        const op2 = Operand.register(.RAX);
+        testOp2(m64, .MOV, op1, op2, "48 89 04 24");
     }
 
     {

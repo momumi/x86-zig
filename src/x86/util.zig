@@ -42,25 +42,10 @@ pub fn sibValue(scale: u2, index: u3, base: u3) u8 {
 
 pub fn warnDummy(a: var, b: var) void {}
 
-pub fn hexStrSize(comptime str: []const u8) usize {
-    var res: usize = 0;
-    for (str) |c| {
-        switch (c) {
-            '0'...'9' => {},
-            'a'...'f' => {},
-            'A'...'F' => {},
-            ' ' => continue,
-            else => unreachable,
-        }
-        res += 1;
-    }
-    std.debug.assert(res % 2 == 0);
-    return res/2;
-}
-
-pub fn hexify(comptime str: []const u8) [hexStrSize(str)]u8 {
-    var res: [hexStrSize(str)]u8 = undefined;
-    var lo: u8 = undefined;
+/// Returns true if bytes matches the given hex string. ie:
+/// matchesHexString(&[3]u8{0xaa, 0xbb, 0xcc}, "aa bb cc") -> true
+pub fn matchesHexString(bytes: []const u8, str: []const u8) bool {
+    var lo: ?u8 = null;
     var hi: ?u8 = null;
     var pos: usize = 0;
 
@@ -72,17 +57,33 @@ pub fn hexify(comptime str: []const u8) [hexStrSize(str)]u8 {
             hi = std.fmt.charToDigit(c, 16) catch unreachable;
         } else {
             lo = std.fmt.charToDigit(c, 16) catch unreachable;
-            res[pos] = (hi.? << 4) | (lo << 0);
+            const cur_byte = (hi.? << 4) | (lo.? << 0);
+
+            // bytes string is too short to be a match
+            if (pos >= bytes.len) {
+                return false;
+            }
+
+            if (bytes[pos] != cur_byte) {
+                return false;
+            }
+
             pos += 1;
             hi = null;
+            lo = null;
         }
     }
-    return res;
+
+    if (hi != null and lo == null) {
+        std.debug.panic("invalid hex string: must have even number of hex digits", .{});
+    }
+
+    return true;
 }
 
-pub fn testMem(instr: AsmError!Instruction, comptime hex: []const u8) void {
+pub fn testMem(instr: AsmError!Instruction, hex_str: []const u8) void {
     if (instr) |temp| {
-        testing.expect(std.mem.eql(u8, temp.asSlice(), &hexify(hex)));
+        testing.expect(matchesHexString(temp.asSlice(), hex_str));
     } else |err| {
         std.debug.panic("expected Instruction, found {}", .{err});
     }
@@ -156,11 +157,11 @@ pub fn testOpInstruction(
     op2: ?*const Operand,
     op3: ?*const Operand,
     op4: ?*const Operand,
-    comptime hex: []const u8
+    hex_str: []const u8
 ) void {
     const instr = machine.build(mnem, op1, op2, op3, op4);
     printOp(machine, mnem, instr, op1, op2, op3, op4);
-    testMem(instr, hex);
+    testMem(instr, hex_str);
 }
 
 pub fn testOpError(

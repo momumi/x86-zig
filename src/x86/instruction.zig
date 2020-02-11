@@ -196,10 +196,10 @@ pub const Instruction = struct {
             self.addByte(sib);
         }
 
-        switch (rm.disp) {
+        switch (rm.disp.dispSize()) {
             .None => { },
-            .Disp8 => self.addDisp8(rm.disp.Disp8),
-            .Disp32 => self.addDisp32(rm.disp.Disp32),
+            .Disp8 => self.addDisp8(@intCast(i8, rm.disp.value())),
+            .Disp32 => self.addDisp32(rm.disp.value()),
         }
     }
 
@@ -224,15 +224,6 @@ pub const Instruction = struct {
             .Imm16, .Imm16_any => self.addImm16(imm.as16()),
             .Imm32, .Imm32_any => self.addImm32(imm.as32()),
             .Imm64, .Imm64_any => self.addImm64(imm.as64()),
-        }
-    }
-
-    pub fn addDisp(self: *@This(), imm: Immediate) void {
-        switch (imm.size) {
-            .Imm8_any, .Imm8 => self.addDisp8(imm.as8()),
-            .Imm16_any, .Imm16 => self.addDisp16(imm.as16()),
-            .Imm32_any, .Imm32 => self.addDisp32(imm.as32()),
-            .Imm64_any, .Imm64 => self.addDisp64(imm.as64()),
         }
     }
 
@@ -265,24 +256,24 @@ pub const Instruction = struct {
         self.add64(imm64);
     }
 
-    pub fn addDisp8(self: *@This(), disp8: u8) void {
+    pub fn addDisp8(self: *@This(), disp8: i8) void {
         self.view.displacement = self.makeViewPart(1);
-        self.add8(disp8);
+        self.add8(@bitCast(u8, disp8));
     }
 
-    pub fn addDisp16(self: *@This(), disp16: u16) void {
+    pub fn addDisp16(self: *@This(), disp16: i16) void {
         self.view.displacement = self.makeViewPart(2);
-        self.add16(disp16);
+        self.add16(@bitCast(u16, disp16));
     }
 
-    pub fn addDisp32(self: *@This(), disp32: u32) void {
+    pub fn addDisp32(self: *@This(), disp32: i32) void {
         self.view.displacement = self.makeViewPart(4);
-        self.add32(disp32);
+        self.add32(@bitCast(u32, disp32));
     }
 
-    pub fn addDisp64(self: *@This(), disp64: u64) void {
+    pub fn addDisp64(self: *@This(), disp64: i64) void {
         self.view.displacement = self.makeViewPart(8);
-        self.add64(disp64);
+        self.add64(@bitCast(u64, disp64));
     }
 
     pub fn add8(self: *@This(), imm8: u8) void {

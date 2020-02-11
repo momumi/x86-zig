@@ -1,11 +1,15 @@
 const std = @import("std");
 
+const minInt = std.math.minInt;
+const maxInt = std.math.maxInt;
+
 pub const register = @import("register.zig");
 pub const machine = @import("machine.zig");
 
 usingnamespace(@import("types.zig"));
 
 const Register = register.Register;
+
 
 pub const OperandType = enum(u16) {
     const tag_reg8 = 0x0000;
@@ -381,45 +385,33 @@ const MemDispSize = enum {
 };
 
 /// Encodes a displacement for memory addressing for 32/64 modes
-const MemDisp = union(MemDispSize) {
-    None,
-    Disp8: u8,
-    Disp32: u32,
+const MemDisp = struct {
+    displacement: i32 = 0,
+    size: MemDispSize = .None,
 
-    pub fn disp(disp_: u32) MemDisp {
-        return switch (disp_) {
-            0           => MemDisp.None,
-            0x01...0xFF => MemDisp.disp8(@intCast(u8, disp_)),
-            else        => MemDisp.disp32(disp_),
+    pub fn create(dis_size: MemDispSize, dis: i32) MemDisp {
+        return MemDisp {
+            .displacement = dis,
+            .size = dis_size,
         };
     }
 
-    pub fn value(self: MemDisp) u32 {
-        switch (self) {
-            .None => unreachable,
-            .Disp8 => return self.Disp8,
-            .Disp32 => return self.Disp32,
+    pub fn disp(dis: i32) MemDisp {
+        if (dis == 0) {
+            return MemDisp.create(.None, 0);
+        } else if (minInt(i8) <= dis and dis <= maxInt(i8)) {
+            return MemDisp.create(.Disp8, dis);
+        } else {
+            return MemDisp.create(.Disp32, dis);
         }
     }
 
-    pub fn disp8(disp_: u8) MemDisp {
-        return MemDisp{ .Disp8 = disp_ };
+    pub fn value(self: MemDisp) i32 {
+        return self.displacement;
     }
 
-    pub fn disp32(disp_: u32) MemDisp {
-        return MemDisp{ .Disp32 = disp_ };
-    }
-
-    pub fn size(self: @This()) MemDispSize {
-        return @as(MemDispSize, self);
-    }
-
-    pub fn byteSize(self: @This()) u8 {
-        return switch (self) {
-            .None => 0,
-            .Disp8 => 1,
-            .Disp32 => 4,
-        };
+    pub fn dispSize(self: MemDisp) MemDispSize {
+        return self.size;
     }
 };
 
@@ -481,11 +473,11 @@ const RelRegister = enum {
 /// Encodes memory addressing relative to RIP/EIP: [RIP + disp] or [EIP + disp]
 const RelMemory = struct {
     reg: RelRegister,
-    disp: u32,
+    disp: i32,
     data_size: DataSize,
     segment: Segment,
 
-    pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: u32) RelMemory {
+    pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) RelMemory {
         return RelMemory {
             .reg = reg,
             .disp = disp,
@@ -511,7 +503,7 @@ pub const ModRmResult = struct {
     reg: u3 = 0,
     rm: u3 = 0,
     sib: ?u8 = null,
-    disp: MemDisp = MemDisp.None,
+    disp: MemDisp = MemDisp{},
     segment: Segment = .DefaultSeg,
 
     pub fn rexRequirements(self: *@This(), reg: Register, default_size: DefaultSize) void {
@@ -653,9 +645,9 @@ pub const ModRm = union(enum) {
                 res.addressing_size = mem.reg.bitSize();
                 res.segment = mem.segment;
 
-                if (mem.disp.size() != .None)  {
+                if (mem.disp.dispSize() != .None)  {
                     // ModRM addressing: [r/m + ]
-                    switch (mem.disp) {
+                    switch (mem.disp.dispSize()) {
                         .Disp8 => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
                         .None => unreachable,
@@ -681,7 +673,7 @@ pub const ModRm = union(enum) {
                 var index: u3 = undefined;
                 res.mod = 0b00; // most modes use this value, so set it here
                 res.rm = Register.SP.numberRm(); // 0b100, magic value for SIB addressing
-                const disp = sib.disp.size();
+                const disp = sib.disp.dispSize();
 
                 res.operand_size = sib.data_size.bitSize();
                 res.segment = sib.segment;
@@ -791,7 +783,7 @@ pub const ModRm = union(enum) {
                     res.disp = sib.disp;
                 } else {
                     // other forms are impossible to encode on x86
-                    unreachable;
+                    return AsmError.InvalidMemoryAddressing;
                 }
 
                 res.sib = (
@@ -815,7 +807,7 @@ pub const ModRm = union(enum) {
                 res.rex_b = tmp_reg.numberRex();
 
                 res.segment = rel.segment;
-                res.disp = MemDisp.disp32(rel.disp);
+                res.disp = MemDisp.create(.Disp32, rel.disp);
                 res.operand_size = rel.data_size.bitSize();
                 res.addressing_size = switch (rel.reg) {
                     .EIP => .Bit32,
@@ -843,16 +835,23 @@ pub const ModRm = union(enum) {
         return ModRm { .Reg = reg };
     }
 
-    pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: u32) ModRm {
+    pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) ModRm {
         return ModRm { .Rel = RelMemory.relMemory(seg, data_size, reg, disp) };
     }
 
     /// data_size [seg: reg + disp]
-    pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: u32) ModRm {
+    pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: i32) ModRm {
+        var displacement: MemDisp = undefined;
+        // can encode these, but need to choose 8 bit displacement
+        if ((reg.name() == .BP or reg.name() == .R13) and disp == 0) {
+            displacement = MemDisp.create(.Disp8, 0);
+        } else {
+            displacement = MemDisp.disp(disp);
+        }
         return ModRm {
             .Mem = Memory {
                 .reg = reg,
-                .disp = MemDisp.disp(disp),
+                .disp = displacement,
                 .data_size = data_size,
                 .segment = seg,
             }
@@ -860,11 +859,11 @@ pub const ModRm = union(enum) {
     }
 
     /// data_size [reg + disp8]
-    pub fn memoryRm8(seg: Segment, data_size: DataSize, reg: Register, disp: u8) ModRm {
+    pub fn memoryRm8(seg: Segment, data_size: DataSize, reg: Register, disp: i8) ModRm {
         return ModRm {
             .Mem = Memory {
                 .reg = reg,
-                .disp = MemDisp.disp8(disp),
+                .disp = MemDisp.create(.Disp8, disp),
                 .data_size = data_size,
                 .segment = seg,
             }
@@ -872,11 +871,11 @@ pub const ModRm = union(enum) {
     }
 
     /// data_size [reg + disp32]
-    pub fn memoryRm32(seg: Segment, data_size: DataSize, reg: Register, disp: u32) ModRm {
+    pub fn memoryRm32(seg: Segment, data_size: DataSize, reg: Register, disp: i32) ModRm {
         return ModRm {
             .Mem = Memory {
                 .reg = reg,
-                .disp = MemDisp.disp32(disp),
+                .disp = MemDisp.create(.Disp32, disp),
                 .data_size = data_size,
                 .segment = seg,
             }
@@ -884,13 +883,13 @@ pub const ModRm = union(enum) {
     }
 
     /// data_size [(scale*index) + base + disp8]
-    pub fn memorySib8(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp8: u8) ModRm {
+    pub fn memorySib8(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp8: i8) ModRm {
         return ModRm {
             .Sib = MemorySib {
                 .scale = SibScale.scale(scale),
                 .index = index,
                 .base = base,
-                .disp = MemDisp.disp8(disp8),
+                .disp = MemDisp.create(.Disp8, disp8),
                 .data_size = data_size,
                 .segment = seg,
             }
@@ -898,13 +897,13 @@ pub const ModRm = union(enum) {
     }
 
     /// data_size [(scale*index) + base + disp32]
-    pub fn memorySib32(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp32: u32) ModRm {
+    pub fn memorySib32(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp32: i32) ModRm {
         return ModRm {
             .Sib = MemorySib {
                 .scale = SibScale.scale(scale),
                 .index = index,
                 .base = base,
-                .disp = MemDisp.disp32(disp32),
+                .disp = MemDisp.create(.Disp32, disp32),
                 .data_size = data_size,
                 .segment = seg,
             }
@@ -912,14 +911,13 @@ pub const ModRm = union(enum) {
     }
 
     /// data_size [seg: (scale*index) + base + disp]
-    pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) ModRm {
+    pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) ModRm {
         // When base is not used, only 32bit diplacements are valid
         const mem_disp = if (base == null) x: {
-            break :x MemDisp.disp32(disp);
+            break :x MemDisp.create(.Disp32, disp);
         } else x: {
             break :x MemDisp.disp(disp);
         };
-
         return ModRm {
             .Sib = MemorySib {
                 .scale = SibScale.scale(scale),
@@ -953,9 +951,14 @@ pub const ModRm = union(enum) {
                     try output(context, ": ");
                 }
                 try output(context, @tagName(mem.reg));
-                if (mem.disp !=  .None) {
-                    try output(context, " + ");
-                    try std.fmt.format(context, FmtError, output, "0x{x}", .{mem.disp.value()});
+                if (mem.disp.dispSize() !=  .None) {
+                    const disp = mem.disp.value();
+                    if (disp < 0) {
+                        try std.fmt.format(context, FmtError, output, " - 0x{x}", .{-disp});
+                    } else {
+                        try std.fmt.format(context, FmtError, output, " + 0x{x}", .{disp});
+                    }
+                    try std.fmt.format(context, FmtError, output, "{}", .{disp});
                 }
                 try output(context, "]");
             },
@@ -968,18 +971,23 @@ pub const ModRm = union(enum) {
                 }
                 if (sib.index) |index| {
                     try std.fmt.format(context, FmtError, output, "{}*{}", .{sib.scale.value(), @tagName(index)});
-                    if (sib.base != null or sib.disp != .None) {
+                    if (sib.base != null or sib.disp.dispSize() != .None) {
                         try output(context, " + ");
                     }
                 }
                 if (sib.base) |base| {
                     try output(context, @tagName(base));
-                    if (sib.disp != .None) {
+                    if (sib.disp.dispSize() != .None ) {
                         try output(context, " + ");
                     }
                 }
-                if (sib.disp !=  .None) {
-                    try std.fmt.format(context, FmtError, output, "0x{x}", .{sib.disp.value()});
+                if (sib.disp.dispSize() != .None) {
+                    const disp = sib.disp.value();
+                    if (disp < 0) {
+                        try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
+                    } else {
+                        try std.fmt.format(context, FmtError, output, "0x{x}", .{disp});
+                    }
                 }
                 try output(context, "]");
             },
@@ -991,8 +999,12 @@ pub const ModRm = union(enum) {
                     try output(context, ": ");
                 }
                 try output(context, @tagName(rel.reg));
-                try output(context, " + ");
-                try std.fmt.format(context, FmtError, output, "0x{x}", .{rel.disp});
+                const disp = rel.disp;
+                if (disp < 0) {
+                    try std.fmt.format(context, FmtError, output, " - 0x{x}", .{-disp});
+                } else {
+                    try std.fmt.format(context, FmtError, output, " + 0x{x}", .{disp});
+                }
                 try output(context, "]");
             },
             else => {},
@@ -1244,9 +1256,6 @@ pub const Immediate = struct {
     }
 
     pub fn immSigned(im: i64) Immediate {
-        const minInt = std.math.minInt;
-        const maxInt = std.math.maxInt;
-
         if (minInt(i8) <= im and im <= maxInt(i8)) {
             return createSigned(.Imm8_any, im);
         } else if (minInt(i16) <= im and im <= maxInt(i16)) {
@@ -1259,8 +1268,6 @@ pub const Immediate = struct {
     }
 
     pub fn immUnsigned(im : u64) Immediate {
-        const maxInt = std.math.maxInt;
-
         if (im <= maxInt(u8)) {
             return createUnsigned(.Imm8_any, im);
         } else if (im <= maxInt(u16)) {
@@ -1394,16 +1401,14 @@ pub const Operand = union(OperandTag) {
     }
 
     /// Same as memorySib, except it may choose to encode it as memoryRm if the encoding is shorter
-    pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
+    pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         var modrm: ModRm = undefined;
         if (index == null and base != null) edge_case: {
             const reg_name = base.?.name();
-
-            // These are the edge cases that we won't be able to encode
-            if (reg_name == .SP) { break :edge_case; }
-            if (reg_name == .R12) { break :edge_case; }
-            if (reg_name == .BP and disp == 0) { break :edge_case; }
-            if (reg_name == .R13 and disp == 0) { break :edge_case; }
+            // Can encode these, but need to choose 32 bit displacement and SIB byte
+            if (reg_name == .SP or reg_name == .R12) {
+                break :edge_case;
+            }
 
             return Operand { .Rm = ModRm.memoryRm(seg, data_size, base.?, disp) };
         }
@@ -1412,37 +1417,57 @@ pub const Operand = union(OperandTag) {
     }
 
     /// Same memory() except uses the default segment
-    pub fn memoryDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
+    pub fn memoryDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         return memory(.DefaultSeg, data_size, scale, index, base, disp);
     }
 
-    /// data_size [seg: reg + disp]
-    pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: u32) Operand {
+    /// data_size [seg: reg + disp0/8/32]
+    pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: i32) Operand {
         return Operand { .Rm = ModRm.memoryRm(seg, data_size, reg, disp) };
     }
 
-    /// data_size [DefaultSeg: reg + disp]
-    pub fn memoryRmDef(data_size: DataSize, reg: Register, disp: u32) Operand {
+    /// data_size [DefaultSeg: reg + disp0/8/32]
+    pub fn memoryRmDef(data_size: DataSize, reg: Register, disp: i32) Operand {
         return Operand { .Rm = ModRm.memoryRm(.DefaultSeg, data_size, reg, disp) };
     }
 
-    /// data_size [seg: (scale*index) + base + disp8]
-    pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
+    /// data_size [seg: reg + disp8]
+    pub fn memoryRm8(seg: Segment, data_size: DataSize, reg: Register, disp: i8) Operand {
+        return Operand { .Rm = ModRm.memoryRm8(seg, data_size, reg, disp) };
+    }
+
+    /// data_size [seg: reg + disp32]
+    pub fn memoryRm32(seg: Segment, data_size: DataSize, reg: Register, disp: i32) Operand {
+        return Operand { .Rm = ModRm.memoryRm32(seg, data_size, reg, disp) };
+    }
+
+    /// data_size [seg: (scale*index) + base + disp0/8/32]
+    pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         return Operand { .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
     }
 
-    /// data_size [DefaultSeg: (scale*index) + base + disp8]
-    pub fn memorySibDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: u32) Operand {
+    /// data_size [seg: (scale*index) + base + disp8]
+    pub fn memorySib8(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i8) Operand {
+        return Operand { .Rm = ModRm.memorySib8(seg, data_size, scale, index, base, disp) };
+    }
+
+    /// data_size [seg: (scale*index) + base + disp32]
+    pub fn memorySib32(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
+        return Operand { .Rm = ModRm.memorySib32(seg, data_size, scale, index, base, disp) };
+    }
+
+    /// data_size [DefaultSeg: (scale*index) + base + disp]
+    pub fn memorySibDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         return Operand { .Rm = ModRm.memorySib(.DefaultSeg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [Seg: EIP/RIP + disp]
-    pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: u32) Operand {
+    pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) Operand {
         return Operand { .Rm = ModRm.relMemory(seg, data_size, reg, disp) };
     }
 
     /// data_size [DefaultSeg: EIP/RIP + disp]
-    pub fn relMemoryDef(data_size: DataSize, reg: RelRegister, disp: u32) Operand {
+    pub fn relMemoryDef(data_size: DataSize, reg: RelRegister, disp: i32) Operand {
         return Operand { .Rm = ModRm.relMemory(.DefaultSeg, data_size, reg, disp) };
     }
 
@@ -1514,7 +1539,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001000);
         expect(result.modrm() == 0b11000000);
         expect(result.sib == null);
-        expect(result.disp == .None);
+        expect(result.disp.dispSize() == .None);
     }
 
     {
@@ -1524,7 +1549,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001101);
         expect(result.modrm() == 0b11001111);
         expect(result.sib == null);
-        expect(result.disp == .None);
+        expect(result.disp.dispSize() == .None);
         expect(result.prefixes.len == 0);
     }
 
@@ -1535,7 +1560,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001100);
         expect(result.modrm() == 0b00000101);
         expect(result.sib == null);
-        expect(result.disp.Disp32 == 0x76543210);
+        expect(result.disp.value() == 0x76543210);
         expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{0x67}));
     }
 
@@ -1546,7 +1571,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001100);
         expect(result.modrm() == 0b00000101);
         expect(result.sib == null);
-        expect(result.disp.Disp32 == 0x76543210);
+        expect(result.disp.value() == 0x76543210);
         expect(result.prefixes.len == 0);
     }
 
@@ -1557,7 +1582,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b00000001);
         expect(result.sib == null);
-        expect(result.disp == .None);
+        expect(result.disp.dispSize() == .None);
     }
 
     {
@@ -1567,7 +1592,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b01000001);
         expect(result.sib == null);
-        expect(result.disp.Disp8 == 0x10);
+        expect(result.disp.value() == 0x10);
     }
 
     {
@@ -1577,7 +1602,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001101);
         expect(result.modrm() == 0b10111001);
         expect(result.sib == null);
-        expect(result.disp.Disp32 == 0x76543210);
+        expect(result.disp.value() == 0x76543210);
     }
 
     // [2*R15 + R15 + 0x10]
@@ -1587,7 +1612,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01111111);
-        expect(result.disp.Disp8 == 0x10);
+        expect(result.disp.value() == 0x10);
     }
 
     // [2*R15 + R15 + 0x76543210]
@@ -1597,7 +1622,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b00111111);
-        expect(result.disp.Disp32 == 0x76543210);
+        expect(result.disp.value() == 0x76543210);
     }
 
     // [R15 + 0x10]
@@ -1607,7 +1632,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01100111);
-        expect(result.disp.Disp8 == 0x10);
+        expect(result.disp.value() == 0x10);
     }
 
     // [R15 + 0x3210]
@@ -1617,7 +1642,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b01100111);
-        expect(result.disp.Disp32 == 0x3210);
+        expect(result.disp.value() == 0x3210);
     }
 
     // [4*R15 + R15]
@@ -1627,7 +1652,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111111);
-        expect(result.disp == .None);
+        expect(result.disp.dispSize() == .None);
     }
 
     // [4*R15 + 0x10]
@@ -1637,7 +1662,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001010);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111101);
-        expect(result.disp.Disp32 == 0x10);
+        expect(result.disp.dispSize() == .Disp32);
     }
 
     // [0x10]
@@ -1647,7 +1672,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001000);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b11100101);
-        expect(result.disp.Disp32 == 0x10);
+        expect(result.disp.dispSize() == .Disp32);
     }
 
     // [R15]
@@ -1657,6 +1682,6 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10100111);
-        expect(result.disp == .None);
+        expect(result.disp.dispSize() == .None);
     }
 }

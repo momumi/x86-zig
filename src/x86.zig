@@ -24,4 +24,6 @@ test "main test" {
     _ = @import("x86/tests/pentium.zig");
     _ = @import("x86/tests/bit_manipulation.zig");
     _ = @import("x86/tests/mmx.zig");
+    _ = @import("x86/tests/sse.zig");
+    _ = @import("x86/tests/avx.zig");
 }

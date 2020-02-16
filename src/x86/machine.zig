@@ -5,6 +5,7 @@ const testing = std.testing;
 
 pub usingnamespace(@import("types.zig"));
 
+pub const avx = @import("avx.zig");
 pub const database = @import("database.zig");
 pub const operand = @import("operand.zig");
 pub const register = @import("register.zig");
@@ -32,6 +33,8 @@ pub const Machine = struct {
     // TODO: might not need these
     base_fill: u3 = 0b000,
     index_fill: u3 = 0b000,
+    /// For avx when W value is ignoreg (.WIG)
+    w_fill: u1 = 0b0,
     // prefix_order: ? = null;
 
     pub fn init(mode: Mode86) Machine {
@@ -285,6 +288,8 @@ pub const Machine = struct {
                 }
             },
 
+            .RM32_RM, .ZO => {},
+
             else => unreachable,
         }
 
@@ -335,6 +340,53 @@ pub const Machine = struct {
         return res;
     }
 
+    pub fn encodeAvx(
+        self: Machine,
+        avx_opcode: avx.AvxOpcode,
+        vec1: *const Operand,
+        vec2: ?*const Operand,
+        rm_op: ?*const Operand,
+        vec4: ?*const Operand,
+        imm_op: ?*const Operand,
+        default_size: DefaultSize
+    ) AsmError!Instruction {
+        var res = Instruction{};
+
+        const rm = self.coerceRm(rm_op.?.*).Rm;
+
+        const avx_res = try avx_opcode.encode(self, vec1.Reg, vec2, rm_op);
+        const modrm = try rm.encodeReg(self.mode, vec1.Reg, default_size);
+
+        res.addPrefixes(modrm.prefixes, Opcode{});
+        try res.addAvx(self.mode, avx_res);
+        res.addOpcodeByte(avx_opcode.opcode);
+        res.modrm(modrm);
+
+        if (vec4) |vec| {
+            // currently EVEX support for 4 operands is not officialy documented
+            assert(avx_opcode.encoding != .EVEX);
+
+            // imm8[7:4] <- vec_number
+            var imm8: u8 = 0x00;
+            const vec_num = vec.Reg.number();
+            imm8 |= vec_num << 4;
+
+            // imm8[3:0] <- immediate payload if present
+            if (imm_op) |imm| {
+                const imm_val = imm.Imm.as8();
+                if (imm_val > 0x0F) {
+                    return AsmError.InvalidOperand;
+                }
+                imm8 |= imm_val << 0;
+            }
+            res.addImm8(imm8);
+        } else if (imm_op) |imm| {
+            res.addImm(imm.Imm);
+        }
+
+        return res;
+    }
+
     pub fn build0(self: Machine, mnem: Mnemonic) AsmError!Instruction {
         return self.build(mnem, null, null, null, null);
     }
@@ -345,6 +397,14 @@ pub const Machine = struct {
 
     pub fn build2(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand) AsmError!Instruction {
         return self.build(mnem, &ops1, &ops2, null, null);
+    }
+
+    pub fn build3(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand) AsmError!Instruction {
+        return self.build(mnem, &ops1, &ops2, &ops3, null);
+    }
+
+    pub fn build4(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand) AsmError!Instruction {
+        return self.build(mnem, &ops1, &ops2, &ops3, &ops4);
     }
 
     pub fn build(self: Machine, mnem: Mnemonic, ops1: ?*const Operand, ops2: ?*const Operand, ops3: ?*const Operand, ops4: ?*const Operand) AsmError!Instruction {

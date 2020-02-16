@@ -2,7 +2,7 @@ const std = @import("std");
 usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
-test "mmx" {
+test "MMX" {
     const m32 = Machine.init(.x86);
     const m64 = Machine.init(.x64);
 
@@ -99,26 +99,6 @@ test "mmx" {
             testOp2(m64, .MOVQ, reg(.RAX), reg(.MM5), "48 0F 7E E8");
             testOp2(m64, .MOVQ, reg(.RAX), reg(.MM6), "48 0F 7E F0");
             testOp2(m64, .MOVQ, reg(.RAX), reg(.MM7), "48 0F 7E F8");
-        }
-
-        {
-            testOp2(m32, .MOVD, reg(.MM0), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM1), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM2), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM3), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM4), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM5), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM6), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .MOVD, reg(.MM7), rm64, AsmError.InvalidOperand);
-            //
-            testOp2(m64, .MOVD, reg(.MM0), rm64, "67 48 0F 6E 00");
-            testOp2(m64, .MOVD, reg(.MM1), rm64, "67 48 0F 6E 08");
-            testOp2(m64, .MOVD, reg(.MM2), rm64, "67 48 0F 6E 10");
-            testOp2(m64, .MOVD, reg(.MM3), rm64, "67 48 0F 6E 18");
-            testOp2(m64, .MOVD, reg(.MM4), rm64, "67 48 0F 6E 20");
-            testOp2(m64, .MOVD, reg(.MM5), rm64, "67 48 0F 6E 28");
-            testOp2(m64, .MOVD, reg(.MM6), rm64, "67 48 0F 6E 30");
-            testOp2(m64, .MOVD, reg(.MM7), rm64, "67 48 0F 6E 38");
         }
 
         {
@@ -230,6 +210,10 @@ test "mmx" {
         testOp2(m32, .PCMPGTW,   reg(.MM0), reg(.MM0), "0f 65 c0");
         testOp2(m32, .PCMPGTD,   reg(.MM0), reg(.MM0), "0f 66 c0");
 
+        testOp3(m32, .PEXTRW,    reg( .AX), reg(.MM0), imm(0), "0f c5 c0 00");
+        testOp3(m32, .PEXTRW,    reg(.EAX), reg(.MM0), imm(0), "0f c5 c0 00");
+        testOp3(m64, .PEXTRW,    reg(.RAX), reg(.MM0), imm(0), "0f c5 c0 00");
+
         testOp2(m32, .PMADDWD,   reg(.MM0), reg(.MM0), "0f f5 c0");
         testOp2(m32, .PMULHW,    reg(.MM0), reg(.MM0), "0f e5 c0");
         testOp2(m32, .PMULLW,    reg(.MM0), reg(.MM0), "0f d5 c0");
@@ -253,12 +237,6 @@ test "mmx" {
         testOp2(m32, .PSRLQ,     reg(.MM0), reg(.MM0), "0f d3 c0");
         testOp2(m32, .PSRLQ,     reg(.MM0), imm(0),    "0f 73 d0 00");
 
-
-        testOp2(m32, .PSRAW,     reg(.MM0), reg(.MM0), "0f e1 c0");
-        testOp2(m32, .PSRAW,     reg(.MM0), imm(0),    "0f 71 e0 00");
-        testOp2(m32, .PSRAD,     reg(.MM0), reg(.MM0), "0f e2 c0");
-        testOp2(m32, .PSRAD,     reg(.MM0), imm(0),    "0f 72 e0 00");
-
         testOp2(m32, .PSUBB,     reg(.MM0), reg(.MM0), "0f f8 c0");
         testOp2(m32, .PSUBW,     reg(.MM0), reg(.MM0), "0f f9 c0");
         testOp2(m32, .PSUBD,     reg(.MM0), reg(.MM0), "0f fa c0");
@@ -266,9 +244,9 @@ test "mmx" {
         testOp2(m32, .PSUBUSB,   reg(.MM0), reg(.MM0), "0f d8 c0");
         testOp2(m32, .PSUBUSW,   reg(.MM0), reg(.MM0), "0f d9 c0");
 
-        testOp2(m32, .PUNPCKHBW, reg(.XMM0), reg(.XMM0), "66 0f 68 c0");
-        testOp2(m32, .PUNPCKHWD, reg(.XMM0), reg(.XMM0), "66 0f 69 c0");
-        testOp2(m32, .PUNPCKHDQ, reg(.XMM0), reg(.XMM0), "66 0f 6a c0");
+        testOp2(m32, .PUNPCKHBW, reg(.MM0), reg(.MM0), "0f 68 c0");
+        testOp2(m32, .PUNPCKHWD, reg(.MM0), reg(.MM0), "0f 69 c0");
+        testOp2(m32, .PUNPCKHDQ, reg(.MM0), reg(.MM0), "0f 6a c0");
         // testOp2(m32, .PUNPCKHQDQ,reg(.MM0), reg(.MM0), "0f 6d c0");
 
         testOp2(m32, .PUNPCKLBW, reg(.MM0), reg(.MM0), "0f 60 c0");

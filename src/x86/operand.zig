@@ -5,6 +5,7 @@ const maxInt = std.math.maxInt;
 
 pub const register = @import("register.zig");
 pub const machine = @import("machine.zig");
+pub const avx = @import("avx.zig");
 
 usingnamespace(@import("types.zig"));
 
@@ -12,6 +13,8 @@ const Register = register.Register;
 
 
 pub const OperandType = enum(u16) {
+    const tag_mask = 0xFF00;
+
     const tag_reg8 = 0x0000;
     const tag_reg16 = 0x0100;
     const tag_reg32 = 0x0200;
@@ -39,7 +42,8 @@ pub const OperandType = enum(u16) {
     const tag_xmm = 0x1800;
     const tag_ymm = 0x1900;
     const tag_zmm = 0x1A00;
-    const tag_mm_mem = 0x1B00;
+    const tag_mask_reg = 0x1B00;
+    const tag_special = 0xFF00;
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -119,10 +123,12 @@ pub const OperandType = enum(u16) {
 
     // matches memory of any type
     rm_mem = 0 | tag_rm_mem,
-    rm_mem80 = 1 | tag_rm_mem,
-    rm_mem128 = 2 | tag_rm_mem,
-    rm_mem256 = 3 | tag_rm_mem,
-    rm_mem512 = 4 | tag_rm_mem,
+    rm_mem80,
+    rm_mem128,
+    rm_mem256,
+    rm_mem512,
+    rm_m32bcst,
+    rm_m64bcst,
 
     // don't really use most of these values, but include them so we have
     // something to assign ModRm.Reg values
@@ -132,9 +138,12 @@ pub const OperandType = enum(u16) {
     rm_cr,
     rm_dr,
     rm_mm,
-    rm_xmm,
+    rm_xmml,
+    rm_ymml,
     rm_ymm,
+    rm_xmm,
     rm_zmm,
+    rm_k,
 
     reg_st = 0 | tag_reg_st,
     reg_st0 = 1 | tag_reg_st,
@@ -301,14 +310,60 @@ pub const OperandType = enum(u16) {
     zmm30,
     zmm31 = 32 | tag_zmm,
 
-    // ... = 0 | tag_mm_mem,
-    mm_m64 = 1 | tag_mm_mem,
+    reg_k = 0x00 | tag_mask_reg,
+    reg_k0 = 0x01 | tag_mask_reg,
+    reg_k1,
+    reg_k2,
+    reg_k3,
+    reg_k4,
+    reg_k5,
+    reg_k6,
+    reg_k7 = 0x08 | tag_mask_reg,
+
+    // ... = 0 | tag_special,
+    mm_m64 = 1 | tag_special,
+    /// Only matches xmm[0..15]
+    xmml,
+    /// Only matches ymm[0..15]
+    ymml,
+    /// Matches xmm[0..15] or m64
+    xmml_m64,
+    /// Matches xmm[0..15] or m128
+    xmml_m128,
+    /// Matches ymm[0..15] or m256
+    ymml_m256,
+    /// Matches xmm[0..31] or m64 / m128 [or memory broadcast]
+    xmm_m64,
     xmm_m128,
+    xmm_m128_m32bcst,
+    xmm_m128_m64bcst,
+    /// Matches ymm[0..31] or m256 [or memory broadcast]
     ymm_m256,
+    ymm_m256_m32bcst,
+    ymm_m256_m64bcst,
+    /// Matches zmm[0..31] or m512 [or memory broadcast]
     zmm_m512,
+    zmm_m512_m32bcst,
+    zmm_m512_m64bcst,
+    /// Matches xmm {k}{z} or xmm
+    xmm_kz,
+    /// Matches ymm {k}{z} or ymm
+    ymm_kz,
+    /// Matches zmm {k}{z} or zmm
+    zmm_kz,
+    /// suppress all errors on floating point operations ie: {sae}
+    sae,
+    /// suppress all Errors and Rounding control ie: {ru-sae}, {rd-sae}, etc.
+    er,
+    /// doesn't match anything
+    /// Matches k {k}
+    reg_k_k,
+    /// Matches k {k} {z}
+    reg_k_kz,
+    invalid,
 
     pub fn getContainerType(self: OperandType) OperandType {
-        return @intToEnum(OperandType, @enumToInt(self) & 0xFFF0);
+        return @intToEnum(OperandType, @enumToInt(self) & tag_mask);
     }
 
     pub fn fromRegister(reg: Register) OperandType {
@@ -352,6 +407,29 @@ pub const OperandType = enum(u16) {
         }
     }
 
+    pub fn fromRegisterPredicate(reg_pred: avx.RegisterPredicate) OperandType {
+        return switch (reg_pred.Reg.registerType()) {
+            .XMM => OperandType.xmm_kz,
+            .YMM => OperandType.ymm_kz,
+            .ZMM => OperandType.zmm_kz,
+            .Mask => {
+                if (reg_pred.Z == .Zero) {
+                    return OperandType.reg_k_kz;
+                } else {
+                    return OperandType.reg_k_k;
+                }
+            },
+            else => OperandType.invalid,
+        };
+    }
+
+    pub fn fromSae(sae: avx.SuppressAllExceptions) OperandType {
+        return switch (sae) {
+            .SAE, .AE => OperandType.sae,
+            .RN_SAE, .RD_SAE, .RU_SAE, .RZ_SAE => OperandType.er,
+        };
+    }
+
     // For user supplied immediates without an explicit size are allowed to match
     // against larger immediate sizes:
     //      * imm8  <-> imm8,  imm16, imm32, imm64
@@ -368,7 +446,37 @@ pub const OperandType = enum(u16) {
             .rm32 => (other_tag == .rm32 or other_tag == .reg32),
             .rm64 => (other_tag == .rm64 or other_tag == .reg64),
             .mm_m64 => (other_tag == .mm or other == .rm_mem64 or other == .rm_mm),
-            .xmm_m128 => (other_tag == .xmm or other == .rm_mem128 or other == .rm_xmm),
+            .xmml => other_tag == .xmm and ((@enumToInt(other)) <= @enumToInt(OperandType.xmm15)),
+            .ymml => other_tag == .ymm and ((@enumToInt(other)) <= @enumToInt(OperandType.ymm15)),
+            .xmml_m64 => (
+                (other_tag == .xmm and ((@enumToInt(other)) <= @enumToInt(OperandType.xmm15)))
+                 or other == .rm_mem64 or other == .rm_xmml
+            ),
+            .xmml_m128 => (
+                (other_tag == .xmm and ((@enumToInt(other)) <= @enumToInt(OperandType.xmm15)))
+                 or other == .rm_mem128 or other == .rm_xmml
+            ),
+            .ymml_m256 => (
+                (other_tag == .ymm and ((@enumToInt(other)) <= @enumToInt(OperandType.ymm15)))
+                or other == .rm_mem256 or other == .rm_ymml
+            ),
+            // xmm
+            .xmm_m64 => other_tag == .xmm or other == .rm_xmm or other == .rm_mem64,
+            .xmm_m128 => other_tag == .xmm or other == .rm_xmm or other == .rm_mem128,
+            .xmm_m128_m32bcst => other_tag == .xmm or other == .rm_xmm or other == .rm_mem128 or other == .rm_m32bcst,
+            .xmm_m128_m64bcst => other_tag == .xmm or other == .rm_xmm or other == .rm_mem128 or other == .rm_m64bcst,
+            // ymm
+            .ymm_m256 => other_tag == .ymm or other == .rm_ymm or other == .rm_mem256,
+            .ymm_m256_m32bcst => other_tag == .ymm or other == .rm_ymm or other == .rm_mem256 or other == .rm_m32bcst,
+            .ymm_m256_m64bcst => other_tag == .ymm or other == .rm_ymm or other == .rm_mem256 or other == .rm_m64bcst,
+            // zmm
+            .zmm_m512 => other_tag == .zmm or other == .rm_zmm or other == .rm_mem512,
+            .zmm_m512_m32bcst => other_tag == .zmm or other == .rm_zmm or other == .rm_mem512 or other == .rm_m32bcst,
+            .zmm_m512_m64bcst => other_tag == .zmm or other == .rm_zmm or other == .rm_mem512 or other == .rm_m64bcst,
+            // predicate reg
+            .xmm_kz => other_tag == .xmm or other == .xmm_kz,
+            .ymm_kz => other_tag == .ymm or other == .ymm_kz,
+            .zmm_kz => other_tag == .zmm or other == .zmm_kz,
             .imm8 => (other == .imm8 or other == .imm8_any or other == .imm_1),
             .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any or other == .imm_1),
             .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm_1),
@@ -584,9 +692,10 @@ pub const ModRm = union(enum) {
                 .Control => OperandType.rm_cr,
                 .Debug => OperandType.rm_dr,
                 .MMX => OperandType.rm_mm,
-                .XMM => OperandType.rm_xmm,
-                .YMM => OperandType.rm_ymm,
+                .XMM => if (reg.number() <= 15) OperandType.rm_xmml else OperandType.rm_xmm,
+                .YMM => if (reg.number() <= 15) OperandType.rm_ymml else OperandType.rm_ymm,
                 .ZMM => OperandType.rm_zmm,
+                .Mask => OperandType.rm_k,
             },
 
             .Mem,
@@ -599,6 +708,8 @@ pub const ModRm = union(enum) {
                 .QWORD  => OperandType.rm_mem64,
                 .TBYTE  => OperandType.rm_mem80,
                 .OWORD  => OperandType.rm_mem128,
+                .DWORD_BCST => OperandType.rm_m32bcst,
+                .QWORD_BCST => OperandType.rm_m64bcst,
                 .FAR_WORD  => OperandType.m16_16,
                 .FAR_DWORD  => OperandType.m16_32,
                 .FAR_QWORD  => OperandType.m16_64,
@@ -936,7 +1047,7 @@ pub const ModRm = union(enum) {
         options: std.fmt.FormatOptions,
         context: var,
         comptime FmtError: type,
-        output: fn (@TypeOf(context), []const u8) FmtError!void,
+        comptime output: fn (@TypeOf(context), []const u8) FmtError!void,
     ) FmtError!void {
         switch (self) {
             .Reg => |reg| {
@@ -1141,7 +1252,7 @@ pub const Address = union(enum) {
         options: std.fmt.FormatOptions,
         context: var,
         comptime FmtError: type,
-        output: fn (@TypeOf(context), []const u8) FmtError!void,
+        comptime output: fn (@TypeOf(context), []const u8) FmtError!void,
     ) FmtError!void {
         switch (self) {
             .MOffset => |moff| {
@@ -1307,6 +1418,8 @@ pub const OperandTag = enum {
     Imm,
     Rm,
     Addr,
+    AvxReg,
+    AvxSae,
 };
 
 pub const Operand = union(OperandTag) {
@@ -1315,43 +1428,50 @@ pub const Operand = union(OperandTag) {
     Imm: Immediate,
     Rm: ModRm,
     Addr: Address,
+    AvxReg: avx.RegisterPredicate,
+    AvxSae: avx.SuppressAllExceptions,
 
     pub fn tag(self: Operand) OperandTag {
         return @as(OperandTag, self);
     }
 
     pub fn operandType(self: Operand) OperandType {
-        switch (self) {
-            .Reg => |reg| return OperandType.fromRegister(reg),
-            .Imm => |imm_| return OperandType.fromImmediate(imm_),
-            .Rm => |rm| return rm.operandType(),
-            .Addr => |addr| return addr.operandType(),
+        return switch (self) {
+            .Reg => |reg| OperandType.fromRegister(reg),
+            .Imm => |imm_| OperandType.fromImmediate(imm_),
+            .Rm => |rm| rm.operandType(),
+            .Addr => |addr| addr.operandType(),
+            .AvxReg => |reg_pred| OperandType.fromRegisterPredicate(reg_pred),
+            .AvxSae => |sae| OperandType.fromSae(sae),
             // TODO: get size
-            .None => return OperandType._void,
-            else => unreachable,
-        }
+            .None => OperandType._void,
+        };
     }
 
     pub fn operandSize(self: Operand) BitSize {
-        switch (self) {
-            .Reg => |reg| return reg.bitSize(),
-            .Imm => |imm_| return (imm_.bitSize()),
-            .Rm => |rm| return rm.operandSize(),
-            .Addr => |addr| return addr.operandSize(),
-            .None => |none| return none.operand_size.bitSize(),
-        }
+        return switch (self) {
+            .Reg => |reg| reg.bitSize(),
+            .Imm => |imm_| (imm_.bitSize()),
+            .Rm => |rm| rm.operandSize(),
+            .Addr => |addr| addr.operandSize(),
+            .None => |none| none.operand_size.bitSize(),
+            .AvxReg => |reg_pred| reg_pred.Reg.bitSize(),
+            .AvxSae => |rc| BitSize.Bit0,
+        };
     }
 
     /// If the operand has a size overide get it instead of the underlying
     /// operand size.
     pub fn operandDataSize(self: Operand) DataSize {
-        switch (self) {
-            .Reg => |reg| return reg.dataSize(),
-            .Imm => |imm_| return (imm_.dataSize()),
-            .Rm => |rm| return rm.operandDataSize(),
-            .Addr => |addr| return addr.operandDataSize(),
-            .None => |none| return none.operand_size,
-        }
+        return switch (self) {
+            .Reg => |reg| reg.dataSize(),
+            .Imm => |imm_| (imm_.dataSize()),
+            .Rm => |rm| rm.operandDataSize(),
+            .Addr => |addr| addr.operandDataSize(),
+            .None => |none| none.operand_size,
+            .AvxReg => |reg_pred| reg_pred.Reg.dataSize(),
+            .AvxSae => |rc| DataSize.Void,
+        };
     }
 
     pub fn register(reg: Register) Operand {
@@ -1500,7 +1620,7 @@ pub const Operand = union(OperandTag) {
         options: std.fmt.FormatOptions,
         context: var,
         comptime FmtError: type,
-        output: fn (@TypeOf(context), []const u8) FmtError!void,
+        comptime output: fn (@TypeOf(context), []const u8) FmtError!void,
     ) FmtError!void {
         // self.assertWritable();
         // TODO look at fmt and support other bases

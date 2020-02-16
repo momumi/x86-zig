@@ -202,3 +202,7 @@ pub fn testOp3(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3
     testOp(machine, mnem, &op1, &op2, &op3, null, expected);
 }
 
+pub fn testOp4(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3: Operand, op4: Operand, comptime expected: var) void {
+    testOp(machine, mnem, &op1, &op2, &op3, &op4, expected);
+}
+

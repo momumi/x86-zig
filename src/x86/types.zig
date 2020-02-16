@@ -247,15 +247,22 @@ pub const BitSize = enum (u16) {
     }
 };
 
+pub const OpcodePrefixType = enum {
+    /// Opcode permits prefixes
+    Prefixable,
+    /// No prefix allowed, if prefix is added instruction meaning changes
+    NP,
+    /// Mandatory prefix
+    Mandatory,
+};
+
 pub const Opcode = struct {
     const max_length:u8 = 4;
-    const max_prefix_lenth:u8 = 3;
     opcode: [max_length]u8 = undefined,
     len: u8 = 0,
-    prefixes: [max_prefix_lenth]u8 = undefined,
-    prefix_count: u8 = 0,
+    prefix: u8 = 0,
+    prefix_type: OpcodePrefixType = .Prefixable,
     reg_bits: ?u3 = null,
-    prefix_allowed: bool = true,
 
     pub fn asSlice(self: Opcode) []const u8 {
         return self.opcode[0..self.len];
@@ -266,106 +273,97 @@ pub const Opcode = struct {
     }
 
     fn create_generic(
-        prefix_allowed: bool,
-        prefix: []u8, 
-        opcode_bytes: []u8, 
+        prefix_type: OpcodePrefixType,
+        prefix: u8,
+        opcode_bytes: [4]u8,
+        len: u8,
         reg_bits: ?u3
     ) Opcode {
-        var res = Opcode {};
-
-        for (prefix) |pre, i| {
-            res.prefixes[i] = pre;
-        }
-        res.prefix_count = @intCast(u8, prefix.len);
-
-        for (opcode_bytes) |byte, i| {
-            res.opcode[i] = byte;
-        }
-        res.len = @intCast(u8, opcode_bytes.len);
-
-        res.reg_bits = reg_bits;
-
-        return res;
+        return Opcode {
+            .opcode = opcode_bytes,
+            .len = len,
+            .prefix = prefix,
+            .prefix_type = prefix_type,
+            .reg_bits = reg_bits,
+        };
     }
 
     pub fn op1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0}, reg_bits);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
     }
 
     pub fn op2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1}, reg_bits);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
     }
 
     pub fn op3r(byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2}, reg_bits);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
     }
 
     pub fn op4r(byte0: u8, byte1: u8, byte2: u8, byte3: u8, reg_bits: u3) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2, byte3}, reg_bits);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, byte2, byte3, 0}, 4, reg_bits);
     }
 
     pub fn preOp1r(prefix: u8, byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0}, reg_bits);
+        return create_generic(.Mandatory, prefix, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
     }
 
     pub fn preOp2r(prefix: u8, byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0, byte1}, reg_bits);
+        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
     }
 
     pub fn npOp1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(false, &[_]u8{}, &[_]u8{byte0}, reg_bits);
+        return create_generic(.NP, 0, [_]u8{byte0, 0, 0}, 1, reg_bits);
     }
 
     pub fn npOp2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(false, &[_]u8{}, &[_]u8{byte0, byte1}, reg_bits);
+        return create_generic(.NP, 0, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
     }
 
     pub fn op1(byte0: u8) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0}, null);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, 0, 0, 0}, 1, null);
     }
 
     pub fn op2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1}, null);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, 0, 0}, 2, null);
     }
 
     pub fn op3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2}, null);
-    }
-
-    pub fn op4(byte0: u8, byte1: u8, byte2: u8, byte3: u8) Opcode {
-        return create_generic(true, &[_]u8{}, &[_]u8{byte0, byte1, byte2, byte3}, null);
+        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, byte2, 0}, 3, null);
     }
 
     pub fn preOp1(prefix: u8, byte0: u8) Opcode {
-        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0}, null);
+        return create_generic(.Mandatory, prefix, [_]u8{byte0, 0, 0, 0}, 1, null);
     }
 
     pub fn preOp2(prefix: u8, byte0: u8, byte1: u8) Opcode {
-        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0, byte1}, null);
+        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, 0, 0}, 2, null);
     }
 
     pub fn preOp3(prefix: u8, byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(true, &[_]u8{prefix}, &[_]u8{byte0, byte1, byte2}, null);
+        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, byte2, 0}, 3, null);
     }
 
     pub fn npOp1(byte0: u8) Opcode {
-        return create_generic(false, &[_]u8{}, &[_]u8{byte0}, null);
+        return create_generic(.NP, 0, [_]u8{byte0, 0, 0, 0}, 1, null);
     }
 
     pub fn npOp2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(false, &[_]u8{}, &[_]u8{byte0, byte1}, null);
+        return create_generic(.NP, 0, [_]u8{byte0, byte1, 0, 0}, 2, null);
     }
 
     pub fn npOp3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(false, &[_]u8{}, &[_]u8{byte0, byte1, byte2}, null);
+        return create_generic(.NP, 0, [_]u8{byte0, byte1, byte2, 0}, 3, null);
     }
 };
+
 
 pub const DataType = enum (u16) {
     NormalMemory = 0x0000,
     FarAddress = 0x01000,
     FloatingPoint = 0x0200,
     VoidPointer = 0x0300,
+    Broadcast = 0x0400,
     Register = 0x0F00,
 };
 
@@ -376,6 +374,7 @@ pub const DataSize = enum (u16) {
     const far_address_tag: u16 = @enumToInt(DataType.FarAddress);
     const floating_point_tag: u16 = @enumToInt(DataType.FloatingPoint);
     const void_tag: u16 = @enumToInt(DataType.VoidPointer);
+    const broadcast_tag: u16 = @enumToInt(DataType.Broadcast);
 
     /// 8 bit data size
     BYTE = 1 | normal_tag,
@@ -390,6 +389,11 @@ pub const DataSize = enum (u16) {
 
     /// 80 bit data size
     TBYTE = 10 | normal_tag,
+
+    /// 32 bit broadcast for AVX512
+    DWORD_BCST = 4 | broadcast_tag,
+    /// 64 bit broadcast for AVX512
+    QWORD_BCST = 8 | broadcast_tag,
 
     // FIXME:
     //

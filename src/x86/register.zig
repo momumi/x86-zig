@@ -32,6 +32,7 @@ pub const RegisterType = enum(u16) {
     XMM = 0x1800,
     YMM = 0x1900,
     ZMM = 0x1A00,
+    Mask = 0x1F00,
 };
 
 /// Special control and debug registers
@@ -46,6 +47,7 @@ pub const Register = enum (u16) {
     const tag_xmm = @enumToInt(RegisterType.XMM);
     const tag_ymm = @enumToInt(RegisterType.YMM);
     const tag_zmm = @enumToInt(RegisterType.ZMM);
+    const tag_mask_reg = @enumToInt(RegisterType.Mask);
 
     // We use special format for these registers:
     // u8: .RSSNNNN
@@ -322,6 +324,15 @@ pub const Register = enum (u16) {
     ZMM30,
     ZMM31 = 0x1F | tag_zmm,
 
+    K0 = 0x00 | tag_mask_reg,
+    K1,
+    K2,
+    K3,
+    K4,
+    K5,
+    K6,
+    K7 = 0x07 | tag_mask_reg,
+
     pub fn create(reg_size: BitSize, reg_num: u8) Register {
         std.debug.assert(reg_num <= 0x0F);
         switch (reg_size) {
@@ -386,14 +397,21 @@ pub const Register = enum (u16) {
             },
             .Segment => return DataSize.WORD,
 
+            // TODO: These registers do have a size, but this is a hack to
+            // make modrm encoding work
             .Control,
             .Debug,
             .MMX,
             .XMM,
+            .YMM,
+            .ZMM,
             .Float => return DataSize.Void,
 
             // .MMX => return DataSize.QWORD,
             // .XMM => return DataSize.OWORD,
+            // .XMM => return DataSize.XMM_WORD,
+            // .YMM => return DataSize.YMM_WORD,
+            // .ZMM => return DataSize.ZMM_WORD,
             else => unreachable,
         }
     }

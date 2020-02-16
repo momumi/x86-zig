@@ -10,6 +10,8 @@ const Immediate = machine.operand.Immediate;
 const Address = machine.operand.Address;
 const MOffsetDisp = machine.operand.MOffsetDisp;
 const Register = machine.Register;
+const AvxOpcode = machine.avx.AvxOpcode;
+const AvxResult = machine.avx.AvxResult;
 
 // LegacyPrefixes | REX/VEX/EVEX | OPCODE(0,1,2,3) | ModRM | SIB | displacement(0,1,2,4) | immediate(0,1,2,4)
 pub const prefix_max_len = 4;
@@ -113,12 +115,20 @@ pub const Instruction = struct {
     }
 
     pub fn addPrefixes(self: *@This(), prefix: Prefixes, opcode: Opcode) void {
-        if (prefix.len == 0 and opcode.prefix_count == 0) {
+        if (prefix.len == 0 and opcode.prefix_type != .Mandatory) {
             return;
         }
-        self.view.prefix = self.makeViewPart(prefix.len + opcode.prefix_count);
-        self.addBytes(prefix.asSlice());
-        self.addBytes(opcode.prefixesAsSlice());
+        // can't have any prefixes for NP opcodes
+        std.debug.assert(!(opcode.prefix_type == .NP and prefix.len == 0));
+
+        if (opcode.prefix_type == .Mandatory) {
+            self.view.prefix = self.makeViewPart(prefix.len + 1);
+            self.addBytes(prefix.asSlice());
+            self.addByte(opcode.prefix);
+        } else {
+            self.view.prefix = self.makeViewPart(prefix.len);
+            self.addBytes(prefix.asSlice());
+        }
     }
 
 
@@ -154,6 +164,28 @@ pub const Instruction = struct {
 
             self.view.ext = self.makeViewPart(1);
             self.addByte(rex_byte);
+        }
+    }
+
+    pub fn addAvx(self: *@This(), mode: Mode86, info: AvxResult) AsmError!void {
+        switch (info.encoding) {
+            .Vex2 => {
+                self.view.ext = self.makeViewPart(2);
+                self.addBytes(&info.makeVex2());
+            },
+
+            .Vex3 => {
+                self.view.ext = self.makeViewPart(3);
+                self.addBytes(&info.makeVex3());
+            },
+
+            .Evex => {
+                self.view.ext = self.makeViewPart(4);
+                self.addBytes(&info.makeEvex());
+            },
+
+            // TODO: 
+            .Xop => unreachable,
         }
     }
 
@@ -207,6 +239,12 @@ pub const Instruction = struct {
     pub fn addOpcode(self: *@This(), op: Opcode) void {
         self.view.opcode = self.makeViewPart(op.len);
         self.addBytes(op.asSlice());
+    }
+
+    /// Add the opcode to instruction.
+    pub fn addOpcodeByte(self: *@This(), op: u8) void {
+        self.view.opcode = self.makeViewPart(1);
+        self.addByte(op);
     }
 
     /// Add the opcode to instruction incrementing the last byte by register number.

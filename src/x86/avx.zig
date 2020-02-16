@@ -160,6 +160,8 @@ pub const VexLength = enum(u8) {
     L256 = 0b1,
     /// L ignored
     LIG = 0x80,
+    /// L = 0
+    LZ = 0x81,
 };
 
 pub const EvexLength = enum(u8) {
@@ -169,8 +171,10 @@ pub const EvexLength = enum(u8) {
     _11 = 0b11,
     /// LL ignored
     LIG = 0x80,
+    /// LZ LL = 0 (used in VEX, not normaly used in EVEX)
+    LZ = 0x81,
     /// LL is used for rounding control
-    LRC = 0x81,
+    LRC = 0x82,
 };
 
 pub const MaskRegister = enum (u3) {
@@ -223,7 +227,7 @@ pub const AvxOpcode = struct {
     pub fn encode(
         self: AvxOpcode,
         machine: Machine,
-        vec1: Register,
+        vec1: ?*const Operand,
         vec2: ?*const Operand,
         vec3: ?*const Operand,
     ) AsmError!AvxResult {
@@ -239,27 +243,39 @@ pub const AvxOpcode = struct {
             .W => { unreachable; }, // TODO
         }
 
-        switch (vec1.registerType()) {
-            .XMM => res.L = 0,
-            .YMM => res.L = 1,
-            .ZMM => {
+        switch (self.vec_len) {
+            .L128 => res.L = 0,
+            .L256 => res.L = 1,
+            .L512 => {
                 res.L = 0;
                 res.L_ = 1;
             },
 
-            else => {
+            .LZ => {
                 res.L = 0;
                 res.L_ = 0;
             },
+
+            .LIG => {
+                res.L = @intCast(u1, (machine.l_fill >> 0) & 0x01);
+                res.L_ = @intCast(u1, (machine.l_fill >> 1) & 0x01);
+            },
+
+            ._11 => unreachable,
+
+            .LRC => {
+                // TODO:
+                unreachable;
+            },
         }
 
-        const num1 = vec1.number();
-        res.R = @intCast(u1, (num1 & 0x08) >> 3);
-        res.R_ = @intCast(u1, (num1 & 0x10) >> 4);
+        const vec_num1: u8 = if (vec1) |v| v.Reg.number() else self.reg_bits.?;
+        res.R = @intCast(u1, (vec_num1 & 0x08) >> 3);
+        res.R_ = @intCast(u1, (vec_num1 & 0x10) >> 4);
 
-        const num2 = if (vec2) |vec| vec.Reg.number() else 0;
-        res.vvvv = @intCast(u4, (num2 & 0x0f));
-        res.V_ = @intCast(u1, (num2 & 0x10) >> 4);
+        const vec_num2 = if (vec2) |vec| vec.Reg.number() else 0;
+        res.vvvv = @intCast(u4, (vec_num2 & 0x0f));
+        res.V_ = @intCast(u1, (vec_num2 & 0x10) >> 4);
 
         switch (vec3.?.*) {
             .Reg => |reg| {
@@ -275,12 +291,11 @@ pub const AvxOpcode = struct {
                 },
 
                 else => {
-                    const modrm = try rm.encodeReg(machine.mode, vec1, .ZO);
+                    // TODO: probably want to handle this better.  This value
+                    // also gets computed in Machine.encodeAvx().
+                    const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
                     res.X = modrm.rex_x;
                     res.B = modrm.rex_b;
-
-                    // TODO: probably extend ModRmResult to handle larger register numbers
-                    // TODO: encode modrm
                     // unreachable;
                 },
             },
@@ -350,6 +365,10 @@ pub const AvxOpcode = struct {
 
     pub fn vex(len: VexLength, pre: VexPrefix, esc: VexEscape, w: VexW, op: u8) AvxOpcode {
         return vex_r(len, pre, esc, w, op, null, false);
+    }
+
+    pub fn vexr(len: VexLength, pre: VexPrefix, esc: VexEscape, w: VexW, op: u8, r: u3) AvxOpcode {
+        return vex_r(len, pre, esc, w, op, r, false);
     }
 
     pub fn vex_r(

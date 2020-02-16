@@ -35,6 +35,8 @@ pub const Machine = struct {
     index_fill: u3 = 0b000,
     /// For avx when W value is ignoreg (.WIG)
     w_fill: u1 = 0b0,
+    /// For vex/evex for opcodes that ignore L field (LIG)
+    l_fill: u2 = 0b0,
     // prefix_order: ? = null;
 
     pub fn init(mode: Mode86) Machine {
@@ -343,7 +345,7 @@ pub const Machine = struct {
     pub fn encodeAvx(
         self: Machine,
         avx_opcode: avx.AvxOpcode,
-        vec1: *const Operand,
+        vec1: ?*const Operand,
         vec2: ?*const Operand,
         rm_op: ?*const Operand,
         vec4: ?*const Operand,
@@ -354,8 +356,14 @@ pub const Machine = struct {
 
         const rm = self.coerceRm(rm_op.?.*).Rm;
 
-        const avx_res = try avx_opcode.encode(self, vec1.Reg, vec2, rm_op);
-        const modrm = try rm.encodeReg(self.mode, vec1.Reg, default_size);
+        const avx_res = try avx_opcode.encode(self, vec1, vec2, rm_op);
+
+        const modrm = if (vec1) |v| x: {
+            break :x try rm.encodeReg(self.mode, v.Reg, default_size);
+        } else x: {
+            const fake_reg = Register.create(.Bit32, avx_opcode.reg_bits.?);
+            break :x try rm.encodeReg(self.mode, fake_reg, default_size);
+        };
 
         res.addPrefixes(modrm.prefixes, Opcode{});
         try res.addAvx(self.mode, avx_res);

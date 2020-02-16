@@ -95,7 +95,7 @@ P1: | W | v | v | v | v | L | p | p |
 
 ## VEX in instruction summary table 
 
-VEX.[128,256,LIG].[66,F2,F3].0F/0F3A/0F38.[W0,W1,WIG] opcode [/r] [/ib,/is4]
+VEX.[128,256,LIG,LZ].[66,F2,F3].0F/0F3A/0F38.[W0,W1,WIG] opcode [/r] [/ib,/is4]
 
 * VEX.128 / VEX.256 -> VEX.L
 * VEX.LIG -> VEX.L is ignored
@@ -247,6 +247,5 @@ EVEX.[128,256,512,LIG].[66,F2,F3].0F/0F3A/0F38.[W0,W1,WIG] opcode [/r] [ib]
 * EVEX.W0 -> EVEX.W = 0
 * EVEX.W1 -> EVEX.W = 1
 * EVEX.WIG -> EVEX.W is ignored (can use 2 or 3 byte vex)
-* `/is4` imm8[7:4] contains source register, imm8[3:0] instruction specific payload
 
 

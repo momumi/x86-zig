@@ -48,6 +48,7 @@ pub const AvxResult = struct {
             or self.W == 1
             or self.R_ == 1
             or self.V_ == 1
+            or self.vvvv > 7
             or (self.is4 != null and self.is4.? > 7)
         );
     }
@@ -162,6 +163,8 @@ pub const VexLength = enum(u8) {
     LIG = 0x80,
     /// L = 0
     LZ = 0x81,
+    /// L = 1
+    L1 = 0x82,
 };
 
 pub const EvexLength = enum(u8) {
@@ -171,10 +174,12 @@ pub const EvexLength = enum(u8) {
     _11 = 0b11,
     /// LL ignored
     LIG = 0x80,
-    /// LZ LL = 0 (used in VEX, not normaly used in EVEX)
+    /// LZ: LL = 0 (used in VEX, not normaly used in EVEX)
     LZ = 0x81,
+    /// L1: LL = 1 (used in VEX, not normaly used in EVEX)
+    L1 = 0x82,
     /// LL is used for rounding control
-    LRC = 0x82,
+    LRC = 0x83,
 };
 
 pub const MaskRegister = enum (u3) {
@@ -194,9 +199,29 @@ pub const ZeroOrMerge = enum (u1) {
 };
 
 pub const RegisterPredicate = struct {
-    Reg: Register,
-    Mask: MaskRegister,
-    Z: ZeroOrMerge,
+    reg: Register,
+    mask: MaskRegister,
+    z: ZeroOrMerge,
+
+    pub fn create(r: Register, k: MaskRegister, z: ZeroOrMerge) RegisterPredicate {
+        return RegisterPredicate {
+            .reg = r,
+            .mask = k,
+            .z = z,
+        };
+    }
+};
+
+pub const RegisterSae = struct {
+    reg: Register,
+    sae: SuppressAllExceptions,
+
+    pub fn create(r: Register, sae: SuppressAllExceptions) RegisterSae {
+        return RegisterSae {
+            .reg = r,
+            .sae = sae,
+        };
+    }
 };
 
 pub const SuppressAllExceptions = enum (u3) {
@@ -236,24 +261,13 @@ pub const AvxOpcode = struct {
         res.pp = @enumToInt(self.prefix);
         res.mm = @enumToInt(self.escape);
 
-        switch (self.vex_w) {
-            .WIG => res.W = machine.w_fill,
-            .W0 => res.W = 0,
-            .W1 => res.W = 1,
-            .W => { unreachable; }, // TODO
-        }
-
         switch (self.vec_len) {
-            .L128 => res.L = 0,
-            .L256 => res.L = 1,
+            .L128, .LZ => res.L = 0,
+            .L256, .L1 => res.L = 1,
+
             .L512 => {
                 res.L = 0;
                 res.L_ = 1;
-            },
-
-            .LZ => {
-                res.L = 0;
-                res.L_ = 0;
             },
 
             .LIG => {
@@ -269,7 +283,29 @@ pub const AvxOpcode = struct {
             },
         }
 
-        const vec_num1: u8 = if (vec1) |v| v.Reg.number() else self.reg_bits.?;
+        if (vec1) |v| {
+            switch (v.*) {
+                .RegPred => |reg_pred| {
+                    res.aaa = @enumToInt(reg_pred.mask);
+                    res.z = @enumToInt(reg_pred.z);
+                },
+
+                else => {},
+            }
+        }
+
+        const vec_num1: u8 = if (vec1) |v| x: {
+            break :x switch (v.*) {
+                .Reg => v.Reg.number(),
+                .RegPred => v.RegPred.reg.number(),
+                .RegSae => v.RegSae.reg.number(),
+                else => unreachable,
+            };
+        } else if (self.reg_bits) |reg_bits| x: {
+            break :x reg_bits;
+        } else x: {
+            break :x 0;
+        };
         res.R = @intCast(u1, (vec_num1 & 0x08) >> 3);
         res.R_ = @intCast(u1, (vec_num1 & 0x10) >> 4);
 
@@ -277,34 +313,63 @@ pub const AvxOpcode = struct {
         res.vvvv = @intCast(u4, (vec_num2 & 0x0f));
         res.V_ = @intCast(u1, (vec_num2 & 0x10) >> 4);
 
-        switch (vec3.?.*) {
-            .Reg => |reg| {
-                const num3 = reg.number();
-                res.B = @intCast(u1, (num3 & 0x08) >> 3);
-                res.X = @intCast(u1, (num3 & 0x10) >> 4);
-            },
-            .Rm => |rm| switch (rm) {
+        if (vec3) |vec| {
+            switch (vec.*) {
                 .Reg => |reg| {
                     const num3 = reg.number();
                     res.B = @intCast(u1, (num3 & 0x08) >> 3);
                     res.X = @intCast(u1, (num3 & 0x10) >> 4);
                 },
+                .Rm => |rm| switch (rm) {
+                    .Reg => |reg| {
+                        const num3 = reg.number();
+                        res.B = @intCast(u1, (num3 & 0x08) >> 3);
+                        res.X = @intCast(u1, (num3 & 0x10) >> 4);
+                    },
 
-                else => {
-                    // TODO: probably want to handle this better.  This value
-                    // also gets computed in Machine.encodeAvx().
-                    const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
-                    res.X = modrm.rex_x;
-                    res.B = modrm.rex_b;
-                    // unreachable;
+                    else => {
+                        // TODO: probably want to handle this better.  This value
+                        // also gets computed in Machine.encodeAvx().
+                        const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
+                        res.X = modrm.rex_x;
+                        res.B = modrm.rex_b;
+
+                        switch (rm.operandType()) {
+                            .rm_m32bcst, .rm_m64bcst => res.b = 1,
+                            else => {},
+                        }
+                        // unreachable;
+                    },
                 },
-            },
 
-            else => unreachable,
+                .RegSae => |reg_sae| {
+                    switch (reg_sae.sae) {
+                        .AE => {},
+                        .SAE => {
+                            res.b = 1;
+                        },
+                        else => {
+                            res.b = 1;
+                            const LL_ = @enumToInt(reg_sae.sae);
+                            res.L = @intCast(u1, (LL_ >> 0) & 0x01);
+                            res.L_ = @intCast(u1, (LL_ >> 1) & 0x01);
+                        },
+                    }
+
+                },
+                else => unreachable,
+            }
         }
 
         if (machine.mode != .x64 and res.needs64Bit()) {
             return AsmError.InvalidMode;
+        }
+
+        switch (self.vex_w) {
+            .WIG => res.W = machine.w_fill,
+            .W0 => res.W = 0,
+            .W1 => res.W = 1,
+            .W => { unreachable; }, // TODO
         }
 
         switch (self.encoding) {

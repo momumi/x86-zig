@@ -3,7 +3,7 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "MMX" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     const reg = Operand.register;

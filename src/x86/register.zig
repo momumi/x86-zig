@@ -32,7 +32,8 @@ pub const RegisterType = enum(u16) {
     XMM = 0x1800,
     YMM = 0x1900,
     ZMM = 0x1A00,
-    Mask = 0x1F00,
+    Mask = 0x1B00,
+    Bound = 0x1C00,
 };
 
 /// Special control and debug registers
@@ -48,6 +49,7 @@ pub const Register = enum (u16) {
     const tag_ymm = @enumToInt(RegisterType.YMM);
     const tag_zmm = @enumToInt(RegisterType.ZMM);
     const tag_mask_reg = @enumToInt(RegisterType.Mask);
+    const tag_bound_reg = @enumToInt(RegisterType.Bound);
 
     // We use special format for these registers:
     // u8: .RSSNNNN
@@ -333,6 +335,11 @@ pub const Register = enum (u16) {
     K6,
     K7 = 0x07 | tag_mask_reg,
 
+    BND0 = 0x00 | tag_bound_reg,
+    BND1,
+    BND2,
+    BND3 = 0x03 | tag_bound_reg,
+
     pub fn create(reg_size: BitSize, reg_num: u8) Register {
         std.debug.assert(reg_num <= 0x0F);
         switch (reg_size) {
@@ -405,6 +412,8 @@ pub const Register = enum (u16) {
             .XMM,
             .YMM,
             .ZMM,
+            .Bound,
+            .Mask,
             .Float => return DataSize.Void,
 
             // .MMX => return DataSize.QWORD,

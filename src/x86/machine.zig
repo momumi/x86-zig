@@ -48,7 +48,7 @@ pub const Machine = struct {
     pub fn addressSize(self: Machine) BitSize {
         return switch (self.mode) {
             .x86_16 => .Bit16,
-            .x86 => .Bit32,
+            .x86_32 => .Bit32,
             .x64 => .Bit64,
         };
     }
@@ -56,7 +56,7 @@ pub const Machine = struct {
     pub fn dataSize(self: Machine) DataSize {
         return switch (self.mode) {
             .x86_16 => .WORD,
-            .x86 => .DWORD,
+            .x86_32 => .DWORD,
             .x64 => .QWORD,
         };
     }
@@ -65,6 +65,7 @@ pub const Machine = struct {
     pub fn coerceRm(self: Machine, op: Operand) Operand {
         switch (op) {
             .Reg => |reg| return Operand.registerRm(reg),
+            .RegSae => |reg_sae| return Operand.registerRm(reg_sae.reg),
             .Rm => return op,
             else => unreachable,
         }
@@ -354,21 +355,40 @@ pub const Machine = struct {
     ) AsmError!Instruction {
         var res = Instruction{};
 
-        const rm = self.coerceRm(rm_op.?.*).Rm;
-
         const avx_res = try avx_opcode.encode(self, vec1, vec2, rm_op);
 
-        const modrm = if (vec1) |v| x: {
-            break :x try rm.encodeReg(self.mode, v.Reg, default_size);
-        } else x: {
-            const fake_reg = Register.create(.Bit32, avx_opcode.reg_bits.?);
-            break :x try rm.encodeReg(self.mode, fake_reg, default_size);
-        };
+        var modrm: operand.ModRmResult = undefined;
+        var has_modrm: bool = undefined;
 
-        res.addPrefixes(modrm.prefixes, Opcode{});
+        if (vec1 == null and rm_op == null) {
+            has_modrm = false;
+        } else if (vec1) |v| {
+            const rm = self.coerceRm(rm_op.?.*).Rm;
+            const reg = switch (v.*) {
+                .Reg => v.Reg,
+                .RegPred => v.RegPred.reg,
+                .RegSae => v.RegSae.reg,
+                else => unreachable,
+            };
+            modrm = try rm.encodeReg(self.mode, reg, default_size);
+            has_modrm = true;
+        } else {
+            const rm = self.coerceRm(rm_op.?.*).Rm;
+            const fake_reg = Register.create(.Bit32, avx_opcode.reg_bits.?);
+            modrm = try rm.encodeReg(self.mode, fake_reg, default_size);
+            has_modrm = true;
+        }
+
+        if (has_modrm) {
+            res.addPrefixes(modrm.prefixes, Opcode{});
+        }
+
         try res.addAvx(self.mode, avx_res);
         res.addOpcodeByte(avx_opcode.opcode);
-        res.modrm(modrm);
+
+        if (has_modrm) {
+            res.modrm(modrm);
+        }
 
         if (vec4) |vec| {
             // currently EVEX support for 4 operands is not officialy documented
@@ -411,7 +431,7 @@ pub const Machine = struct {
         return self.build(mnem, &ops1, &ops2, &ops3, null);
     }
 
-    pub fn build4(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand) AsmError!Instruction {
+    pub fn build4(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand, ops4: Operand) AsmError!Instruction {
         return self.build(mnem, &ops1, &ops2, &ops3, &ops4);
     }
 

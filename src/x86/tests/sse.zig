@@ -3,7 +3,7 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "SSE" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     const reg = Operand.register;
@@ -14,8 +14,17 @@ test "SSE" {
 
     const rm32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
     const rm64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
+    const mem_32 = rm32;
     const mem_64 = rm64;
     const mem_128 = Operand.memoryRm(.DefaultSeg, .OWORD, .EAX, 0);
+
+
+    testOp2(m32, .ADDPD,     reg(.XMM0), mem_128, "66 0f 58 00");
+    testOp2(m32, .ADDPS,     reg(.XMM0), mem_128, "0f 58 00");
+    testOp2(m32, .ADDSD,     reg(.XMM0), mem_64,  "f2 0f 58 00");
+    testOp2(m32, .ADDSS,     reg(.XMM0), mem_32,  "f3 0f 58 00");
+    testOp2(m32, .ADDSUBPD,  reg(.XMM0), mem_128, "66 0f D0 00");
+    testOp2(m32, .ADDSUBPS,  reg(.XMM0), mem_128, "f2 0f D0 00");
 
     {
         {

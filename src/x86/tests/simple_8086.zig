@@ -3,7 +3,7 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "simple 8086 opcodes" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     debugPrint(false);
@@ -24,8 +24,7 @@ test "simple 8086 opcodes" {
         testOp0(m32, .HLT, "F4");
 
         testOp0(m32, .LAHF, "9F");
-        // TODO: need feature check
-        // testOp0(m64, .LAHF, "9F");
+        testOp0(m32, .SAHF, "9E");
 
         testOp0(m32, .STC, "F9");
         testOp0(m32, .STD, "FD");

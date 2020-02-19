@@ -3,7 +3,7 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "rotate" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     debugPrint(false);
@@ -173,7 +173,7 @@ test "rotate" {
 }
 
 test "shift" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     debugPrint(false);

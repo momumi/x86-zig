@@ -3,7 +3,7 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "80386" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     debugPrint(false);
@@ -120,9 +120,17 @@ test "80386" {
         testOp2(m64, .BTC,  rm32, imm8,  "67 0F BA 38 ff");
         testOp2(m64, .BTC,  rm64, imm8,  "67 48 0F BA 38 ff");
         // BTR
-        testOp2(m64, .BTS,  rm16, reg16, "66 67 0F B3 00");
-        testOp2(m64, .BTS,  rm32, reg32, "67 0F B3 00");
-        testOp2(m64, .BTS,  rm64, reg64, "67 48 0F B3 00");
+        testOp2(m64, .BTR,  rm16, reg16, "66 67 0F B3 00");
+        testOp2(m64, .BTR,  rm32, reg32, "67 0F B3 00");
+        testOp2(m64, .BTR,  rm64, reg64, "67 48 0F B3 00");
+        //
+        testOp2(m64, .BTR,  rm16, imm8,  "66 67 0F BA 30 ff");
+        testOp2(m64, .BTR,  rm32, imm8,  "67 0F BA 30 ff");
+        testOp2(m64, .BTR,  rm64, imm8,  "67 48 0F BA 30 ff");
+        // BTS
+        testOp2(m64, .BTS,  rm16, reg16, "66 67 0F AB 00");
+        testOp2(m64, .BTS,  rm32, reg32, "67 0F AB 00");
+        testOp2(m64, .BTS,  rm64, reg64, "67 48 0F AB 00");
         //
         testOp2(m64, .BTS,  rm16, imm8,  "66 67 0F BA 28 ff");
         testOp2(m64, .BTS,  rm32, imm8,  "67 0F BA 28 ff");

@@ -228,10 +228,12 @@ pub const Instruction = struct {
             self.addByte(sib);
         }
 
-        switch (rm.disp.dispSize()) {
-            .None => { },
-            .Disp8 => self.addDisp8(@intCast(i8, rm.disp.value())),
-            .Disp32 => self.addDisp32(rm.disp.value()),
+        switch (rm.disp_bit_size) {
+            .Bit0 => {},
+            .Bit8 => self.addDisp8(@intCast(i8, rm.disp)),
+            .Bit16 => self.addDisp16(@intCast(i16, rm.disp)),
+            .Bit32 => self.addDisp32(rm.disp),
+            else => unreachable,
         }
     }
 

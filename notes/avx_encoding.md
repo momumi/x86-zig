@@ -186,9 +186,12 @@ P2: | z | L'| L | b | V'| a | a | a |
         * `vpaddb zmm0 {k3} {z}, zmm1, zmm2` (zeroing)
 * EVEX.b
     * broadcast / RC (rounding control) / SAE context (behaviour depends on instruction)
+    * EVEX.b encodes three different things, but can only encode one at a time
+        * Can only use RC/SAE when last operand is a register (RC vs SAE depends on instruction)
+        * Can only use broadcast when last operand is a memory
     * broadcast a single element across the destination register
-        * Used when vector instruction has memory as a source operand
         * Written like `m32bcst`, `m64bcst` in manual
+        * Only when source operand is from memory.
         * Repeats the given value in memory to create a packed vector
         * eg: m32bcst: `DWORD [RAX]{1to4}` repeats RAX 4 times to create 128 bit value
         * broadcast double:
@@ -208,15 +211,17 @@ P2: | z | L'| L | b | V'| a | a | a |
             * `vpaddq ymm0, ymm1, qword bcst [RAX]`
             * `vpaddq zmm0, zmm1, qword bcst [RAX]`
     * redirect L'L field as static rounding control + SAE
-        * Only reg-to-reg floating point vector instructions that are 512bit or scalar
+        * Only register-to-register instructions (no memory operands)
+        * Only instructions that are 512bit or scalar (since it reuses LL field)
         * `vcvtpd2qq zmm0, zmm1`
         * `vcvtpd2qq zmm0, zmm1, {rn-sae}`
         * `vcvtpd2qq zmm0, zmm1, {rd-sae}`
         * `vcvtpd2qq zmm0, zmm1, {ru-sae}`
         * `vcvtpd2qq zmm0, zmm1, {rz-sae}`
     * enable SAE (suppress all exceptions)
-    * Only used in other floating point vector instructions without rounding semantics
-        * `vminpd zmm1, zmm2, {sae}`
+        * Only register-to-register instructions (no memory operands)
+        * Only used in other floating point vector instructions without rounding semantics
+            * `vminpd zmm1, zmm2, {sae}`
     * otherwise setting EVEX.b generates \#UD
 
 Fields that can that can be "part of the opcode"

@@ -3,11 +3,11 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "x87 floating point instructions" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     const sreg = Operand.register;
-    const memRm = Operand.memoryRm;
+    const memRm = Operand.memoryRmDef;
 
     debugPrint(false);
 
@@ -38,6 +38,16 @@ test "x87 floating point instructions" {
     }
 
     {
+        testOp1(m32, .FLDCW, memRm(.Void, .EAX, 0), "D9 28");
+        testOp1(m64, .FLDCW, memRm(.Void, .EAX, 0), "67 D9 28");
+        testOp1(m32, .FLDCW, memRm(.WORD, .EAX, 0), "D9 28");
+        testOp1(m64, .FLDCW, memRm(.WORD, .EAX, 0), "67 D9 28");
+
+        testOp1(m32, .FLDENV, memRm(.Void, .EAX, 0), "D9 20");
+        testOp1(m64, .FLDENV, memRm(.Void, .EAX, 0), "67 D9 20");
+    }
+
+    {
         testOp1(m64, .FMUL, sreg(.ST0),              "D8 C8");
         testOp2(m64, .FMUL, sreg(.ST0), sreg(.ST7),  "D8 CF");
         testOp2(m64, .FMUL, sreg(.ST0), sreg(.ST0),  "DC C8");
@@ -46,13 +56,13 @@ test "x87 floating point instructions" {
         testOp2(m64, .FMULP, sreg(.ST7), sreg(.ST0), "DE CF");
         testOp0(m64, .FMULP, "DE C9");
 
-        testOp1(m64, .FIMUL, memRm(.DefaultSeg,  .WORD, .RAX, 0), "DE 08");
-        testOp1(m64, .FIMUL, memRm(.DefaultSeg, .DWORD, .RAX, 0), "DA 08");
+        testOp1(m64, .FIMUL, memRm( .WORD, .RAX, 0), "DE 08");
+        testOp1(m64, .FIMUL, memRm(.DWORD, .RAX, 0), "DA 08");
     }
 
     {
-        testOp1(m64, .FSAVE,  memRm(.DefaultSeg, .Void, .RAX, 0), "9B DD 30");
-        testOp1(m64, .FNSAVE, memRm(.DefaultSeg, .Void, .RAX, 0), "DD 30");
+        testOp1(m64, .FSAVE,  memRm(.Void, .RAX, 0), "9B DD 30");
+        testOp1(m64, .FNSAVE, memRm(.Void, .RAX, 0), "DD 30");
     }
 
 

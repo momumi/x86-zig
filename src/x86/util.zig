@@ -10,7 +10,7 @@ const Operand = x86.Operand;
 const Mnemonic = x86.Mnemonic;
 
 pub const debug: bool = true;
-var debug_print: bool = false;
+var hide_debug: bool = true;
 
 pub fn rexValue(w: u1, r: u1, x: u1, b: u1) u8 {
     // 0b0100_WRXB
@@ -74,6 +74,11 @@ pub fn matchesHexString(bytes: []const u8, str: []const u8) bool {
         }
     }
 
+    if (pos != bytes.len) {
+        // not enough bytes in bytes[] array
+        return false;
+    }
+
     if (hi != null and lo == null) {
         std.debug.panic("invalid hex string: must have even number of hex digits", .{});
     }
@@ -81,19 +86,24 @@ pub fn matchesHexString(bytes: []const u8, str: []const u8) bool {
     return true;
 }
 
-pub fn testMem(instr: AsmError!Instruction, hex_str: []const u8) void {
+pub fn isMatchingMemory(instr: AsmError!Instruction, hex_str: []const u8) bool {
     if (instr) |temp| {
-        testing.expect(matchesHexString(temp.asSlice(), hex_str));
+        return matchesHexString(temp.asSlice(), hex_str);
     } else |err| {
-        std.debug.panic("expected Instruction, found {}", .{err});
+        return false;
     }
 }
 
 pub fn debugPrint(on: bool) void {
-    debug_print = on;
+    if (on) {
+        // automatically added newline to work around the test runners formating
+        std.debug.warn("\n", .{});
+    }
+    hide_debug = !on;
 }
 
 pub fn printOp(
+    hide_message: bool,
     machine: Machine,
     mnem: Mnemonic,
     instr: AsmError!Instruction,
@@ -102,26 +112,26 @@ pub fn printOp(
     op3: ?*const Operand,
     op4: ?*const Operand,
 ) void {
-    if (!debug_print) {
+    if (hide_message) {
         return;
     }
 
     switch (machine.mode) {
         .x86_16 => std.debug.warn("x86-16: {} ", .{@tagName(mnem)}),
-        .x86 => std.debug.warn("x86:    {} ", .{@tagName(mnem)}),
+        .x86_32 => std.debug.warn("x86-32: {} ", .{@tagName(mnem)}),
         .x64 => std.debug.warn("x86-64: {} ", .{@tagName(mnem)}),
     }
     if (op1) |op| {
-        std.debug.warn("{} ", .{op1});
+        std.debug.warn("{}", .{op1});
     }
     if (op2) |op| {
-        std.debug.warn(", {} ", .{op2});
+        std.debug.warn(", {}", .{op2});
     }
     if (op3) |op| {
-        std.debug.warn(", {} ", .{op3});
+        std.debug.warn(", {}", .{op3});
     }
     if (op4) |op| {
-        std.debug.warn(", {} ", .{op4});
+        std.debug.warn(", {}", .{op4});
     }
 
     if (instr) |temp| {
@@ -160,8 +170,29 @@ pub fn testOpInstruction(
     hex_str: []const u8
 ) void {
     const instr = machine.build(mnem, op1, op2, op3, op4);
-    printOp(machine, mnem, instr, op1, op2, op3, op4);
-    testMem(instr, hex_str);
+    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4);
+    if (!isMatchingMemory(instr, hex_str)) {
+        // strip any spaces from the string to unify formating
+        var expected_hex: [128]u8 = undefined;
+        var pos: usize = 0;
+        for (hex_str) |c| {
+            if (c != ' ') {
+                expected_hex[pos] = c;
+                pos += 1;
+            }
+        }
+
+        std.debug.warn("Test failed:\n", .{});
+        std.debug.warn("Expeced: {}\n", .{expected_hex[0..pos]});
+        if (instr) |ins| {
+            std.debug.warn("But got: {x}\n", .{ins.asSlice()});
+        } else |err| {
+            std.debug.warn("But got: {}\n", .{err});
+        }
+        printOp(false, machine, mnem, instr, op1, op2, op3, op4);
+        std.debug.warn("\n", .{});
+        testing.expect(false);
+    }
 }
 
 pub fn testOpError(
@@ -174,15 +205,26 @@ pub fn testOpError(
     comptime err: AsmError,
 ) void {
     const instr = machine.build(mnem, op1, op2, op3, op4);
-    printOp(machine, mnem, instr, op1, op2, op3, op4);
-    testError(instr, err);
+    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4);
+    if (!isErrorMatch(instr, err)) {
+        std.debug.warn("Test failed:\n", .{});
+        std.debug.warn("Expeced error: {}\n", .{err});
+        if (instr) |ins| {
+            std.debug.warn("But got instr: {x}\n", .{ins.asSlice()});
+        } else |actual_error| {
+            std.debug.warn("But got error: {}\n", .{actual_error});
+        }
+        printOp(false, machine, mnem, instr, op1, op2, op3, op4);
+        std.debug.warn("\n", .{});
+        testing.expect(false);
+    }
 }
 
-pub fn testError(instr: AsmError!Instruction, err: AsmError) void {
+pub fn isErrorMatch(instr: AsmError!Instruction, err: AsmError) bool {
     if (instr) |temp| {
-        std.debug.panic("expected {}, found Instr: {x}", .{err, temp.asSlice()});
+        return false;
     } else |actual_error| {
-        testing.expect(actual_error == err);
+        return actual_error == err;
     }
 }
 

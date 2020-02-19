@@ -5,7 +5,7 @@ usingnamespace (@import("../util.zig"));
 // QuickRef: https://www.felixcloutier.com/x86/push
 
 test "push" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     debugPrint(false);

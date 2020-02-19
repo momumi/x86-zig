@@ -5,8 +5,8 @@ usingnamespace (@import("../util.zig"));
 // QuickRef: https://www.felixcloutier.com/x86/xchg
 
 test "xchg" {
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
-    const m32 = Machine.init(.x86);
 
     debugPrint(false);
 

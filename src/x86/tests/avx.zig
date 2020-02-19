@@ -3,18 +3,70 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "AVX" {
-    const m32 = Machine.init(.x86);
+    const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
     const reg = Operand.register;
+    const pred = Operand.registerPredicate;
+    const sae = Operand.registerSae;
     const regRm = Operand.registerRm;
     const imm = Operand.immediate;
 
     const rm32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
     const rm64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
     const mem_64 = rm64;
+    const rm_mem32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
+    const m32bcst = Operand.memoryRm(.DefaultSeg, .DWORD_BCST, .EAX, 0);
+    const m64bcst = Operand.memoryRm(.DefaultSeg, .QWORD_BCST, .EAX, 0);
 
     debugPrint(false);
+
+    {
+        testOp0(m32, .VZEROALL,   "c5 fc 77");
+        testOp0(m32, .VZEROUPPER, "c5 f8 77");
+
+        testOp1(m32, .VLDMXCSR, rm_mem32, "c5 f8 ae 10");
+        testOp1(m64, .VLDMXCSR, rm_mem32, "67 c5 f8 ae 10");
+
+        testOp1(m32, .VSTMXCSR, rm_mem32, "c5 f8 ae 18");
+        testOp1(m64, .VSTMXCSR, rm_mem32, "67 c5 f8 ae 18");
+    }
+
+
+
+    testOp4(m64, .VCMPPD, reg(.XMM0), reg(.XMM0), reg(.XMM0),  imm(0),                   "c5 f9 c2 c0 00");
+    testOp4(m64, .VCMPPD, reg(.YMM0), reg(.YMM0), reg(.YMM0),  imm(0),                   "c5 fd c2 c0 00");
+    testOp4(m64, .VCMPPD, pred(.K0,  .K7, .Merge), reg(.XMM0), reg(.XMM0),  imm(0),      "62 f1 fd 0f c2 c0 00");
+    testOp4(m64, .VCMPPD, pred(.K0,  .K7, .Merge), reg(.YMM0), reg(.YMM0),  imm(0),      "62 f1 fd 2f c2 c0 00");
+    testOp4(m64, .VCMPPD, pred(.K0,  .K7, .Merge), reg(.ZMM0), sae(.ZMM0, .SAE), imm(0), "62 f1 fd 5f c2 c0 00");
+
+    testOp4(m64, .VCMPPS, reg(.XMM0), reg(.XMM0), reg(.XMM0),  imm(0),                   "c5 f8 c2 c0 00");
+    testOp4(m64, .VCMPPS, reg(.YMM0), reg(.YMM0), reg(.YMM0),  imm(0),                   "c5 fc c2 c0 00");
+    testOp4(m64, .VCMPPS, pred(.K0,  .K7, .Merge), reg(.XMM0), reg(.XMM0),  imm(0),      "62 f1 7c 0f c2 c0 00");
+    testOp4(m64, .VCMPPS, pred(.K0,  .K7, .Merge), reg(.YMM0), reg(.YMM0),  imm(0),      "62 f1 7c 2f c2 c0 00");
+    testOp4(m64, .VCMPPS, pred(.K0,  .K7, .Merge), reg(.ZMM0), sae(.ZMM0, .SAE), imm(0), "62 f1 7c 5f c2 c0 00");
+
+    // GFNI
+    {
+        // VGF2P8AFFINEINVQB
+        testOp4(m64, .VGF2P8AFFINEINVQB,  reg(.XMM0),   reg(.XMM0),   reg(.XMM0),   imm(0),  "c4 e3 f9 cf c0 00   ");
+        testOp4(m64, .VGF2P8AFFINEINVQB,  reg(.YMM0),   reg(.YMM0),   reg(.YMM0),   imm(0),  "c4 e3 fd cf c0 00   ");
+        testOp4(m64, .VGF2P8AFFINEINVQB,  reg(.XMM31),  reg(.XMM31),  reg(.XMM31),  imm(0),  "62 03 85 00 cf ff 00");
+        testOp4(m64, .VGF2P8AFFINEINVQB,  reg(.YMM31),  reg(.YMM31),  reg(.YMM31),  imm(0),  "62 03 85 20 cf ff 00");
+        testOp4(m64, .VGF2P8AFFINEINVQB,  reg(.ZMM31),  reg(.ZMM31),  reg(.ZMM31),  imm(0),  "62 03 85 40 cf ff 00");
+        // VGF2P8AFFINEQB
+        testOp4(m64, .VGF2P8AFFINEQB,     reg(.XMM0),   reg(.XMM0),   reg(.XMM0),   imm(0),  "c4 e3 f9 ce c0 00    ");
+        testOp4(m64, .VGF2P8AFFINEQB,     reg(.YMM0),   reg(.YMM0),   reg(.YMM0),   imm(0),  "c4 e3 fd ce c0 00    ");
+        testOp4(m64, .VGF2P8AFFINEQB,     reg(.XMM31),  reg(.XMM31),  reg(.XMM31),  imm(0),  "62 03 85 00 ce ff 00 ");
+        testOp4(m64, .VGF2P8AFFINEQB,     reg(.YMM31),  reg(.YMM31),  reg(.YMM31),  imm(0),  "62 03 85 20 ce ff 00 ");
+        testOp4(m64, .VGF2P8AFFINEQB,     reg(.ZMM31),  reg(.ZMM31),  reg(.ZMM31),  imm(0),  "62 03 85 40 ce ff 00 ");
+        // VGF2P8MULB
+        testOp3(m64, .VGF2P8MULB,         reg(.XMM0),   reg(.XMM0),   reg(.XMM0),            "c4 e2 79 cf c0   ");
+        testOp3(m64, .VGF2P8MULB,         reg(.YMM0),   reg(.YMM0),   reg(.YMM0),            "c4 e2 7d cf c0   ");
+        testOp3(m64, .VGF2P8MULB,         reg(.XMM31),  reg(.XMM31),  reg(.XMM31),           "62 02 05 00 cf ff");
+        testOp3(m64, .VGF2P8MULB,         reg(.YMM31),  reg(.YMM31),  reg(.YMM31),           "62 02 05 20 cf ff");
+        testOp3(m64, .VGF2P8MULB,         reg(.ZMM31),  reg(.ZMM31),  reg(.ZMM31),           "62 02 05 40 cf ff");
+    }
 
     {
         {
@@ -30,8 +82,8 @@ test "AVX" {
         }
 
         {
-            testOp2(m32, .VMOVD, reg(.XMM0), rm64, AsmError.InvalidMode);
-            testOp2(m32, .VMOVD, reg(.XMM7), rm64, AsmError.InvalidMode);
+            testOp2(m32, .VMOVD, reg(.XMM0), rm64, AsmError.InvalidOperand);
+            testOp2(m32, .VMOVD, reg(.XMM7), rm64, AsmError.InvalidOperand);
             testOp2(m32, .VMOVD, reg(.XMM15), rm64, AsmError.InvalidMode);
             testOp2(m32, .VMOVD, reg(.XMM31), rm64, AsmError.InvalidMode);
             //
@@ -42,7 +94,7 @@ test "AVX" {
         }
 
         {
-            testOp2(m32, .VMOVQ, reg(.XMM0), reg(.RAX), AsmError.InvalidMode);
+            testOp2(m32, .VMOVQ, reg(.XMM0), reg(.RAX), AsmError.InvalidOperand);
             testOp2(m32, .VMOVQ, reg(.XMM15), reg(.RAX), AsmError.InvalidMode);
             //
             testOp2(m64, .VMOVQ, reg(.XMM0), reg(.RAX),  "c4 e1 f9 6e C0");
@@ -51,7 +103,7 @@ test "AVX" {
         }
 
         {
-            testOp2(m32, .VMOVQ, reg(.RAX), reg(.XMM0),  AsmError.InvalidMode);
+            testOp2(m32, .VMOVQ, reg(.RAX), reg(.XMM0),  AsmError.InvalidOperand);
             testOp2(m32, .VMOVQ, reg(.RAX), reg(.XMM15), AsmError.InvalidMode);
             //
             testOp2(m64, .VMOVQ, reg(.RAX), reg(.XMM0),  "c4 e1 f9 7e C0");
@@ -111,6 +163,15 @@ test "AVX" {
             testOp2(m64, .VMOVQ, regRm(.XMM31), reg(.XMM31), "62 01 fd 08 d6 ff");
         }
     }
+
+    // test 4 operands
+    {
+        testOp4(m32, .VPBLENDVB, reg(.XMM0), reg(.XMM0), reg(.XMM0), reg(.XMM0),   "c4 e3 79 4c c0 00");
+        testOp4(m64, .VPBLENDVB, reg(.XMM0), reg(.XMM0), reg(.XMM0), reg(.XMM0),   "c4 e3 79 4c c0 00");
+        testOp4(m64, .VPBLENDVB, reg(.XMM0), reg(.XMM0), reg(.XMM0), reg(.XMM15),  "c4 e3 79 4c c0 F0");
+        testOp4(m64, .VPBLENDVB, reg(.XMM0), reg(.XMM0), reg(.XMM0), reg(.XMM31),  AsmError.InvalidOperand);
+    }
+
 
     {
         testOp4(m32, .VPBLENDVB, reg(.XMM0), reg(.XMM0), reg(.XMM0), reg(.XMM0),   "c4 e3 79 4c c0 00");

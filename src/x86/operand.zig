@@ -43,7 +43,104 @@ pub const OperandType = enum(u16) {
     const tag_ymm = 0x1900;
     const tag_zmm = 0x1A00;
     const tag_mask_reg = 0x1B00;
-    const tag_special = 0xFF00;
+    const tag_bound_reg = 0x1C00;
+    const tag_special = 0x1D00;
+    const tag_avx = 0xF000;
+
+    /// Avx flags
+    const Flag = struct {
+        const Reg = enum (u16) {
+            xmm = 0b000,
+            ymm = 0b001,
+            zmm = 0b010,
+            // zmm = 0b011,
+        };
+
+        const RegSize = enum (u16) {
+            any = 0b0,
+            low = 0b1,
+        };
+
+        const Mem = enum(u16) {
+            no_mem = 0b000,
+            m32    = 0b001,
+            m64    = 0b010,
+            m128   = 0b011,
+            m256   = 0b100,
+            m512   = 0b101,
+        };
+
+        const Bcst = enum(u16) {
+            no_bcst = 0b00,
+            m32bcst = 0b01,
+            m64bcst = 0b10,
+        };
+
+        const Modifier = enum (u16) {
+            no_mod = 0b000,
+            k      = 0b001,
+            kz     = 0b010,
+            sae    = 0b011,
+            er     = 0b100,
+        };
+
+        const reg_pos: comptime_int = 0;
+        const reg_mask: u16 = (0b11) << reg_pos;
+        const xmml = @as(u16, @enumToInt(Reg.xmml)) << reg_pos;
+        const ymml = @as(u16, @enumToInt(Reg.ymml)) << reg_pos;
+        const xmm = @as(u16, @enumToInt(Reg.xmm)) << reg_pos;
+        const ymm = @as(u16, @enumToInt(Reg.ymm)) << reg_pos;
+        const zmm = @as(u16, @enumToInt(Reg.zmm)) << reg_pos;
+
+        const reg_size_pos: comptime_int = 2;
+        const reg_size_mask: u16 = (0b1) << reg_size_pos;
+        const low = @as(u16, @enumToInt(RegSize.low)) << reg_size_pos;
+        const any = @as(u16, @enumToInt(RegSize.any)) << reg_size_pos;
+
+        const mem_pos: comptime_int = 3;
+        const mem_mask: u16 = (0b111) << mem_pos;
+        const no_mem = @as(u16, @enumToInt(Mem.no_mem)) << mem_pos;
+        const m32 = @as(u16, @enumToInt(Mem.m32)) << mem_pos;
+        const m64 = @as(u16, @enumToInt(Mem.m64)) << mem_pos;
+        const m128 = @as(u16, @enumToInt(Mem.m128)) << mem_pos;
+        const m256 = @as(u16, @enumToInt(Mem.m256)) << mem_pos;
+        const m512 = @as(u16, @enumToInt(Mem.m512)) << mem_pos;
+
+        const bcst_pos: comptime_int = 6;
+        const bcst_mask: u16 = (0b11) << bcst_pos;
+        const no_bcst = @as(u16, @enumToInt(Bcst.no_bcst)) << bcst_pos;
+        const m32bcst = @as(u16, @enumToInt(Bcst.m32bcst)) << bcst_pos;
+        const m64bcst = @as(u16, @enumToInt(Bcst.m64bcst)) << bcst_pos;
+
+        const mod_pos: comptime_int = 8;
+        const mod_mask: u16 = (0b111) << mod_pos;
+        const no_mod = @as(u16, @enumToInt(Modifier.no_mod)) << mod_pos;
+        const k = @as(u16, @enumToInt(Modifier.k)) << mod_pos;
+        const kz = @as(u16, @enumToInt(Modifier.kz)) << mod_pos;
+        const sae = @as(u16, @enumToInt(Modifier.sae)) << mod_pos;
+        const er = @as(u16, @enumToInt(Modifier.er)) << mod_pos;
+
+        pub fn getReg(val: u16) Reg {
+            return @intToEnum(Reg, (val & reg_mask) >> reg_pos);
+        }
+
+        pub fn getRegSize(val: u16) RegSize {
+            return @intToEnum(RegSize, (val & reg_size_mask) >> reg_size_pos);
+        }
+
+        pub fn getMem(val: u16) Mem {
+            return @intToEnum(Mem, (val & mem_mask) >> mem_pos);
+        }
+
+        pub fn getBcst(val: u16) Bcst {
+            return @intToEnum(Bcst, (val & bcst_mask) >> bcst_pos);
+        }
+
+        pub fn getModifier(val: u16) Modifier {
+            return @intToEnum(Modifier, (val & mod_mask) >> mod_pos);
+        }
+    };
+
     reg8 = 0 | tag_reg8,
     reg_al = 1 | tag_reg8,
     reg_cl = 2 | tag_reg8,
@@ -144,6 +241,7 @@ pub const OperandType = enum(u16) {
     rm_xmm,
     rm_zmm,
     rm_k,
+    rm_bnd,
 
     reg_st = 0 | tag_reg_st,
     reg_st0 = 1 | tag_reg_st,
@@ -320,47 +418,208 @@ pub const OperandType = enum(u16) {
     reg_k6,
     reg_k7 = 0x08 | tag_mask_reg,
 
-    // ... = 0 | tag_special,
+    bnd = 0x00 | tag_bound_reg,
+    bnd0 = 0x01 | tag_bound_reg,
+    bnd1,
+    bnd2,
+    bnd3 = 0x04 | tag_bound_reg,
+
+    invalid = 0 | tag_special,
     mm_m64 = 1 | tag_special,
-    /// Only matches xmm[0..15]
-    xmml,
-    /// Only matches ymm[0..15]
-    ymml,
-    /// Matches xmm[0..15] or m64
-    xmml_m64,
-    /// Matches xmm[0..15] or m128
-    xmml_m128,
-    /// Matches ymm[0..15] or m256
-    ymml_m256,
-    /// Matches xmm[0..31] or m64 / m128 [or memory broadcast]
-    xmm_m64,
-    xmm_m128,
-    xmm_m128_m32bcst,
-    xmm_m128_m64bcst,
-    /// Matches ymm[0..31] or m256 [or memory broadcast]
-    ymm_m256,
-    ymm_m256_m32bcst,
-    ymm_m256_m64bcst,
-    /// Matches zmm[0..31] or m512 [or memory broadcast]
-    zmm_m512,
-    zmm_m512_m32bcst,
-    zmm_m512_m64bcst,
-    /// Matches xmm {k}{z} or xmm
-    xmm_kz,
-    /// Matches ymm {k}{z} or ymm
-    ymm_kz,
-    /// Matches zmm {k}{z} or zmm
-    zmm_kz,
-    /// suppress all errors on floating point operations ie: {sae}
-    sae,
-    /// suppress all Errors and Rounding control ie: {ru-sae}, {rd-sae}, etc.
-    er,
-    /// doesn't match anything
     /// Matches k {k}
     reg_k_k,
     /// Matches k {k} {z}
     reg_k_kz,
-    invalid,
+    /// Matches k or m8
+    k_m8,
+    /// Matches k or m16
+    k_m16,
+    /// Matches k or m32
+    k_m32,
+    /// Matches k or m64
+    k_m64,
+    /// matches bnd register or m64
+    bnd_m64,
+    /// matches bnd register or m128
+    bnd_m128,
+    /// doesn't match anything
+
+    const F = Flag;
+    avx_operand = 0 | tag_avx,
+    /// Only matches xmm[0..15]
+    xmml      = F.xmm | F.low | tag_avx,
+    xmml_m32  = F.xmm | F.low | F.m32 | tag_avx,
+    xmml_m64  = F.xmm | F.low | F.m64 | tag_avx,
+    xmml_m128 = F.xmm | F.low | F.m128 | tag_avx,
+    /// Only matches ymm[0..15]
+    ymml      = F.ymm | F.low | tag_avx,
+    ymml_m256 = F.ymm | F.low | F.m256 | tag_avx,
+    /// xmm[0..31]
+    xmm_k                = F.xmm | F.k | tag_avx,
+    xmm_kz               = F.xmm | F.kz | tag_avx,
+    xmm_m32              = F.xmm | F.m32 | tag_avx,
+    xmm_m32_er           = F.xmm | F.m32 | F.er | tag_avx,
+    xmm_m64              = F.xmm | F.m64 | tag_avx,
+    xmm_m64_er           = F.xmm | F.m64 | F.er | tag_avx,
+    xmm_m128             = F.xmm | F.m128 | tag_avx,
+    xmm_m128_sae         = F.xmm | F.m128 | F.sae | tag_avx,
+    xmm_m128_er          = F.xmm | F.m128 | F.er | tag_avx,
+    xmm_m128_m32bcst     = F.xmm | F.m128 | F.m32bcst | tag_avx,
+    xmm_m128_m32bcst_sae = F.xmm | F.m128 | F.m32bcst | F.sae | tag_avx,
+    xmm_m128_m32bcst_er  = F.xmm | F.m128 | F.m32bcst | F.er | tag_avx,
+    xmm_m128_m64bcst     = F.xmm | F.m128 | F.m64bcst | tag_avx,
+    xmm_m128_m64bcst_sae = F.xmm | F.m128 | F.m64bcst | F.sae | tag_avx,
+    xmm_m128_m64bcst_er  = F.xmm | F.m128 | F.m64bcst | F.er | tag_avx,
+    xmm_sae              = F.xmm | F.sae | tag_avx,
+    xmm_er               = F.xmm | F.er | tag_avx,
+    /// ymm[0..31]
+    ymm_k                = F.ymm | F.k | tag_avx,
+    ymm_kz               = F.ymm | F.kz | tag_avx,
+    ymm_m256             = F.ymm | F.m256 | tag_avx,
+    ymm_m256_sae         = F.ymm | F.m256 | F.sae | tag_avx,
+    ymm_m256_er          = F.ymm | F.m256 | F.er | tag_avx,
+    ymm_m256_m32bcst     = F.ymm | F.m256 | F.m32bcst | tag_avx,
+    ymm_m256_m32bcst_sae = F.ymm | F.m256 | F.m32bcst | F.sae | tag_avx,
+    ymm_m256_m32bcst_er  = F.ymm | F.m256 | F.m32bcst | F.er | tag_avx,
+    ymm_m256_m64bcst     = F.ymm | F.m256 | F.m64bcst | tag_avx,
+    ymm_m256_m64bcst_sae = F.ymm | F.m256 | F.m64bcst | F.sae | tag_avx,
+    ymm_m256_m64bcst_er  = F.ymm | F.m256 | F.m64bcst | F.er | tag_avx,
+    ymm_sae              = F.ymm | F.sae | tag_avx,
+    ymm_er               = F.ymm | F.er | tag_avx,
+    /// Zmm[0..31]
+    zmm_k                = F.zmm | F.k | tag_avx,
+    zmm_kz               = F.zmm | F.kz | tag_avx,
+    zmm_m512             = F.zmm | F.m512 | tag_avx,
+    zmm_m512_sae         = F.zmm | F.m512 | F.sae | tag_avx,
+    zmm_m512_er          = F.zmm | F.m512 | F.er | tag_avx,
+    zmm_m512_m32bcst     = F.zmm | F.m512 | F.m32bcst | tag_avx,
+    zmm_m512_m32bcst_sae = F.zmm | F.m512 | F.m32bcst | F.sae | tag_avx,
+    zmm_m512_m32bcst_er  = F.zmm | F.m512 | F.m32bcst | F.er | tag_avx,
+    zmm_m512_m64bcst     = F.zmm | F.m512 | F.m64bcst | tag_avx,
+    zmm_m512_m64bcst_sae = F.zmm | F.m512 | F.m64bcst | F.sae | tag_avx,
+    zmm_m512_m64bcst_er  = F.zmm | F.m512 | F.m64bcst | F.er | tag_avx,
+    zmm_sae              = F.zmm | F.sae | tag_avx,
+    zmm_er               = F.zmm | F.er | tag_avx,
+
+    fn isAvxOperandType(self: OperandType) bool {
+        return (@enumToInt(self) & tag_avx) == tag_avx;
+    }
+
+    fn isLowReg(self: OperandType) bool {
+        const max_reg_num = 15 + 1;
+        return (@enumToInt(self) & 0xff) <= max_reg_num ;
+    }
+
+    fn matchAvx(template: OperandType, other: OperandType) bool {
+        const template_raw = @enumToInt(template);
+        const template_reg = Flag.getReg(template_raw);
+
+        if (other.isAvxOperandType()) {
+            // other => avx reg + [sae, er, k, kz]
+            const other_raw = @enumToInt(other);
+
+            const other_reg = Flag.getReg(other_raw);
+            if (template_reg != other_reg) {
+                return false;
+            }
+
+            const template_reg_size = Flag.getRegSize(template_raw);
+            const other_reg_size = Flag.getRegSize(other_raw);
+            if (!(@enumToInt(other_reg_size) <= @enumToInt(template_reg_size))) {
+                return false;
+            }
+
+            const template_mod = Flag.getModifier(template_raw);
+            const other_mod = Flag.getModifier(other_raw);
+
+            return switch (template_mod) {
+                .no_mod => .no_mod == other_mod,
+                .kz => .k == other_mod or .kz == other_mod,
+                .k => .k == other_mod,
+                .sae => .sae == other_mod,
+                .er => .er == other_mod,
+            };
+        }
+
+        const other_tag = other.getContainerType();
+        // register operand
+        switch (other_tag) {
+            .xmm => {
+                const template_reg_size = Flag.getRegSize(template_raw);
+                if (template_reg_size == .low and !other.isLowReg()) {
+                    return false;
+                }
+                return template_reg == .xmm;
+            },
+
+            // need to check if it's
+            .ymm => {
+                const template_reg_size = Flag.getRegSize(template_raw);
+                if (template_reg_size == .low and !other.isLowReg()) {
+                    return false;
+                }
+                return template_reg == .ymm;
+            },
+
+            // if ZMM registers always use zmm[0..31]
+            .zmm => return template_reg == .zmm,
+
+            .rm_mem, .rm32, .rm64 => {
+                const mem = Flag.getMem(template_raw);
+
+                const mem_match = switch (mem) {
+                    .no_mem => false,
+                    .m32 => .rm_mem32 == other,
+                    .m64 => .rm_mem64 == other,
+                    .m128 => .rm_mem128 == other,
+                    .m256 => .rm_mem256 == other,
+                    .m512 => .rm_mem512 == other,
+                };
+
+                const bcst = Flag.getBcst(template_raw);
+                const bcst_match = switch (bcst) {
+                    .no_bcst => false,
+                    .m32bcst => .rm_m32bcst == other,
+                    .m64bcst => .rm_m64bcst == other,
+                };
+
+                return mem_match or bcst_match;
+            },
+
+            // else => unreachable,
+            else => {},
+        }
+
+        const is_rm = Flag.getMem(template_raw) != .no_mem;
+        // if `other` doesn't match any of those tags, then check if it
+        // matches one of these specific types (not tags)
+        switch (other) {
+            .rm_xmm => {
+                const template_reg_size = Flag.getRegSize(template_raw);
+                if (template_reg_size == .low) {
+                    return false;
+                } else {
+                    return template_reg == .xmm and is_rm;
+                }
+            },
+
+            .rm_ymm => {
+                const template_reg_size = Flag.getRegSize(template_raw);
+                if (template_reg_size == .low) {
+                    return false;
+                } else {
+                    return template_reg == .ymm and is_rm;
+                }
+            },
+
+            .rm_xmml => return template_reg == .xmm and is_rm,
+            .rm_ymml => return template_reg == .ymm and is_rm,
+            .rm_zmm => return template_reg == .zmm and is_rm,
+            else => {},
+        }
+
+        return false;
+    }
 
     pub fn getContainerType(self: OperandType) OperandType {
         return @intToEnum(OperandType, @enumToInt(self) & tag_mask);
@@ -408,25 +667,38 @@ pub const OperandType = enum(u16) {
     }
 
     pub fn fromRegisterPredicate(reg_pred: avx.RegisterPredicate) OperandType {
-        return switch (reg_pred.Reg.registerType()) {
-            .XMM => OperandType.xmm_kz,
-            .YMM => OperandType.ymm_kz,
-            .ZMM => OperandType.zmm_kz,
-            .Mask => {
-                if (reg_pred.Z == .Zero) {
-                    return OperandType.reg_k_kz;
-                } else {
-                    return OperandType.reg_k_k;
-                }
+        return switch (reg_pred.z) {
+            .Merge => switch (reg_pred.reg.registerType()) {
+                .XMM => OperandType.xmm_k,
+                .YMM => OperandType.ymm_k,
+                .ZMM => OperandType.zmm_k,
+                .Mask => OperandType.reg_k_k,
+                else => OperandType.invalid,
             },
-            else => OperandType.invalid,
+            .Zero => switch (reg_pred.reg.registerType()) {
+                .XMM => OperandType.xmm_kz,
+                .YMM => OperandType.ymm_kz,
+                .ZMM => OperandType.zmm_kz,
+                .Mask => OperandType.reg_k_kz,
+                else => OperandType.invalid,
+            },
         };
     }
 
-    pub fn fromSae(sae: avx.SuppressAllExceptions) OperandType {
-        return switch (sae) {
-            .SAE, .AE => OperandType.sae,
-            .RN_SAE, .RD_SAE, .RU_SAE, .RZ_SAE => OperandType.er,
+    pub fn fromSae(reg_sae: avx.RegisterSae) OperandType {
+        return switch (reg_sae.sae) {
+            .SAE, .AE => switch (reg_sae.reg.registerType()) {
+                .XMM => OperandType.xmm_sae,
+                .YMM => OperandType.ymm_sae,
+                .ZMM => OperandType.zmm_sae,
+                else => unreachable,
+            },
+            .RN_SAE, .RD_SAE, .RU_SAE, .RZ_SAE => switch (reg_sae.reg.registerType()) {
+                .XMM => OperandType.xmm_er,
+                .YMM => OperandType.ymm_er,
+                .ZMM => OperandType.zmm_er,
+                else => unreachable,
+            },
         };
     }
 
@@ -440,43 +712,27 @@ pub const OperandType = enum(u16) {
     //      * imm16 <-> imm16, imm32
     pub fn matchTemplate(template: OperandType, other: OperandType) bool {
         const other_tag = other.getContainerType();
+
+        if (template.isAvxOperandType()) {
+            return template.matchAvx(other);
+        }
+
         return switch (template) {
             .rm8 => (other_tag == .rm8 or other_tag == .reg8),
             .rm16 => (other_tag == .rm16 or other_tag == .reg16),
             .rm32 => (other_tag == .rm32 or other_tag == .reg32),
             .rm64 => (other_tag == .rm64 or other_tag == .reg64),
             .mm_m64 => (other_tag == .mm or other == .rm_mem64 or other == .rm_mm),
-            .xmml => other_tag == .xmm and ((@enumToInt(other)) <= @enumToInt(OperandType.xmm15)),
-            .ymml => other_tag == .ymm and ((@enumToInt(other)) <= @enumToInt(OperandType.ymm15)),
-            .xmml_m64 => (
-                (other_tag == .xmm and ((@enumToInt(other)) <= @enumToInt(OperandType.xmm15)))
-                 or other == .rm_mem64 or other == .rm_xmml
-            ),
-            .xmml_m128 => (
-                (other_tag == .xmm and ((@enumToInt(other)) <= @enumToInt(OperandType.xmm15)))
-                 or other == .rm_mem128 or other == .rm_xmml
-            ),
-            .ymml_m256 => (
-                (other_tag == .ymm and ((@enumToInt(other)) <= @enumToInt(OperandType.ymm15)))
-                or other == .rm_mem256 or other == .rm_ymml
-            ),
-            // xmm
-            .xmm_m64 => other_tag == .xmm or other == .rm_xmm or other == .rm_mem64,
-            .xmm_m128 => other_tag == .xmm or other == .rm_xmm or other == .rm_mem128,
-            .xmm_m128_m32bcst => other_tag == .xmm or other == .rm_xmm or other == .rm_mem128 or other == .rm_m32bcst,
-            .xmm_m128_m64bcst => other_tag == .xmm or other == .rm_xmm or other == .rm_mem128 or other == .rm_m64bcst,
-            // ymm
-            .ymm_m256 => other_tag == .ymm or other == .rm_ymm or other == .rm_mem256,
-            .ymm_m256_m32bcst => other_tag == .ymm or other == .rm_ymm or other == .rm_mem256 or other == .rm_m32bcst,
-            .ymm_m256_m64bcst => other_tag == .ymm or other == .rm_ymm or other == .rm_mem256 or other == .rm_m64bcst,
-            // zmm
-            .zmm_m512 => other_tag == .zmm or other == .rm_zmm or other == .rm_mem512,
-            .zmm_m512_m32bcst => other_tag == .zmm or other == .rm_zmm or other == .rm_mem512 or other == .rm_m32bcst,
-            .zmm_m512_m64bcst => other_tag == .zmm or other == .rm_zmm or other == .rm_mem512 or other == .rm_m64bcst,
-            // predicate reg
-            .xmm_kz => other_tag == .xmm or other == .xmm_kz,
-            .ymm_kz => other_tag == .ymm or other == .ymm_kz,
-            .zmm_kz => other_tag == .zmm or other == .zmm_kz,
+            // mask
+            .reg_k_k => other_tag == .reg_k or other == .reg_k_k,
+            .reg_k_kz => other_tag == .reg_k or other == .reg_k_k or other == .reg_k_kz,
+            .k_m8 => other_tag == .reg_k or other == .rm_k or other == .rm_mem8,
+            .k_m16 => other_tag == .reg_k or other == .rm_k or other == .rm_mem16,
+            .k_m32 => other_tag == .reg_k or other == .rm_k or other == .rm_mem32,
+            .k_m64 => other_tag == .reg_k or other == .rm_k or other == .rm_mem64,
+            // bound
+            .bnd_m64 => other_tag == .bnd or other == .rm_bnd or other == .rm_mem64,
+            .bnd_m128 => other_tag == .bnd or other == .rm_bnd or other == .rm_mem128,
             .imm8 => (other == .imm8 or other == .imm8_any or other == .imm_1),
             .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any or other == .imm_1),
             .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm_1),
@@ -486,42 +742,62 @@ pub const OperandType = enum(u16) {
     }
 };
 
-const MemDispSize = enum {
-    None,
-    Disp8,
-    Disp32,
+/// Possible displacement sizes for 16 bit addressing
+const MemDisp16Size = enum(u8) {
+    None = 0,
+    Disp8 = 1,
+    Disp16 = 2,
 };
 
-/// Encodes a displacement for memory addressing for 32/64 modes
-const MemDisp = struct {
-    displacement: i32 = 0,
-    size: MemDispSize = .None,
+/// Possible displacement sizes for 32 and 64 bit addressing
+const MemDispSize = enum(u8) {
+    None = 0,
+    Disp8 = 1,
+    Disp32 = 4,
+};
 
-    pub fn create(dis_size: MemDispSize, dis: i32) MemDisp {
-        return MemDisp {
-            .displacement = dis,
-            .size = dis_size,
-        };
-    }
+/// Generic struct representing a memory displacement
+fn memDispCommon(comptime DispSize: type, comptime IntType: type, comptime disp_max: DispSize) type {
+    return struct {
+        displacement: IntType = 0,
+        size: DispSize = .None,
 
-    pub fn disp(dis: i32) MemDisp {
-        if (dis == 0) {
-            return MemDisp.create(.None, 0);
-        } else if (minInt(i8) <= dis and dis <= maxInt(i8)) {
-            return MemDisp.create(.Disp8, dis);
-        } else {
-            return MemDisp.create(.Disp32, dis);
+        pub fn create(dis_size: DispSize, dis: IntType) @This() {
+            return @This() {
+                .displacement = dis,
+                .size = dis_size,
+            };
         }
-    }
 
-    pub fn value(self: MemDisp) i32 {
-        return self.displacement;
-    }
+        pub fn disp(dis: IntType) @This() {
+            if (dis == 0) {
+                return @This().create(.None, 0);
+            } else if (minInt(i8) <= dis and dis <= maxInt(i8)) {
+                return @This().create(.Disp8, dis);
+            } else {
+                return @This().create(disp_max, dis);
+            }
+        }
 
-    pub fn dispSize(self: MemDisp) MemDispSize {
-        return self.size;
-    }
-};
+        pub fn value(self: @This()) IntType {
+            return self.displacement;
+        }
+
+        pub fn dispSize(self: @This()) DispSize {
+            return self.size;
+        }
+
+        pub fn bitSize(self: @This()) BitSize {
+            return @intToEnum(BitSize, @enumToInt(self.size));
+        }
+    };
+}
+
+/// Encodes a displacement for 16 bit addressing
+const MemDisp16 = memDispCommon(MemDisp16Size, i16, .Disp16);
+
+/// Encodes a displacement for 32 and 64 bit addressing
+const MemDisp = memDispCommon(MemDispSize, i32, .Disp32);
 
 const SibScale = enum(u2) {
     Scale1 = 0b00,
@@ -548,9 +824,40 @@ const SibScale = enum(u2) {
     }
 };
 
+/// Encodes memory addressing of the form: [BP,BX] + [DI,SI] + disp0/8/16
+const Memory16Bit = struct {
+    /// Base register either BP or BX
+    base: ?Register,
+    /// Index register either DI or SI
+    index: ?Register,
+    /// 0, 8 or 16 bit memory displacement
+    disp: MemDisp16,
+    /// Size of the data this memory address points to
+    data_size: DataSize,
+    /// Segment register to offset the memory address
+    segment: Segment,
+
+    pub fn hasValidRegisters(self: Memory16Bit) bool {
+        if (self.base) |base| {
+            switch (base) {
+                .BX, .BP => {},
+                else => return false,
+            }
+        }
+        if (self.index) |index| {
+            switch (index) {
+                .DI, .SI => {},
+                else => return false,
+            }
+        }
+        return true;
+    }
+};
+
 /// Encodes memory addressing of the form: [r/m + disp]
 const Memory = struct {
     reg: Register,
+    /// 0, 8 or 32 bit memory displacement
     disp: MemDisp,
     data_size: DataSize,
     segment: Segment,
@@ -611,7 +918,8 @@ pub const ModRmResult = struct {
     reg: u3 = 0,
     rm: u3 = 0,
     sib: ?u8 = null,
-    disp: MemDisp = MemDisp{},
+    disp_bit_size: BitSize = .Bit0,
+    disp: i32 = 0,
     segment: Segment = .DefaultSeg,
 
     pub fn rexRequirements(self: *@This(), reg: Register, default_size: DefaultSize) void {
@@ -620,6 +928,11 @@ pub const ModRmResult = struct {
             self.needs_rex = self.needs_rex or reg.needsRex();
         }
         self.needs_no_rex = self.needs_no_rex or reg.needsNoRex();
+    }
+
+    pub fn addMemDisp(self: *@This(), disp: var) void {
+        self.disp_bit_size = disp.bitSize();
+        self.disp = disp.value();
     }
 
     pub fn rex(self: @This(), w: u1) u8 {
@@ -644,6 +957,7 @@ pub const ModRmResult = struct {
 /// Encodes an R/M operand
 pub const ModRm = union(enum) {
     Reg: Register,
+    Mem16: Memory16Bit,
     Mem: Memory,
     Sib: MemorySib,
     Rel: RelMemory,
@@ -651,6 +965,7 @@ pub const ModRm = union(enum) {
     pub fn operandSize(self: @This()) BitSize {
         return switch (self) {
             .Reg => |reg| reg.bitSize(),
+            .Mem16 => |mem| mem.data_size.bitSize(),
             .Mem => |mem| mem.data_size.bitSize(),
             .Sib => |sib| sib.data_size.bitSize(),
             .Rel => |reg| reg.data_size.bitSize(),
@@ -660,6 +975,7 @@ pub const ModRm = union(enum) {
     pub fn operandDataSize(self: @This()) DataSize {
         return switch (self) {
             .Reg => |reg| reg.dataSize(),
+            .Mem16 => |mem| mem.data_size,
             .Mem => |mem| mem.data_size,
             .Sib => |sib| sib.data_size,
             .Rel => |reg| reg.data_size,
@@ -669,6 +985,7 @@ pub const ModRm = union(enum) {
     pub fn operandDataType(self: @This()) DataType {
         return switch (self) {
             .Reg => |reg| DataType.Register,
+            .Mem16 => |mem| mem.data_size.dataType(),
             .Mem => |mem| mem.data_size.dataType(),
             .Sib => |sib| sib.data_size.dataType(),
             .Rel => |reg| reg.data_size.dataType(),
@@ -696,9 +1013,11 @@ pub const ModRm = union(enum) {
                 .YMM => if (reg.number() <= 15) OperandType.rm_ymml else OperandType.rm_ymm,
                 .ZMM => OperandType.rm_zmm,
                 .Mask => OperandType.rm_k,
+                .Bound => OperandType.rm_bnd,
             },
 
             .Mem,
+            .Mem16,
             .Sib,
             .Rel => switch (self.operandDataSize()) {
                 .Void => OperandType.rm_mem,
@@ -726,6 +1045,65 @@ pub const ModRm = union(enum) {
         return res;
     }
 
+    pub fn encodeMem16(mem: Memory16Bit, mode:Mode86, modrm_reg: Register) AsmError!ModRmResult {
+        var res = ModRmResult{};
+
+        if (modrm_reg.needsRex()) {
+            return AsmError.InvalidMemoryAddressing;
+        }
+
+        // base ∈ {BX, BP, null}, index ∈ {DI, SI, null}
+        if (!mem.hasValidRegisters()) {
+            return AsmError.InvalidMemoryAddressing;
+        }
+
+        res.reg = modrm_reg.numberRm();
+        res.mod = switch (mem.disp.dispSize()) {
+            .None => 0b00,
+            .Disp8 => 0b01,
+            .Disp16 => 0b10,
+        };
+        res.addMemDisp(mem.disp);
+
+        res.operand_size = mem.data_size.bitSize();
+        res.addressing_size = .Bit16;
+        res.segment = mem.segment;
+
+        const base = mem.base;
+        const index = mem.index;
+
+        if (base == null and index == null and mem.disp.dispSize() != .None) {
+            // [disp16]  = 0b110
+            res.rm = 0b110;
+            res.disp_bit_size = .Bit16;
+        } else if (base != null and index != null) {
+            // [BX + SI] = 0b000
+            // [BX + DI] = 0b001
+            // [BP + SI] = 0b010
+            // [BP + DI] = 0b011
+            const base_val: u3 = if (base.? == .BP) 0b010 else 0;
+            const index_val: u3 = if (index.? == .DI) 0b001 else 0;
+            res.rm = 0b000 | base_val | index_val;
+        } else if (base == null and index != null) {
+            // [SI] = 0b100
+            // [DI] = 0b101
+            const index_val: u3 = if (index.? == .DI) 0b001 else 0;
+            res.rm = 0b100 | index_val;
+        } else if (base != null and index == null) {
+            // [BP] = 0b110 (use this when there is no displacement)
+            // [BX] = 0b111
+            if (mem.disp.dispSize() == .None and base.? == .BP) {
+                return AsmError.InvalidMemoryAddressing;
+            }
+            const base_val: u3 = if (base.? == .BX) 0b001 else 0;
+            res.rm = 0b110 | base_val;
+        } else {
+            return AsmError.InvalidMemoryAddressing;
+        }
+
+        return res;
+    }
+
     // TODO: probably change the asserts in this function to errors
     pub fn encodeReg(self: @This(), mode: Mode86, modrm_reg: Register, default_size: DefaultSize) AsmError!ModRmResult {
         var res = ModRmResult{};
@@ -746,6 +1124,7 @@ pub const ModRm = union(enum) {
                 res.rex_b = reg.numberRex();
                 res.operand_size = reg.bitSize();
             },
+            .Mem16 => |mem| res = try encodeMem16(mem, mode, modrm_reg),
             .Mem => |mem| {
                 // Can't use SP or R12 without a SIB byte since they are used to encode it.
                 if ((mem.reg.name() == .SP) or (mem.reg.name() == .R12)){
@@ -765,7 +1144,7 @@ pub const ModRm = union(enum) {
                     }
                     res.rm = mem.reg.numberRm();
                     res.rex_b = mem.reg.numberRex();
-                    res.disp = mem.disp;
+                    res.addMemDisp(mem.disp);
                 } else {
                     // ModRM addressing: [r/m]
                     // Can't use BP or R13 and no displacement without a SIB byte
@@ -784,7 +1163,7 @@ pub const ModRm = union(enum) {
                 var index: u3 = undefined;
                 res.mod = 0b00; // most modes use this value, so set it here
                 res.rm = Register.SP.numberRm(); // 0b100, magic value for SIB addressing
-                const disp = sib.disp.dispSize();
+                const disp_size = sib.disp.dispSize();
 
                 res.operand_size = sib.data_size.bitSize();
                 res.segment = sib.segment;
@@ -804,13 +1183,13 @@ pub const ModRm = union(enum) {
                     }
                 }
 
-                if (sib.base != null and sib.index != null and disp != .None) {
+                if (sib.base != null and sib.index != null and disp_size != .None) {
                     // SIB addressing: [base + (index * scale) + disp8/32]
                     if (sib.index.?.name() == .SP) {
                         return AsmError.InvalidMemoryAddressing;
                     }
 
-                    switch (disp) {
+                    switch (disp_size) {
                         .Disp8  => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
                         else => unreachable,
@@ -822,12 +1201,12 @@ pub const ModRm = union(enum) {
                     index = sib.index.?.numberRm();
                     res.rex_x = sib.index.?.numberRex();
                     // encode displacement
-                    res.disp = sib.disp;
-                } else if (sib.base != null and sib.index == null and disp != .None) {
+                    res.addMemDisp(sib.disp);
+                } else if (sib.base != null and sib.index == null and disp_size != .None) {
                     // SIB addressing: [base + disp8/32]
                     const magic_index = Register.SP;
 
-                    switch (disp) {
+                    switch (disp_size) {
                         .Disp8  => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
                         else => unreachable,
@@ -839,8 +1218,8 @@ pub const ModRm = union(enum) {
                     index = magic_index.numberRm();
                     res.rex_x = magic_index.numberRex();
                     // encode displacement
-                    res.disp = sib.disp;
-                } else if (disp == .None and sib.index != null and sib.base != null) {
+                    res.addMemDisp(sib.disp);
+                } else if (disp_size == .None and sib.index != null and sib.base != null) {
                     // SIB addressing: [base + (index * s)]
                     if ((sib.base.?.name() == .BP) or (sib.base.?.name() == .R13)) {
                         return AsmError.InvalidMemoryAddressing;
@@ -850,7 +1229,7 @@ pub const ModRm = union(enum) {
                     res.rex_b = sib.base.?.numberRex();
                     index = sib.index.?.numberRm();
                     res.rex_x = sib.index.?.numberRex();
-                } else if (disp == .Disp32 and sib.index != null and sib.base == null) {
+                } else if (disp_size == .Disp32 and sib.index != null and sib.base == null) {
                     // SIB addressing: [(index * s) + disp32]
                     if (sib.index.?.name() == .SP) {
                         return AsmError.InvalidMemoryAddressing;
@@ -865,8 +1244,8 @@ pub const ModRm = union(enum) {
                     res.rex_b = magic_base.numberRex();
                     index = sib.index.?.numberRm();
                     res.rex_x = sib.index.?.numberRex();
-                    res.disp = sib.disp;
-                } else if (disp == .None and sib.index == null and sib.base != null) {
+                    res.addMemDisp(sib.disp);
+                } else if (disp_size == .None and sib.index == null and sib.base != null) {
                     // SIB addressing: [base]
                     // NOTE: illegal to use BP or R13 as the base
                     if ((sib.base.?.name() == .BP) or (sib.base.?.name() == .R13)){
@@ -878,7 +1257,7 @@ pub const ModRm = union(enum) {
                     res.rex_b = sib.base.?.numberRex();
                     index = magic_index.numberRm();
                     res.rex_x = magic_index.numberRex();
-                } else if (disp == .Disp32 and sib.index == null and sib.base == null) {
+                } else if (disp_size == .Disp32 and sib.index == null and sib.base == null) {
                     // SIB addressing: [disp32]
                     const magic_index = Register.SP;
                     const magic_base = switch (0) {
@@ -891,7 +1270,7 @@ pub const ModRm = union(enum) {
                     res.rex_b = magic_base.numberRex();
                     index = magic_index.numberRm();
                     res.rex_x = magic_index.numberRex();
-                    res.disp = sib.disp;
+                    res.addMemDisp(sib.disp);
                 } else {
                     // other forms are impossible to encode on x86
                     return AsmError.InvalidMemoryAddressing;
@@ -918,7 +1297,8 @@ pub const ModRm = union(enum) {
                 res.rex_b = tmp_reg.numberRex();
 
                 res.segment = rel.segment;
-                res.disp = MemDisp.create(.Disp32, rel.disp);
+                res.disp_bit_size = .Bit32;
+                res.disp = rel.disp;
                 res.operand_size = rel.data_size.bitSize();
                 res.addressing_size = switch (rel.reg) {
                     .EIP => .Bit32,
@@ -948,6 +1328,31 @@ pub const ModRm = union(enum) {
 
     pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) ModRm {
         return ModRm { .Rel = RelMemory.relMemory(seg, data_size, reg, disp) };
+    }
+
+    pub fn memory16Bit(
+        seg: Segment,
+        data_size: DataSize,
+        base: ?Register,
+        index: ?Register,
+        disp: i16
+    ) ModRm {
+        var displacement: MemDisp16 = undefined;
+        if (base == null and index == null) {
+            // need to use 16 bit displacement
+            displacement = MemDisp16.create(.Disp16, disp);
+        } else {
+            displacement = MemDisp16.disp(disp);
+        }
+        return ModRm {
+            .Mem16 = Memory16Bit {
+                .base = base,
+                .index = index,
+                .disp = displacement,
+                .data_size = data_size,
+                .segment = seg,
+            }
+        };
     }
 
     /// data_size [seg: reg + disp]
@@ -1054,13 +1459,44 @@ pub const ModRm = union(enum) {
                 try output(context, "RM.");
                 try output(context, @tagName(reg));
             },
+            .Mem16 => |mem| {
+                try output(context, @tagName(mem.data_size));
+                try output(context, " ");
+                if (mem.segment != .DefaultSeg) {
+                    try output(context, @tagName(mem.segment));
+                    try output(context, ":");
+                }
+                try output(context, "[");
+                if (mem.base) |base| {
+                    try output(context, @tagName(base));
+                    if (mem.index != null or mem.disp.dispSize() != .None) {
+                        try output(context, " + ");
+                    }
+                }
+                if (mem.index) |index| {
+                    try output(context, @tagName(index));
+                    if (mem.disp.dispSize() != .None ) {
+                        try output(context, " + ");
+                    }
+                }
+                if (mem.disp.dispSize() != .None) {
+                    const disp = mem.disp.value();
+                    if (disp < 0) {
+                        try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
+                    } else {
+                        try std.fmt.format(context, FmtError, output, "0x{x}", .{disp});
+                    }
+                }
+                try output(context, "]");
+            },
             .Mem => |mem| {
                 try output(context, @tagName(mem.data_size));
-                try output(context, " [");
+                try output(context, " ");
                 if (mem.segment != .DefaultSeg) {
                     try output(context, @tagName(mem.segment));
                     try output(context, ": ");
                 }
+                try output(context, "[");
                 try output(context, @tagName(mem.reg));
                 if (mem.disp.dispSize() !=  .None) {
                     const disp = mem.disp.value();
@@ -1075,11 +1511,12 @@ pub const ModRm = union(enum) {
             },
             .Sib => |sib| {
                 try output(context, @tagName(sib.data_size));
-                try output(context, " [");
+                try output(context, " ");
                 if (sib.segment != .DefaultSeg) {
                     try output(context, @tagName(sib.segment));
-                    try output(context, ": ");
+                    try output(context, ":");
                 }
+                try output(context, "[");
                 if (sib.index) |index| {
                     try std.fmt.format(context, FmtError, output, "{}*{}", .{sib.scale.value(), @tagName(index)});
                     if (sib.base != null or sib.disp.dispSize() != .None) {
@@ -1104,11 +1541,12 @@ pub const ModRm = union(enum) {
             },
             .Rel => |rel| {
                 try output(context, @tagName(rel.data_size));
-                try output(context, " [");
+                try output(context, " ");
                 if (rel.segment != .DefaultSeg) {
                     try output(context, @tagName(rel.segment));
                     try output(context, ": ");
                 }
+                try output(context, "[");
                 try output(context, @tagName(rel.reg));
                 const disp = rel.disp;
                 if (disp < 0) {
@@ -1118,7 +1556,10 @@ pub const ModRm = union(enum) {
                 }
                 try output(context, "]");
             },
-            else => {},
+
+            else => {
+                try output(context, "<Format TODO>");
+            },
         }
     }
 };
@@ -1418,8 +1859,8 @@ pub const OperandTag = enum {
     Imm,
     Rm,
     Addr,
-    AvxReg,
-    AvxSae,
+    RegPred,
+    RegSae,
 };
 
 pub const Operand = union(OperandTag) {
@@ -1428,8 +1869,8 @@ pub const Operand = union(OperandTag) {
     Imm: Immediate,
     Rm: ModRm,
     Addr: Address,
-    AvxReg: avx.RegisterPredicate,
-    AvxSae: avx.SuppressAllExceptions,
+    RegPred: avx.RegisterPredicate,
+    RegSae: avx.RegisterSae,
 
     pub fn tag(self: Operand) OperandTag {
         return @as(OperandTag, self);
@@ -1441,8 +1882,8 @@ pub const Operand = union(OperandTag) {
             .Imm => |imm_| OperandType.fromImmediate(imm_),
             .Rm => |rm| rm.operandType(),
             .Addr => |addr| addr.operandType(),
-            .AvxReg => |reg_pred| OperandType.fromRegisterPredicate(reg_pred),
-            .AvxSae => |sae| OperandType.fromSae(sae),
+            .RegPred => |reg_pred| OperandType.fromRegisterPredicate(reg_pred),
+            .RegSae => |sae| OperandType.fromSae(sae),
             // TODO: get size
             .None => OperandType._void,
         };
@@ -1455,8 +1896,8 @@ pub const Operand = union(OperandTag) {
             .Rm => |rm| rm.operandSize(),
             .Addr => |addr| addr.operandSize(),
             .None => |none| none.operand_size.bitSize(),
-            .AvxReg => |reg_pred| reg_pred.Reg.bitSize(),
-            .AvxSae => |rc| BitSize.Bit0,
+            .RegPred => |reg_pred| reg_pred.reg.bitSize(),
+            .RegSae => |reg_sae| reg_sae.reg.bitSize(),
         };
     }
 
@@ -1469,8 +1910,8 @@ pub const Operand = union(OperandTag) {
             .Rm => |rm| rm.operandDataSize(),
             .Addr => |addr| addr.operandDataSize(),
             .None => |none| none.operand_size,
-            .AvxReg => |reg_pred| reg_pred.Reg.dataSize(),
-            .AvxSae => |rc| DataSize.Void,
+            .RegPred => |reg_pred| reg_pred.reg.dataSize(),
+            .RegSae => |rc| DataSize.Void,
         };
     }
 
@@ -1480,6 +1921,14 @@ pub const Operand = union(OperandTag) {
 
     pub fn registerRm(reg: Register) Operand {
         return Operand { .Rm = ModRm.register(reg) };
+    }
+
+    pub fn registerPredicate(reg: Register, mask: avx.MaskRegister, z: avx.ZeroOrMerge) Operand {
+        return Operand { .RegPred = avx.RegisterPredicate.create(reg, mask, z) };
+    }
+
+    pub fn registerSae(reg: Register, sae: avx.SuppressAllExceptions) Operand {
+        return Operand { .RegSae = avx.RegisterSae.create(reg, sae) };
     }
 
     pub fn voidOperand(data_size: DataSize) Operand {
@@ -1518,6 +1967,10 @@ pub const Operand = union(OperandTag) {
     }
     pub fn immediateSigned64(im: i64) Operand {
         return Operand { .Imm = Immediate.createSigned(.Imm64, @intCast(i64, im)) };
+    }
+
+    pub fn memory16Bit(seg: Segment, data_size: DataSize, base: ?Register, index: ?Register, disp: i16) Operand {
+        return Operand { .Rm = ModRm.memory16Bit(seg, data_size, base, index, disp) };
     }
 
     /// Same as memorySib, except it may choose to encode it as memoryRm if the encoding is shorter
@@ -1642,7 +2095,35 @@ pub const Operand = union(OperandTag) {
                 }
                 try addr.format(fmt, options, context, FmtError, output);
             },
-            else => {},
+
+            .RegPred => |pred| {
+                try output(context, @tagName(pred.reg));
+                if (pred.mask != .NoMask) {
+                    try output(context, " {");
+                    try output(context, @tagName(pred.mask));
+                    try output(context, "}");
+                }
+
+                if (pred.z == .Zero) {
+                    try output(context, " {z}");
+                }
+            },
+
+            .RegSae => |sae_reg| {
+                try output(context, @tagName(sae_reg.reg));
+                switch (sae_reg.sae) {
+                    .AE => {},
+                    .SAE => try output(context, " {sae}"),
+                    .RN_SAE => try output(context, " {rn-sae}"),
+                    .RD_SAE => try output(context, " {rd-sae}"),
+                    .RU_SAE => try output(context, " {ru-sae}"),
+                    .RZ_SAE => try output(context, " {rz-sae}"),
+                }
+            },
+
+            else => {
+                try output(context, "<Format TODO>");
+            },
         }
     }
 };
@@ -1651,6 +2132,37 @@ test "ModRm Encoding" {
     const testing = std.testing;
     const warn = if (true) std.debug.warn else util.warnDummy;
     const expect = testing.expect;
+    const expectError = testing.expectError;
+
+    // x86_16: [BP + SI]
+    {
+        const modrm = ModRm.memory16Bit(.DefaultSeg, .WORD, .BP, .SI, 0);
+        const result = try modrm.encodeOpcodeRm(.x86_16, 7, .RM32);
+        expect(result.modrm() == 0b00111010);
+        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp          == 0);
+        expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{}));
+    }
+
+    // x86_32: WORD [BP + DI + 0x10], (RM32)
+    {
+        const modrm = ModRm.memory16Bit(.DefaultSeg, .WORD, .BP, .DI, 0x10);
+        const result = try modrm.encodeOpcodeRm(.x86_32, 7, .RM32);
+        expect(result.modrm() == 0b01111011);
+        expect(result.disp_bit_size == .Bit8);
+        expect(result.disp          == 0x10);
+        expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{0x66, 0x67}));
+    }
+
+    // x86_16: DWORD [BX], (RM32)
+    {
+        const modrm = ModRm.memory16Bit(.DefaultSeg, .DWORD, .BX, null, 0x1100);
+        const result = try modrm.encodeOpcodeRm(.x86_16, 5, .RM32);
+        expect(result.modrm() == 0b10101111);
+        expect(result.disp_bit_size == .Bit16);
+        expect(result.disp          == 0x1100);
+        expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{0x66}));
+    }
 
     {
         const modrm = ModRm.register(.RAX);
@@ -1659,7 +2171,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001000);
         expect(result.modrm() == 0b11000000);
         expect(result.sib == null);
-        expect(result.disp.dispSize() == .None);
+        expect(result.disp_bit_size == .Bit0);
     }
 
     {
@@ -1669,7 +2181,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001101);
         expect(result.modrm() == 0b11001111);
         expect(result.sib == null);
-        expect(result.disp.dispSize() == .None);
+        expect(result.disp_bit_size == .Bit0);
         expect(result.prefixes.len == 0);
     }
 
@@ -1680,7 +2192,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001100);
         expect(result.modrm() == 0b00000101);
         expect(result.sib == null);
-        expect(result.disp.value() == 0x76543210);
+        expect(result.disp == 0x76543210);
         expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{0x67}));
     }
 
@@ -1691,7 +2203,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001100);
         expect(result.modrm() == 0b00000101);
         expect(result.sib == null);
-        expect(result.disp.value() == 0x76543210);
+        expect(result.disp == 0x76543210);
         expect(result.prefixes.len == 0);
     }
 
@@ -1702,7 +2214,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b00000001);
         expect(result.sib == null);
-        expect(result.disp.dispSize() == .None);
+        expect(result.disp_bit_size == .Bit0);
     }
 
     {
@@ -1712,7 +2224,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b01000001);
         expect(result.sib == null);
-        expect(result.disp.value() == 0x10);
+        expect(result.disp == 0x10);
     }
 
     {
@@ -1722,7 +2234,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001101);
         expect(result.modrm() == 0b10111001);
         expect(result.sib == null);
-        expect(result.disp.value() == 0x76543210);
+        expect(result.disp == 0x76543210);
     }
 
     // [2*R15 + R15 + 0x10]
@@ -1732,7 +2244,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01111111);
-        expect(result.disp.value() == 0x10);
+        expect(result.disp == 0x10);
     }
 
     // [2*R15 + R15 + 0x76543210]
@@ -1742,7 +2254,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b00111111);
-        expect(result.disp.value() == 0x76543210);
+        expect(result.disp == 0x76543210);
     }
 
     // [R15 + 0x10]
@@ -1752,7 +2264,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01100111);
-        expect(result.disp.value() == 0x10);
+        expect(result.disp == 0x10);
     }
 
     // [R15 + 0x3210]
@@ -1762,7 +2274,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b01100111);
-        expect(result.disp.value() == 0x3210);
+        expect(result.disp == 0x3210);
     }
 
     // [4*R15 + R15]
@@ -1772,7 +2284,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111111);
-        expect(result.disp.dispSize() == .None);
+        expect(result.disp_bit_size == .Bit0);
     }
 
     // [4*R15 + 0x10]
@@ -1782,7 +2294,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001010);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111101);
-        expect(result.disp.dispSize() == .Disp32);
+        expect(result.disp_bit_size == .Bit32);
     }
 
     // [0x10]
@@ -1792,7 +2304,7 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001000);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b11100101);
-        expect(result.disp.dispSize() == .Disp32);
+        expect(result.disp_bit_size == .Bit32);
     }
 
     // [R15]
@@ -1802,6 +2314,6 @@ test "ModRm Encoding" {
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10100111);
-        expect(result.disp.dispSize() == .None);
+        expect(result.disp_bit_size == .Bit0);
     }
 }

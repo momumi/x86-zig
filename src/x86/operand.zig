@@ -12,249 +12,234 @@ usingnamespace(@import("types.zig"));
 const Register = register.Register;
 
 
-pub const OperandType = enum(u16) {
-    const tag_mask = 0xFF00;
+pub const OperandType = enum(u32) {
+    const num_pos = 0;
 
-    const tag_reg8 = 0x0000;
-    const tag_reg16 = 0x0100;
-    const tag_reg32 = 0x0200;
-    const tag_reg64 = 0x0300;
-    const tag_rm8 = 0x0400;
-    const tag_rm16 = 0x0500;
-    const tag_rm32 = 0x0600;
-    const tag_rm64 = 0x0700;
-    const tag_seg_reg = 0x0800;
-    const tag_imm = 0x0900;
-    const tag_imm_any = 0x0A00;
-    const tag_moffs = 0x0B00;
-    const tag_void = 0x0C00;
-    const tag_rm_mem = 0x0D00;
-    const tag_rm_reg = 0x0E00;
-    const tag_reg_st = 0x0F00;
-    const tag_reg_control = 0x1000;
-    const tag_reg_debug = 0x1100;
-    const tag_ptr_16_16 = 0x1200;
-    const tag_ptr_16_32 = 0x1300;
-    const tag_mem_16_16 = 0x1400;
-    const tag_mem_16_32 = 0x1500;
-    const tag_mem_16_64 = 0x1600;
-    const tag_mm = 0x1700;
-    const tag_xmm = 0x1800;
-    const tag_ymm = 0x1900;
-    const tag_zmm = 0x1A00;
-    const tag_mask_reg = 0x1B00;
-    const tag_bound_reg = 0x1C00;
-    const tag_special = 0x1D00;
-    const tag_avx = 0xF000;
+    pub const Class = enum (u8) {
+        const Type = u8;
+        const mask = 0xff;
+        const pos = 8;
 
-    /// Avx flags
-    const Flag = struct {
-        const Reg = enum (u16) {
-            xmm = 0b000,
-            ymm = 0b001,
-            zmm = 0b010,
-            // zmm = 0b011,
-        };
+        reg8 = 0x00,
+        reg16 = 0x01,
+        reg32 = 0x02,
+        reg64 = 0x03,
 
-        const RegSize = enum (u16) {
-            any = 0b0,
-            low = 0b1,
-        };
+        reg_seg,
+        reg_st,
+        reg_cr,
+        reg_dr,
+        reg_bnd,
+        reg_k,
+        mm,
+        xmm,
+        ymm,
+        zmm,
 
-        const Mem = enum(u16) {
-            no_mem = 0b000,
-            m32    = 0b001,
-            m64    = 0b010,
-            m128   = 0b011,
-            m256   = 0b100,
-            m512   = 0b101,
-        };
+        mem,
+        imm,
+        moffs,
+        ptr16_16,
+        ptr16_32,
+        _void,
 
-        const Bcst = enum(u16) {
-            no_bcst = 0b00,
-            m32bcst = 0b01,
-            m64bcst = 0b10,
-        };
+        invalid = 0xfe,
+        none = 0xff,
 
-        const Modifier = enum (u16) {
-            no_mod = 0b000,
-            k      = 0b001,
-            kz     = 0b010,
-            sae    = 0b011,
-            er     = 0b100,
-        };
-
-        const reg_pos: comptime_int = 0;
-        const reg_mask: u16 = (0b11) << reg_pos;
-        const xmml = @as(u16, @enumToInt(Reg.xmml)) << reg_pos;
-        const ymml = @as(u16, @enumToInt(Reg.ymml)) << reg_pos;
-        const xmm = @as(u16, @enumToInt(Reg.xmm)) << reg_pos;
-        const ymm = @as(u16, @enumToInt(Reg.ymm)) << reg_pos;
-        const zmm = @as(u16, @enumToInt(Reg.zmm)) << reg_pos;
-
-        const reg_size_pos: comptime_int = 2;
-        const reg_size_mask: u16 = (0b1) << reg_size_pos;
-        const low = @as(u16, @enumToInt(RegSize.low)) << reg_size_pos;
-        const any = @as(u16, @enumToInt(RegSize.any)) << reg_size_pos;
-
-        const mem_pos: comptime_int = 3;
-        const mem_mask: u16 = (0b111) << mem_pos;
-        const no_mem = @as(u16, @enumToInt(Mem.no_mem)) << mem_pos;
-        const m32 = @as(u16, @enumToInt(Mem.m32)) << mem_pos;
-        const m64 = @as(u16, @enumToInt(Mem.m64)) << mem_pos;
-        const m128 = @as(u16, @enumToInt(Mem.m128)) << mem_pos;
-        const m256 = @as(u16, @enumToInt(Mem.m256)) << mem_pos;
-        const m512 = @as(u16, @enumToInt(Mem.m512)) << mem_pos;
-
-        const bcst_pos: comptime_int = 6;
-        const bcst_mask: u16 = (0b11) << bcst_pos;
-        const no_bcst = @as(u16, @enumToInt(Bcst.no_bcst)) << bcst_pos;
-        const m32bcst = @as(u16, @enumToInt(Bcst.m32bcst)) << bcst_pos;
-        const m64bcst = @as(u16, @enumToInt(Bcst.m64bcst)) << bcst_pos;
-
-        const mod_pos: comptime_int = 8;
-        const mod_mask: u16 = (0b111) << mod_pos;
-        const no_mod = @as(u16, @enumToInt(Modifier.no_mod)) << mod_pos;
-        const k = @as(u16, @enumToInt(Modifier.k)) << mod_pos;
-        const kz = @as(u16, @enumToInt(Modifier.kz)) << mod_pos;
-        const sae = @as(u16, @enumToInt(Modifier.sae)) << mod_pos;
-        const er = @as(u16, @enumToInt(Modifier.er)) << mod_pos;
-
-        pub fn getReg(val: u16) Reg {
-            return @intToEnum(Reg, (val & reg_mask) >> reg_pos);
-        }
-
-        pub fn getRegSize(val: u16) RegSize {
-            return @intToEnum(RegSize, (val & reg_size_mask) >> reg_size_pos);
-        }
-
-        pub fn getMem(val: u16) Mem {
-            return @intToEnum(Mem, (val & mem_mask) >> mem_pos);
-        }
-
-        pub fn getBcst(val: u16) Bcst {
-            return @intToEnum(Bcst, (val & bcst_mask) >> bcst_pos);
-        }
-
-        pub fn getModifier(val: u16) Modifier {
-            return @intToEnum(Modifier, (val & mod_mask) >> mod_pos);
+        pub fn asTag(self: Class) u16 {
+            return @intCast(u16, @enumToInt(self)) << 8;
         }
     };
 
-    reg8 = 0 | tag_reg8,
-    reg_al = 1 | tag_reg8,
-    reg_cl = 2 | tag_reg8,
-    reg_dl = 3 | tag_reg8,
-    reg_bl = 4 | tag_reg8,
+    pub const MemClass = enum (u4) {
+        const pos = 16;
+        const Type = u4;
+        const mask = 0x0f;
 
-    reg16 = 0 | tag_reg16,
-    reg_ax = 1 | tag_reg16,
-    reg_cx = 2 | tag_reg16,
-    reg_dx = 3 | tag_reg16,
-    reg_bx = 4 | tag_reg16,
+        no_mem = 0,
+        mem_void,
+        mem8,
+        mem16,
+        mem32,
+        mem64,
+        mem80,
+        mem128,
+        mem256,
+        mem512,
+        mem16_16,
+        mem16_32,
+        mem16_64,
+    };
 
-    reg32 = 0 | tag_reg32,
-    reg_eax = 1 | tag_reg32,
-    reg_ecx = 2 | tag_reg32,
-    reg_edx = 3 | tag_reg32,
-    reg_ebx = 4 | tag_reg32,
+    pub const RmClass = enum (u1) {
+        const pos = 20;
+        const Type = u1;
+        const mask = 0x01;
 
-    reg64 = 0 | tag_reg64,
-    reg_rax = 1 | tag_reg64,
-    reg_rcx = 2 | tag_reg64,
-    reg_rdx = 3 | tag_reg64,
-    reg_rbx = 4 | tag_reg64,
+        no_rm = 0,
+        rm = 1,
+    };
 
-    rm8 = 0 | tag_rm8,
-    rm_reg8 = 1 | tag_rm8,
-    rm_mem8 = 2 | tag_rm8,
+    pub const Modifier = enum (u3) {
+        const pos = 21;
+        const Type = u3;
+        const mask = 0x07;
 
-    rm16 = 0 | tag_rm16,
-    rm_reg16 = 1 | tag_rm16,
-    rm_mem16 = 2 | tag_rm16,
+        no_mod = 0b000,
+        k      = 0b001,
+        kz     = 0b010,
+        sae    = 0b011,
+        er     = 0b100,
+    };
 
-    rm32 = 0 | tag_rm32,
-    rm_reg32 = 1 | tag_rm32,
-    rm_mem32 = 2 | tag_rm32,
+    pub const Broadcast = enum(u2) {
+        const pos = 24;
+        const Type = u2;
+        const mask = 0x03;
 
-    rm64 = 0 | tag_rm64,
-    rm_reg64 = 1 | tag_rm64,
-    rm_mem64 = 2 | tag_rm64,
+        no_bcst = 0b00,
+        m32bcst = 0b01,
+        m64bcst = 0b10,
+    };
 
-    reg_seg = 0 | tag_seg_reg,
-    reg_es = 1 | tag_seg_reg,
-    reg_cs = 2 | tag_seg_reg,
-    reg_ss = 3 | tag_seg_reg,
-    reg_ds = 4 | tag_seg_reg,
-    reg_fs = 5 | tag_seg_reg,
-    reg_gs = 6 | tag_seg_reg,
+    pub const SpecialCase = enum (u2) {
+        const pos = 26;
+        const Type = u2;
+        const mask = 0x03;
 
-    imm = 0 | tag_imm,
-    imm8 = 1 | tag_imm,
-    imm16 = 2 | tag_imm,
-    imm32 = 3 | tag_imm,
-    imm64 = 4 | tag_imm,
+        no_special = 0,
+        low16 = 1,
+        match_larger_versions = 2,
+    };
 
-    imm_any = 0 | tag_imm_any,
-    imm8_any = 1 | tag_imm_any,
-    imm16_any = 2 | tag_imm_any,
-    imm32_any = 3 | tag_imm_any,
-    imm64_any = 4 | tag_imm_any,
-    imm_1 = 5 | tag_imm_any,
+    // const _pos = 28;
 
-    moffs = 0 | tag_moffs,
-    moffs8 = 1 | tag_moffs,
-    moffs16 = 2 | tag_moffs,
-    moffs32 = 3 | tag_moffs,
-    moffs64 = 4 | tag_moffs,
-    // moffs8 = 0xD0,
-    // moffs16 = 0xE0,
-    // moffs32 = 0xF0,
-    // moffs64 = 0x100,
+    pub fn create(
+        num: u8,
+        class: Class,
+        mem: MemClass,
+        rm: RmClass,
+        mod: Modifier,
+        bcst: Broadcast,
+        special: SpecialCase,
+    ) u32 {
+        return (
+            @intCast(u32, num) << num_pos
+            | @intCast(u32, @enumToInt(class)) << Class.pos
+            | @intCast(u32, @enumToInt(mem)) << MemClass.pos
+            | @intCast(u32, @enumToInt(rm)) << RmClass.pos
+            | @intCast(u32, @enumToInt(mod)) << Modifier.pos
+            | @intCast(u32, @enumToInt(bcst)) << Broadcast.pos
+            | @intCast(u32, @enumToInt(special)) << SpecialCase.pos
+        );
+    }
 
-    _void = 0 | tag_void,
-    _void8 = 1 | tag_void,
-    _void16 = 2 | tag_void,
-    _void32 = 3 | tag_void,
-    _void64 = 4 | tag_void,
+    pub fn create_basic(num: u8, reg_class: Class) u32 {
+        return create(num, reg_class, .no_mem, .no_rm, .no_mod, .no_bcst, .no_special);
+    }
 
-    // matches memory of any type
-    rm_mem = 0 | tag_rm_mem,
-    rm_mem80,
-    rm_mem128,
-    rm_mem256,
-    rm_mem512,
-    rm_m32bcst,
-    rm_m64bcst,
+    pub fn create_rm(num: u8, reg_class: Class, mem: MemClass) u32 {
+        return create(num, reg_class, mem, .rm, .no_mod, .no_bcst, .no_special);
+    }
 
-    // don't really use most of these values, but include them so we have
-    // something to assign ModRm.Reg values
-    rm_reg = 0 | tag_rm_reg,
-    rm_st,
-    rm_seg,
-    rm_cr,
-    rm_dr,
-    rm_mm,
-    rm_xmml,
-    rm_ymml,
-    rm_ymm,
-    rm_xmm,
-    rm_zmm,
-    rm_k,
-    rm_bnd,
+    fn _getCommon(self: OperandType, comptime T: type) T {
+        return @intToEnum(T, @intCast(T.Type, (@enumToInt(self) >> T.pos) & T.mask));
+    }
 
-    reg_st = 0 | tag_reg_st,
-    reg_st0 = 1 | tag_reg_st,
-    reg_st1 = 2 | tag_reg_st,
-    reg_st2 = 3 | tag_reg_st,
-    reg_st3 = 4 | tag_reg_st,
-    reg_st4 = 5 | tag_reg_st,
-    reg_st5 = 6 | tag_reg_st,
-    reg_st6 = 7 | tag_reg_st,
-    reg_st7 = 8 | tag_reg_st,
+    pub fn getNum(self: OperandType) u8 {
+        return @intCast(u8, (@enumToInt(self) >> num_pos) & 0xff);
+    }
 
-    reg_cr = 0 | tag_reg_control,
-    reg_cr0 = 1 | tag_reg_control,
+    pub fn getClass(self: OperandType) Class {
+        return self._getCommon(Class);
+    }
+
+    pub fn getMemClass(self: OperandType) MemClass {
+        return self._getCommon(MemClass);
+    }
+
+    pub fn getRmClass(self: OperandType) RmClass {
+        return self._getCommon(RmClass);
+    }
+
+    pub fn getModifier(self: OperandType) Modifier {
+        return self._getCommon(Modifier);
+    }
+
+    pub fn getBroadcast(self: OperandType) Broadcast {
+        return self._getCommon(Broadcast);
+    }
+
+    pub fn getSpecialCase(self: OperandType) SpecialCase {
+        return self._getCommon(SpecialCase);
+    }
+
+    fn matchRmClass(template: OperandType, other: OperandType) bool {
+        // 0 = no_rm
+        // 1 = rm
+        return @enumToInt(other.getRmClass()) <= @enumToInt(template.getRmClass());
+    }
+
+    fn matchModifer(template: OperandType, other: OperandType) bool {
+        // no_mod = 0b000,
+        // k      = 0b001,
+        // kz     = 0b010,
+        // sae    = 0b011,
+        // er     = 0b100,
+        const temp_mod = template.getModifier();
+        const other_mod = other.getModifier();
+
+        return (
+            temp_mod == other_mod
+            or (temp_mod == .kz and other_mod == .k)
+            or (other_mod == .no_mod)
+        );
+    }
+
+    reg8 = create_basic(0, .reg8),
+    reg_al,
+    reg_cl,
+    reg_dl,
+    reg_bl,
+
+    reg16 = create_basic(0, .reg16),
+    reg_ax,
+    reg_cx,
+    reg_dx,
+    reg_bx,
+
+    reg32 = create_basic(0, .reg32),
+    reg_eax,
+    reg_ecx,
+    reg_edx,
+    reg_ebx,
+
+    reg64 = create_basic(0, .reg64),
+    reg_rax,
+    reg_rcx,
+    reg_rdx,
+    reg_rbx,
+
+    reg_seg = create_basic(0, .reg_seg),
+    reg_es = create_basic(1, .reg_seg),
+    reg_cs,
+    reg_ss,
+    reg_ds,
+    reg_fs,
+    reg_gs = create_basic(6, .reg_seg),
+
+    reg_st = create_basic(0, .reg_st),
+    reg_st0,
+    reg_st1,
+    reg_st2,
+    reg_st3,
+    reg_st4,
+    reg_st5,
+    reg_st6,
+    reg_st7 = create_basic(8, .reg_st),
+
+    reg_cr = create_basic(0, .reg_cr),
+    reg_cr0,
     reg_cr1,
     reg_cr2,
     reg_cr3,
@@ -269,10 +254,10 @@ pub const OperandType = enum(u16) {
     reg_cr12,
     reg_cr13,
     reg_cr14,
-    reg_cr15 = 16 | tag_reg_control,
+    reg_cr15 = create_basic(16, .reg_cr),
 
-    reg_dr = 0 | tag_reg_debug,
-    reg_dr0 = 1 | tag_reg_debug,
+    reg_dr = create_basic(0, .reg_dr),
+    reg_dr0,
     reg_dr1,
     reg_dr2,
     reg_dr3,
@@ -287,27 +272,20 @@ pub const OperandType = enum(u16) {
     reg_dr12,
     reg_dr13,
     reg_dr14,
-    reg_dr15 = 16 | tag_reg_debug,
+    reg_dr15 = create_basic(16, .reg_dr),
 
-    ptr16_16 = 0 | tag_ptr_16_16,
-    ptr16_32 = 0 | tag_ptr_16_32,
-
-    m16_16 = 0 | tag_mem_16_16,
-    m16_32 = 0 | tag_mem_16_32,
-    m16_64 = 0 | tag_mem_16_64,
-
-    mm = 0 | tag_mm,
-    mm0 = 1 | tag_mm,
+    mm = create_basic(0, .mm),
+    mm0,
     mm1,
     mm2,
     mm3,
     mm4,
     mm5,
     mm6,
-    mm7 = 8 | tag_mm,
+    mm7 = create_basic(8, .mm),
 
-    xmm = 0 | tag_xmm,
-    xmm0 = 1 | tag_xmm,
+    xmm = create_basic(0, .xmm),
+    xmm0,
     xmm1,
     xmm2,
     xmm3,
@@ -338,10 +316,10 @@ pub const OperandType = enum(u16) {
     xmm28,
     xmm29,
     xmm30,
-    xmm31 = 32 | tag_xmm,
+    xmm31 = create_basic(32, .xmm),
 
-    ymm = 0 | tag_ymm,
-    ymm0 = 1 | tag_ymm,
+    ymm = create_basic(0, .ymm),
+    ymm0,
     ymm1,
     ymm2,
     ymm3,
@@ -372,10 +350,10 @@ pub const OperandType = enum(u16) {
     ymm28,
     ymm29,
     ymm30,
-    ymm31 = 32 | tag_ymm,
+    ymm31 = create_basic(32, .ymm),
 
-    zmm = 0 | tag_zmm,
-    zmm0 = 1 | tag_zmm,
+    zmm = create_basic(0, .zmm),
+    zmm0,
     zmm1,
     zmm2,
     zmm3,
@@ -406,223 +384,188 @@ pub const OperandType = enum(u16) {
     zmm28,
     zmm29,
     zmm30,
-    zmm31 = 32 | tag_zmm,
+    zmm31 = create_basic(32, .zmm),
 
-    reg_k = 0x00 | tag_mask_reg,
-    reg_k0 = 0x01 | tag_mask_reg,
+    reg_k = create_basic(0, .reg_k),
+    reg_k0,
     reg_k1,
     reg_k2,
     reg_k3,
     reg_k4,
     reg_k5,
     reg_k6,
-    reg_k7 = 0x08 | tag_mask_reg,
+    reg_k7 = create_basic(8, .reg_k),
 
-    bnd = 0x00 | tag_bound_reg,
-    bnd0 = 0x01 | tag_bound_reg,
+    bnd = create_basic(0, .reg_bnd),
+    bnd0,
     bnd1,
     bnd2,
-    bnd3 = 0x04 | tag_bound_reg,
+    bnd3 = create_basic(4, .reg_bnd),
 
-    invalid = 0 | tag_special,
-    mm_m64 = 1 | tag_special,
-    /// Matches k {k}
-    reg_k_k,
-    /// Matches k {k} {z}
-    reg_k_kz,
-    /// Matches k or m8
-    k_m8,
-    /// Matches k or m16
-    k_m16,
-    /// Matches k or m32
-    k_m32,
-    /// Matches k or m64
-    k_m64,
-    /// matches bnd register or m64
-    bnd_m64,
-    /// matches bnd register or m128
-    bnd_m128,
-    /// doesn't match anything
+    rm8 = create_rm(0, .reg8, .mem8),
+    rm_reg8 = create_rm(0, .reg8, .no_mem),
+    rm_mem8 = create_rm(0, .mem, .mem8),
 
-    const F = Flag;
-    avx_operand = 0 | tag_avx,
+    rm16 = create_rm(0, .reg16, .mem16),
+    rm_reg16 = create_rm(0, .reg16, .no_mem),
+    rm_mem16 = create_rm(0, .mem, .mem16),
+
+    rm32 = create_rm(0, .reg32, .mem32),
+    rm_reg32 = create_rm(0, .reg32, .no_mem),
+    rm_mem32 = create_rm(0, .mem, .mem32),
+
+    rm64 = create_rm(0, .reg64, .mem64),
+    rm_reg64 = create_rm(0, .reg64, .no_mem),
+    rm_mem64 = create_rm(0, .mem, .mem64),
+
+    // matches memory of any type
+    rm_mem = create(0, .mem, .mem_void, .rm, .no_mod, .no_bcst, .no_special),
+    rm_mem80 = create(0, .mem, .mem80, .rm, .no_mod, .no_bcst, .no_special),
+    rm_mem128 = create(0, .mem, .mem128, .rm, .no_mod, .no_bcst, .no_special),
+    rm_mem256 = create(0, .mem, .mem256, .rm, .no_mod, .no_bcst, .no_special),
+    rm_mem512 = create(0, .mem, .mem512, .rm, .no_mod, .no_bcst, .no_special),
+    rm_m32bcst = create(0, .mem, .no_mem, .rm, .no_mod, .m32bcst, .no_special),
+    rm_m64bcst = create(0, .mem, .no_mem, .rm, .no_mod, .m64bcst, .no_special),
+
+    m16_16 = create_rm(0, .mem, .mem16_16),
+    m16_32 = create_rm(0, .mem, .mem16_32),
+    m16_64 = create_rm(0, .mem, .mem16_64),
+
+    rm_st = create_rm(0, .reg_st, .no_mem),
+    rm_seg = create_rm(0, .reg_seg, .no_mem),
+    rm_cr = create_rm(0, .reg_cr, .no_mem),
+    rm_dr = create_rm(0, .reg_dr, .no_mem),
+    rm_k = create_rm(0, .reg_k, .no_mem),
+    rm_bnd = create_rm(0, .reg_bnd, .no_mem),
+    rm_mm = create_rm(0, .mm, .no_mem),
+    rm_xmml = create(0, .xmm, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    rm_ymml = create(0, .ymm, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    rm_xmm = create_rm(0, .xmm, .no_mem),
+    rm_ymm = create_rm(0, .ymm, .no_mem),
+    rm_zmm = create_rm(0, .zmm, .no_mem),
+
+    moffs = create_basic(0, .moffs),
+    moffs8,
+    moffs16,
+    moffs32,
+    moffs64,
+
+    _void = create_basic(0, ._void),
+    _void8,
+    _void16,
+    _void32,
+    _void64,
+
+    invalid = create_basic(0, .invalid),
+    none = create_basic(0, .none),
+
+    imm = create_basic(0, .imm),
+    // imm_1,
+    imm8 = create_basic(2, .imm),
+    imm16,
+    imm32,
+    imm64,
+
+    imm_any = create(0, .imm, .no_mem, .no_rm, .no_mod, .no_bcst, .match_larger_versions),
+    imm_1,
+    imm8_any = create(2, .imm, .no_mem, .no_rm, .no_mod, .no_bcst, .match_larger_versions),
+    imm16_any,
+    imm32_any,
+    imm64_any,
+
+    ptr16_16 = create_basic(0, .ptr16_16),
+    ptr16_32 = create_basic(0, .ptr16_32),
+
+    mm_m64 = create(0, .mm, .mem64, .rm, .no_mod, .no_bcst, .no_special),
+
+    bnd_m64 = create(0, .reg_bnd, .mem64, .rm, .no_mod, .no_bcst, .no_special),
+    bnd_m128 = create(0, .reg_bnd, .mem128, .rm, .no_mod, .no_bcst, .no_special),
+
+    reg32_er     = create(0, .reg32, .no_mem, .rm, .er, .no_bcst, .no_special),
+    reg64_er     = create(0, .reg64, .no_mem, .rm, .er, .no_bcst, .no_special),
+    rm32_er      = create(0, .reg32, .mem32,  .rm, .er, .no_bcst, .no_special),
+    rm64_er      = create(0, .reg64, .mem64,  .rm, .er, .no_bcst, .no_special),
+    rm_mem128_kz = create(0, .mem,   .mem128, .rm, .kz, .no_bcst, .no_special),
+    rm_mem256_kz = create(0, .mem,   .mem256, .rm, .kz, .no_bcst, .no_special),
+    rm_mem512_kz = create(0, .mem,   .mem512, .rm, .kz, .no_bcst, .no_special),
+
+    reg_k_k  = create(0, .reg_k, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
+    reg_k_kz = create(0, .reg_k, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
+    k_m8     = create(0, .reg_k, .mem8,   .rm,    .no_mod, .no_bcst, .no_special),
+    k_m16    = create(0, .reg_k, .mem16,  .rm,    .no_mod, .no_bcst, .no_special),
+    k_m32    = create(0, .reg_k, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
+    k_m64    = create(0, .reg_k, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
+
     /// Only matches xmm[0..15]
-    xmml      = F.xmm | F.low | tag_avx,
-    xmml_m32  = F.xmm | F.low | F.m32 | tag_avx,
-    xmml_m64  = F.xmm | F.low | F.m64 | tag_avx,
-    xmml_m128 = F.xmm | F.low | F.m128 | tag_avx,
-    /// Only matches ymm[0..15]
-    ymml      = F.ymm | F.low | tag_avx,
-    ymml_m256 = F.ymm | F.low | F.m256 | tag_avx,
-    /// xmm[0..31]
-    xmm_k                = F.xmm | F.k | tag_avx,
-    xmm_kz               = F.xmm | F.kz | tag_avx,
-    xmm_m32              = F.xmm | F.m32 | tag_avx,
-    xmm_m32_er           = F.xmm | F.m32 | F.er | tag_avx,
-    xmm_m64              = F.xmm | F.m64 | tag_avx,
-    xmm_m64_er           = F.xmm | F.m64 | F.er | tag_avx,
-    xmm_m128             = F.xmm | F.m128 | tag_avx,
-    xmm_m128_sae         = F.xmm | F.m128 | F.sae | tag_avx,
-    xmm_m128_er          = F.xmm | F.m128 | F.er | tag_avx,
-    xmm_m128_m32bcst     = F.xmm | F.m128 | F.m32bcst | tag_avx,
-    xmm_m128_m32bcst_sae = F.xmm | F.m128 | F.m32bcst | F.sae | tag_avx,
-    xmm_m128_m32bcst_er  = F.xmm | F.m128 | F.m32bcst | F.er | tag_avx,
-    xmm_m128_m64bcst     = F.xmm | F.m128 | F.m64bcst | tag_avx,
-    xmm_m128_m64bcst_sae = F.xmm | F.m128 | F.m64bcst | F.sae | tag_avx,
-    xmm_m128_m64bcst_er  = F.xmm | F.m128 | F.m64bcst | F.er | tag_avx,
-    xmm_sae              = F.xmm | F.sae | tag_avx,
-    xmm_er               = F.xmm | F.er | tag_avx,
-    /// ymm[0..31]
-    ymm_k                = F.ymm | F.k | tag_avx,
-    ymm_kz               = F.ymm | F.kz | tag_avx,
-    ymm_m256             = F.ymm | F.m256 | tag_avx,
-    ymm_m256_sae         = F.ymm | F.m256 | F.sae | tag_avx,
-    ymm_m256_er          = F.ymm | F.m256 | F.er | tag_avx,
-    ymm_m256_m32bcst     = F.ymm | F.m256 | F.m32bcst | tag_avx,
-    ymm_m256_m32bcst_sae = F.ymm | F.m256 | F.m32bcst | F.sae | tag_avx,
-    ymm_m256_m32bcst_er  = F.ymm | F.m256 | F.m32bcst | F.er | tag_avx,
-    ymm_m256_m64bcst     = F.ymm | F.m256 | F.m64bcst | tag_avx,
-    ymm_m256_m64bcst_sae = F.ymm | F.m256 | F.m64bcst | F.sae | tag_avx,
-    ymm_m256_m64bcst_er  = F.ymm | F.m256 | F.m64bcst | F.er | tag_avx,
-    ymm_sae              = F.ymm | F.sae | tag_avx,
-    ymm_er               = F.ymm | F.er | tag_avx,
-    /// Zmm[0..31]
-    zmm_k                = F.zmm | F.k | tag_avx,
-    zmm_kz               = F.zmm | F.kz | tag_avx,
-    zmm_m512             = F.zmm | F.m512 | tag_avx,
-    zmm_m512_sae         = F.zmm | F.m512 | F.sae | tag_avx,
-    zmm_m512_er          = F.zmm | F.m512 | F.er | tag_avx,
-    zmm_m512_m32bcst     = F.zmm | F.m512 | F.m32bcst | tag_avx,
-    zmm_m512_m32bcst_sae = F.zmm | F.m512 | F.m32bcst | F.sae | tag_avx,
-    zmm_m512_m32bcst_er  = F.zmm | F.m512 | F.m32bcst | F.er | tag_avx,
-    zmm_m512_m64bcst     = F.zmm | F.m512 | F.m64bcst | tag_avx,
-    zmm_m512_m64bcst_sae = F.zmm | F.m512 | F.m64bcst | F.sae | tag_avx,
-    zmm_m512_m64bcst_er  = F.zmm | F.m512 | F.m64bcst | F.er | tag_avx,
-    zmm_sae              = F.zmm | F.sae | tag_avx,
-    zmm_er               = F.zmm | F.er | tag_avx,
+    xmml      = create(0, .xmm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
+    xmml_m32  = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .low16),
+    xmml_m64  = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .low16),
+    xmml_m128 = create(0, .xmm, .mem128, .rm,    .no_mod, .no_bcst, .low16),
 
-    fn isAvxOperandType(self: OperandType) bool {
-        return (@enumToInt(self) & tag_avx) == tag_avx;
-    }
+    /// Only matches ymm[0..15]
+    ymml      = create(0, .ymm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
+    ymml_m256 = create(0, .ymm, .mem256, .rm,    .no_mod, .no_bcst, .low16),
+
+    /// xmm[0..31]
+    xmm_k                = create(0, .xmm, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
+    xmm_kz               = create(0, .xmm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
+    xmm_sae              = create(0, .xmm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
+    xmm_er               = create(0, .xmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
+    xmm_m32              = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
+    xmm_m32_er           = create(0, .xmm, .mem32,  .rm,    .er,     .no_bcst, .no_special),
+    xmm_m32_sae          = create(0, .xmm, .mem32,  .rm,    .sae,    .no_bcst, .no_special),
+    xmm_m64              = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
+    xmm_m64_er           = create(0, .xmm, .mem64,  .rm,    .er,     .no_bcst, .no_special),
+    xmm_m64_sae          = create(0, .xmm, .mem64,  .rm,    .sae,    .no_bcst, .no_special),
+    xmm_m64_m32bcst      = create(0, .xmm, .mem64,  .rm,    .no_mod, .m32bcst, .no_special),
+    xmm_m128             = create(0, .xmm, .mem128, .rm,    .no_mod, .no_bcst, .no_special),
+    xmm_m128_kz          = create(0, .xmm, .mem128, .rm,    .kz,     .no_bcst, .no_special),
+    xmm_m128_sae         = create(0, .xmm, .mem128, .rm,    .sae,    .no_bcst, .no_special),
+    xmm_m128_er          = create(0, .xmm, .mem128, .rm,    .er,     .no_bcst, .no_special),
+    xmm_m128_m32bcst     = create(0, .xmm, .mem128, .rm,    .no_mod, .m32bcst, .no_special),
+    xmm_m128_m32bcst_sae = create(0, .xmm, .mem128, .rm,    .sae,    .m32bcst, .no_special),
+    xmm_m128_m32bcst_er  = create(0, .xmm, .mem128, .rm,    .er,     .m32bcst, .no_special),
+    xmm_m128_m64bcst     = create(0, .xmm, .mem128, .rm,    .no_mod, .m64bcst, .no_special),
+    xmm_m128_m64bcst_sae = create(0, .xmm, .mem128, .rm,    .sae,    .m64bcst, .no_special),
+    xmm_m128_m64bcst_er  = create(0, .xmm, .mem128, .rm,    .er,     .m64bcst, .no_special),
+
+    /// ymm[0..31]
+    ymm_k                = create(0, .ymm, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
+    ymm_kz               = create(0, .ymm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
+    ymm_sae              = create(0, .ymm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
+    ymm_er               = create(0, .ymm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
+    ymm_m256             = create(0, .ymm, .mem256, .rm,    .no_mod, .no_bcst, .no_special),
+    ymm_m256_kz          = create(0, .ymm, .mem256, .rm,    .kz,     .no_bcst, .no_special),
+    ymm_m256_sae         = create(0, .ymm, .mem256, .rm,    .sae,    .no_bcst, .no_special),
+    ymm_m256_er          = create(0, .ymm, .mem256, .rm,    .er,     .no_bcst, .no_special),
+    ymm_m256_m32bcst     = create(0, .ymm, .mem256, .rm,    .no_mod, .m32bcst, .no_special),
+    ymm_m256_m32bcst_sae = create(0, .ymm, .mem256, .rm,    .sae,    .m32bcst, .no_special),
+    ymm_m256_m32bcst_er  = create(0, .ymm, .mem256, .rm,    .er,     .m32bcst, .no_special),
+    ymm_m256_m64bcst     = create(0, .ymm, .mem256, .rm,    .no_mod, .m64bcst, .no_special),
+    ymm_m256_m64bcst_sae = create(0, .ymm, .mem256, .rm,    .sae,    .m64bcst, .no_special),
+    ymm_m256_m64bcst_er  = create(0, .ymm, .mem256, .rm,    .er,     .m64bcst, .no_special),
+
+    /// Zmm[0..31]
+    zmm_k                = create(0, .zmm, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
+    zmm_kz               = create(0, .zmm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
+    zmm_sae              = create(0, .zmm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
+    zmm_er               = create(0, .zmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
+    zmm_m512             = create(0, .zmm, .mem512, .rm,    .no_mod, .no_bcst, .no_special),
+    zmm_m512_kz          = create(0, .zmm, .mem512, .rm,    .kz,     .no_bcst, .no_special),
+    zmm_m512_sae         = create(0, .zmm, .mem512, .rm,    .sae,    .no_bcst, .no_special),
+    zmm_m512_er          = create(0, .zmm, .mem512, .rm,    .er,     .no_bcst, .no_special),
+    zmm_m512_m32bcst     = create(0, .zmm, .mem512, .rm,    .no_mod, .m32bcst, .no_special),
+    zmm_m512_m32bcst_sae = create(0, .zmm, .mem512, .rm,    .sae,    .m32bcst, .no_special),
+    zmm_m512_m32bcst_er  = create(0, .zmm, .mem512, .rm,    .er,     .m32bcst, .no_special),
+    zmm_m512_m64bcst     = create(0, .zmm, .mem512, .rm,    .no_mod, .m64bcst, .no_special),
+    zmm_m512_m64bcst_sae = create(0, .zmm, .mem512, .rm,    .sae,    .m64bcst, .no_special),
+    zmm_m512_m64bcst_er  = create(0, .zmm, .mem512, .rm,    .er,     .m64bcst, .no_special),
+
+    _,
 
     fn isLowReg(self: OperandType) bool {
         const max_reg_num = 15 + 1;
         return (@enumToInt(self) & 0xff) <= max_reg_num ;
-    }
-
-    fn matchAvx(template: OperandType, other: OperandType) bool {
-        const template_raw = @enumToInt(template);
-        const template_reg = Flag.getReg(template_raw);
-
-        if (other.isAvxOperandType()) {
-            // other => avx reg + [sae, er, k, kz]
-            const other_raw = @enumToInt(other);
-
-            const other_reg = Flag.getReg(other_raw);
-            if (template_reg != other_reg) {
-                return false;
-            }
-
-            const template_reg_size = Flag.getRegSize(template_raw);
-            const other_reg_size = Flag.getRegSize(other_raw);
-            if (!(@enumToInt(other_reg_size) <= @enumToInt(template_reg_size))) {
-                return false;
-            }
-
-            const template_mod = Flag.getModifier(template_raw);
-            const other_mod = Flag.getModifier(other_raw);
-
-            return switch (template_mod) {
-                .no_mod => .no_mod == other_mod,
-                .kz => .k == other_mod or .kz == other_mod,
-                .k => .k == other_mod,
-                .sae => .sae == other_mod,
-                .er => .er == other_mod,
-            };
-        }
-
-        const other_tag = other.getContainerType();
-        // register operand
-        switch (other_tag) {
-            .xmm => {
-                const template_reg_size = Flag.getRegSize(template_raw);
-                if (template_reg_size == .low and !other.isLowReg()) {
-                    return false;
-                }
-                return template_reg == .xmm;
-            },
-
-            // need to check if it's
-            .ymm => {
-                const template_reg_size = Flag.getRegSize(template_raw);
-                if (template_reg_size == .low and !other.isLowReg()) {
-                    return false;
-                }
-                return template_reg == .ymm;
-            },
-
-            // if ZMM registers always use zmm[0..31]
-            .zmm => return template_reg == .zmm,
-
-            .rm_mem, .rm32, .rm64 => {
-                const mem = Flag.getMem(template_raw);
-
-                const mem_match = switch (mem) {
-                    .no_mem => false,
-                    .m32 => .rm_mem32 == other,
-                    .m64 => .rm_mem64 == other,
-                    .m128 => .rm_mem128 == other,
-                    .m256 => .rm_mem256 == other,
-                    .m512 => .rm_mem512 == other,
-                };
-
-                const bcst = Flag.getBcst(template_raw);
-                const bcst_match = switch (bcst) {
-                    .no_bcst => false,
-                    .m32bcst => .rm_m32bcst == other,
-                    .m64bcst => .rm_m64bcst == other,
-                };
-
-                return mem_match or bcst_match;
-            },
-
-            // else => unreachable,
-            else => {},
-        }
-
-        const is_rm = Flag.getMem(template_raw) != .no_mem;
-        // if `other` doesn't match any of those tags, then check if it
-        // matches one of these specific types (not tags)
-        switch (other) {
-            .rm_xmm => {
-                const template_reg_size = Flag.getRegSize(template_raw);
-                if (template_reg_size == .low) {
-                    return false;
-                } else {
-                    return template_reg == .xmm and is_rm;
-                }
-            },
-
-            .rm_ymm => {
-                const template_reg_size = Flag.getRegSize(template_raw);
-                if (template_reg_size == .low) {
-                    return false;
-                } else {
-                    return template_reg == .ymm and is_rm;
-                }
-            },
-
-            .rm_xmml => return template_reg == .xmm and is_rm,
-            .rm_ymml => return template_reg == .ymm and is_rm,
-            .rm_zmm => return template_reg == .zmm and is_rm,
-            else => {},
-        }
-
-        return false;
-    }
-
-    pub fn getContainerType(self: OperandType) OperandType {
-        return @intToEnum(OperandType, @enumToInt(self) & tag_mask);
     }
 
     pub fn fromRegister(reg: Register) OperandType {
@@ -666,6 +609,23 @@ pub const OperandType = enum(u16) {
         }
     }
 
+    pub fn fromAddress(self: Address) OperandType {
+        return switch (self) {
+            .MOffset => |moff| switch (moff.operand_size.bitSize()) {
+                .Bit8 => OperandType.moffs8,
+                .Bit16 => OperandType.moffs16,
+                .Bit32 => OperandType.moffs32,
+                .Bit64 => OperandType.moffs64,
+                else => unreachable,
+            },
+            .FarJmp => switch(self.getDisp().bitSize()) {
+                .Bit16 => OperandType.ptr16_16,
+                .Bit32 => OperandType.ptr16_32,
+                else => unreachable,
+            },
+        };
+    }
+
     pub fn fromRegisterPredicate(reg_pred: avx.RegisterPredicate) OperandType {
         return switch (reg_pred.z) {
             .Merge => switch (reg_pred.reg.registerType()) {
@@ -685,6 +645,68 @@ pub const OperandType = enum(u16) {
         };
     }
 
+    pub fn fromModRm(self: ModRm) OperandType {
+        return switch (self) {
+            .Reg => |reg| switch (reg.registerType()) {
+                .General => switch (reg.bitSize()) {
+                    .Bit8 => OperandType.rm_reg8,
+                    .Bit16 => OperandType.rm_reg16,
+                    .Bit32 => OperandType.rm_reg32,
+                    .Bit64 => OperandType.rm_reg64,
+                    else => unreachable,
+                },
+
+                .Float => OperandType.reg_st,
+
+                .Segment => OperandType.rm_seg,
+                .Control => OperandType.rm_cr,
+                .Debug => OperandType.rm_dr,
+                .MMX => OperandType.rm_mm,
+                .XMM => if (reg.number() <= 15) OperandType.rm_xmml else OperandType.rm_xmm,
+                .YMM => if (reg.number() <= 15) OperandType.rm_ymml else OperandType.rm_ymm,
+                .ZMM => OperandType.rm_zmm,
+                .Mask => OperandType.rm_k,
+                .Bound => OperandType.rm_bnd,
+            },
+
+            .Mem,
+            .Mem16,
+            .Sib,
+            .Rel => switch (self.operandDataSize()) {
+                .Void => OperandType.rm_mem,
+                .BYTE => OperandType.rm_mem8,
+                .WORD => OperandType.rm_mem16,
+                .DWORD  => OperandType.rm_mem32,
+                .QWORD  => OperandType.rm_mem64,
+                .TBYTE  => OperandType.rm_mem80,
+                .OWORD, .XMM_WORD => OperandType.rm_mem128,
+                .YMM_WORD => OperandType.rm_mem256,
+                .ZMM_WORD => OperandType.rm_mem512,
+                .DWORD_BCST => OperandType.rm_m32bcst,
+                .QWORD_BCST => OperandType.rm_m64bcst,
+                .FAR_WORD  => OperandType.m16_16,
+                .FAR_DWORD  => OperandType.m16_32,
+                .FAR_QWORD  => OperandType.m16_64,
+
+                // TODO:
+                else => unreachable,
+            },
+        };
+    }
+
+
+    pub fn fromRmPredicate(rm_pred: avx.RmPredicate) OperandType {
+        const modifier = switch (rm_pred.z) {
+            .Zero => OperandType.Modifier.kz,
+            else => OperandType.Modifier.k,
+        };
+
+        const base_type = OperandType.fromModRm(rm_pred.rm);
+        const mod_tag = @intCast(u32, @enumToInt(modifier)) << Modifier.pos;
+        const mod_type = @enumToInt(base_type) | mod_tag;
+        return @intToEnum(OperandType, mod_type);
+    }
+
     pub fn fromSae(reg_sae: avx.RegisterSae) OperandType {
         return switch (reg_sae.sae) {
             .SAE, .AE => switch (reg_sae.reg.registerType()) {
@@ -694,6 +716,11 @@ pub const OperandType = enum(u16) {
                 else => unreachable,
             },
             .RN_SAE, .RD_SAE, .RU_SAE, .RZ_SAE => switch (reg_sae.reg.registerType()) {
+                .General => switch (reg_sae.reg.bitSize()) {
+                    .Bit32 => OperandType.reg32_er,
+                    .Bit64 => OperandType.reg64_er,
+                    else => unreachable,
+                },
                 .XMM => OperandType.xmm_er,
                 .YMM => OperandType.ymm_er,
                 .ZMM => OperandType.zmm_er,
@@ -702,43 +729,72 @@ pub const OperandType = enum(u16) {
         };
     }
 
-    // For user supplied immediates without an explicit size are allowed to match
-    // against larger immediate sizes:
-    //      * imm8  <-> imm8,  imm16, imm32, imm64
-    //      * imm16 <-> imm16, imm32, imm64
-    //      * imm32 <-> imm32, imm64
-    //  however since imm64 are used only in limited cases, we only need to check:
-    //      * imm8  <-> imm8,  imm16, imm32
-    //      * imm16 <-> imm16, imm32
     pub fn matchTemplate(template: OperandType, other: OperandType) bool {
-        const other_tag = other.getContainerType();
+        const num = template.getNum();
+        const class = template.getClass();
 
-        if (template.isAvxOperandType()) {
-            return template.matchAvx(other);
-        }
+        const other_num = other.getNum();
+        const other_special = other.getSpecialCase();
 
-        return switch (template) {
-            .rm8 => (other_tag == .rm8 or other_tag == .reg8),
-            .rm16 => (other_tag == .rm16 or other_tag == .reg16),
-            .rm32 => (other_tag == .rm32 or other_tag == .reg32),
-            .rm64 => (other_tag == .rm64 or other_tag == .reg64),
-            .mm_m64 => (other_tag == .mm or other == .rm_mem64 or other == .rm_mm),
-            // mask
-            .reg_k_k => other_tag == .reg_k or other == .reg_k_k,
-            .reg_k_kz => other_tag == .reg_k or other == .reg_k_k or other == .reg_k_kz,
-            .k_m8 => other_tag == .reg_k or other == .rm_k or other == .rm_mem8,
-            .k_m16 => other_tag == .reg_k or other == .rm_k or other == .rm_mem16,
-            .k_m32 => other_tag == .reg_k or other == .rm_k or other == .rm_mem32,
-            .k_m64 => other_tag == .reg_k or other == .rm_k or other == .rm_mem64,
-            // bound
-            .bnd_m64 => other_tag == .bnd or other == .rm_bnd or other == .rm_mem64,
-            .bnd_m128 => other_tag == .bnd or other == .rm_bnd or other == .rm_mem128,
-            .imm8 => (other == .imm8 or other == .imm8_any or other == .imm_1),
-            .imm16 => (other == .imm16 or other == .imm8_any or other == .imm16_any or other == .imm_1),
-            .imm32 => (other == .imm32 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm_1),
-            .imm64 => (other == .imm64 or other == .imm8_any or other == .imm16_any or other == .imm32_any or other == .imm64_any or other == .imm_1),
-            else => (template == other or template == other_tag),
-        };
+        // if the template and operand type have matching classes
+        const class_match = (class == other.getClass());
+
+        // if the OperandType have matching register numbers:
+        // eg: template .xmm matches xmm0..xmm31
+        // eg: template .xmm1 matches only .xmm1
+        const num_match = (num == 0) or (num == other.getNum());
+
+        // if template is rm type, then it can match other OperandType with or without rm
+        // if template is no_rm type, 
+        // eg: rm8 matches either .rm_reg8 or .reg8
+        // eg: reg8 matches only .reg8 but not .rm_reg8
+        const rm_match = matchRmClass(template, other);
+
+        // if template allows memory operand and other OperandType matches that memory type
+        // eg: .xmm_m128 matches .rm_mem128
+        const mem_match = (other.getClass() == .mem and (template.getMemClass() == other.getMemClass()));
+
+        // if template allows a broadcast and other OperandType is a matching broadcast type
+        // eg: .xmm_m128_m32bcst matches .rm_m32bcst
+        const bcst_match = (
+            other.getClass() == .mem
+            and (template.getBroadcast() != .no_bcst)
+            and (template.getBroadcast() == other.getBroadcast())
+        );
+
+        // For user supplied immediates without an explicit size are allowed to match
+        // against larger immediate sizes:
+        //      * .imm8_any  <-> imm8,  imm16, imm32, imm64
+        //      * .imm16_any <-> imm16, imm32, imm64
+        //      * .imm32_any <-> imm32, imm64
+        //      * .imm64_any <-> imm64
+        // NOTE: .match_larger_versions only used for immediates
+        const special_match = (other_special == .match_larger_versions and num >= other_num);
+
+        // Matches register number <= 15.
+        // eg: .xmml (.low16) matches .xmm0..15
+        // eg: .xmm (.no_mod) matches .xmm0..31
+        const invalid_size = (template.getSpecialCase() == .low16 and other_num != 0 and other_num > 16);
+
+        // eg: rm_xmml (num = 0 and .low16 and .rm)
+        const invalid_size_rm = (
+            other_num == 0 and template.getSpecialCase() == .low16 and other.getSpecialCase() != .low16
+        );
+
+        // modifier type matches ie sae/er/mask
+        // eg: .xmm_kz matches .xmm and .xmm_k and .xmm_kz
+        // eg: .reg_k_k matches .reg_k and reg_k_k
+        // eg: .xmm_sae matches .xmm and .xmm_sae
+        // eg: .rm32_er matches .rm_reg8 and rm_reg8_er and rm_mem32 and rm_mem32_er
+        const modifier_match = matchModifer(template, other);
+
+        const extra_critera = class != .mem and !invalid_size and !invalid_size_rm;
+        const normal_class_match = (num_match and class_match and rm_match and modifier_match and extra_critera);
+
+        const special_class_match = (special_match and class_match);
+        const mem_class_match = mem_match or bcst_match;
+
+        return normal_class_match or special_class_match or mem_class_match;
     }
 };
 
@@ -989,52 +1045,6 @@ pub const ModRm = union(enum) {
             .Mem => |mem| mem.data_size.dataType(),
             .Sib => |sib| sib.data_size.dataType(),
             .Rel => |reg| reg.data_size.dataType(),
-        };
-    }
-
-    pub fn operandType(self: @This()) OperandType {
-        return switch (self) {
-            .Reg => |reg| switch (reg.registerType()) {
-                .General => switch (reg.bitSize()) {
-                    .Bit8 => OperandType.rm_reg8,
-                    .Bit16 => OperandType.rm_reg16,
-                    .Bit32 => OperandType.rm_reg32,
-                    .Bit64 => OperandType.rm_reg64,
-                    else => unreachable,
-                },
-
-                .Float => OperandType.reg_st,
-
-                .Segment => OperandType.rm_seg,
-                .Control => OperandType.rm_cr,
-                .Debug => OperandType.rm_dr,
-                .MMX => OperandType.rm_mm,
-                .XMM => if (reg.number() <= 15) OperandType.rm_xmml else OperandType.rm_xmm,
-                .YMM => if (reg.number() <= 15) OperandType.rm_ymml else OperandType.rm_ymm,
-                .ZMM => OperandType.rm_zmm,
-                .Mask => OperandType.rm_k,
-                .Bound => OperandType.rm_bnd,
-            },
-
-            .Mem,
-            .Mem16,
-            .Sib,
-            .Rel => switch (self.operandDataSize()) {
-                .Void => OperandType.rm_mem,
-                .BYTE => OperandType.rm_mem8,
-                .WORD => OperandType.rm_mem16,
-                .DWORD  => OperandType.rm_mem32,
-                .QWORD  => OperandType.rm_mem64,
-                .TBYTE  => OperandType.rm_mem80,
-                .OWORD  => OperandType.rm_mem128,
-                .DWORD_BCST => OperandType.rm_m32bcst,
-                .QWORD_BCST => OperandType.rm_m64bcst,
-                .FAR_WORD  => OperandType.m16_16,
-                .FAR_DWORD  => OperandType.m16_32,
-                .FAR_QWORD  => OperandType.m16_64,
-                // TODO:
-                else => unreachable,
-            },
         };
     }
 
@@ -1609,23 +1619,6 @@ pub const Address = union(enum) {
         };
     }
 
-    pub fn operandType(self: Address) OperandType {
-        return switch (self) {
-            .MOffset => |moff| switch (moff.operand_size.bitSize()) {
-                .Bit8 => OperandType.moffs8,
-                .Bit16 => OperandType.moffs16,
-                .Bit32 => OperandType.moffs32,
-                .Bit64 => OperandType.moffs64,
-                else => unreachable,
-            },
-            .FarJmp => switch(self.getDisp().bitSize()) {
-                .Bit16 => OperandType.ptr16_16,
-                .Bit32 => OperandType.ptr16_32,
-                else => unreachable,
-            },
-        };
-    }
-
     pub fn operandSize(self: Address) BitSize {
         return self.operandDataSize().bitSize();
     }
@@ -1860,6 +1853,7 @@ pub const OperandTag = enum {
     Rm,
     Addr,
     RegPred,
+    RmPred,
     RegSae,
 };
 
@@ -1870,6 +1864,7 @@ pub const Operand = union(OperandTag) {
     Rm: ModRm,
     Addr: Address,
     RegPred: avx.RegisterPredicate,
+    RmPred: avx.RmPredicate,
     RegSae: avx.RegisterSae,
 
     pub fn tag(self: Operand) OperandTag {
@@ -1880,9 +1875,10 @@ pub const Operand = union(OperandTag) {
         return switch (self) {
             .Reg => |reg| OperandType.fromRegister(reg),
             .Imm => |imm_| OperandType.fromImmediate(imm_),
-            .Rm => |rm| rm.operandType(),
-            .Addr => |addr| addr.operandType(),
+            .Rm => |rm| OperandType.fromModRm(rm),
+            .Addr => |addr| OperandType.fromAddress(addr),
             .RegPred => |reg_pred| OperandType.fromRegisterPredicate(reg_pred),
+            .RmPred => |rm_pred| OperandType.fromRmPredicate(rm_pred),
             .RegSae => |sae| OperandType.fromSae(sae),
             // TODO: get size
             .None => OperandType._void,
@@ -1897,6 +1893,7 @@ pub const Operand = union(OperandTag) {
             .Addr => |addr| addr.operandSize(),
             .None => |none| none.operand_size.bitSize(),
             .RegPred => |reg_pred| reg_pred.reg.bitSize(),
+            .RmPred => |rm_pred| rm_pred.rm.operandSize(),
             .RegSae => |reg_sae| reg_sae.reg.bitSize(),
         };
     }
@@ -1911,6 +1908,7 @@ pub const Operand = union(OperandTag) {
             .Addr => |addr| addr.operandDataSize(),
             .None => |none| none.operand_size,
             .RegPred => |reg_pred| reg_pred.reg.dataSize(),
+            .RmPred => |rm_pred| rm_pred.rm.operandDataSize(),
             .RegSae => |rc| DataSize.Void,
         };
     }
@@ -1925,6 +1923,16 @@ pub const Operand = union(OperandTag) {
 
     pub fn registerPredicate(reg: Register, mask: avx.MaskRegister, z: avx.ZeroOrMerge) Operand {
         return Operand { .RegPred = avx.RegisterPredicate.create(reg, mask, z) };
+    }
+
+    pub fn rmPredicate(op: Operand, mask: avx.MaskRegister, z: avx.ZeroOrMerge) Operand {
+        return switch (op) {
+            .Reg => |reg| Operand { .RmPred = avx.RmPredicate.create(ModRm.register(reg), mask, z) },
+            .Rm => |rm| Operand { .RmPred = avx.RmPredicate.create(rm, mask, z) },
+            else => {
+                std.debug.panic("Expected Operand.Register or Operand.ModRm, got: {}", .{op});
+            },
+        };
     }
 
     pub fn registerSae(reg: Register, sae: avx.SuppressAllExceptions) Operand {

@@ -8,6 +8,7 @@ test "AVX-512" {
 
     const reg = Operand.register;
     const pred = Operand.registerPredicate;
+    const predRm = Operand.rmPredicate;
     const sae = Operand.registerSae;
     const regRm = Operand.registerRm;
     const imm = Operand.immediate;
@@ -15,6 +16,9 @@ test "AVX-512" {
     const mem_void = Operand.memoryRm(.DefaultSeg, .Void, .EAX, 0);
     const mem_32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
     const mem_64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
+    const rm_mem128 = Operand.memoryRm(.DefaultSeg, .XMM_WORD, .EAX, 0);
+    const rm_mem256 = Operand.memoryRm(.DefaultSeg, .YMM_WORD, .EAX, 0);
+    const rm_mem512 = Operand.memoryRm(.DefaultSeg, .ZMM_WORD, .EAX, 0);
     const m32bcst = Operand.memoryRm(.DefaultSeg, .DWORD_BCST, .EAX, 0);
     const m64bcst = Operand.memoryRm(.DefaultSeg, .QWORD_BCST, .EAX, 0);
 

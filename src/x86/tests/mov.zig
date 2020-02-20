@@ -7,21 +7,20 @@ usingnamespace (@import("../util.zig"));
 const reg = Operand.register;
 const regRm = Operand.registerRm;
 
+const imm = Operand.immediate;
+const imm8 = Operand.immediate8;
+
 test "mov x64 register" {
     const m64 = Machine.init(.x64);
 
     debugPrint(false);
 
     {
-        const op1 = Operand.register(.AL);
-        const op2 = Operand.immediate8(0x00);
-        testOp2(m64, .MOV, op1, op2, "B0 00");
+        testOp2(m64, .MOV, reg(.AL), imm8(0), "B0 00");
     }
 
     {
-        const op1 = Operand.register(.AH);
-        const op2 = Operand.immediate8(0x00);
-        testOp2(m64, .MOV, op1, op2, "B4 00");
+        testOp2(m64, .MOV, reg(.AH), imm8(0), "B4 00");
     }
 
     {

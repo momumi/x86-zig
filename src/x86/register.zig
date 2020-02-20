@@ -2,6 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 usingnamespace(@import("types.zig"));
 
+const OperandType = @import("operand.zig").OperandType;
+
 // When we want to refer to a register but don't care about it's bit size
 pub const RegisterName = enum (u8) {
     AX = 0x00,
@@ -24,16 +26,16 @@ pub const RegisterName = enum (u8) {
 
 pub const RegisterType = enum(u16) {
     General = 0x0000,
-    Segment = 0x0800,
-    Float = 0x0F00,
-    Control = 0x1000,
-    Debug = 0x1100,
-    MMX = 0x1700,
-    XMM = 0x1800,
-    YMM = 0x1900,
-    ZMM = 0x1A00,
-    Mask = 0x1B00,
-    Bound = 0x1C00,
+    Segment = OperandType.Class.reg_seg.asTag(),
+    Float = OperandType.Class.reg_st.asTag(),
+    Control = OperandType.Class.reg_cr.asTag(),
+    Debug = OperandType.Class.reg_dr.asTag(),
+    Mask = OperandType.Class.reg_k.asTag(),
+    Bound = OperandType.Class.reg_bnd.asTag(),
+    MMX = OperandType.Class.mm.asTag(),
+    XMM = OperandType.Class.xmm.asTag(),
+    YMM = OperandType.Class.ymm.asTag(),
+    ZMM = OperandType.Class.zmm.asTag(),
 };
 
 /// Special control and debug registers

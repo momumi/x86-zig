@@ -67,6 +67,7 @@ pub const Machine = struct {
             .Reg => |reg| return Operand.registerRm(reg),
             .RegSae => |reg_sae| return Operand.registerRm(reg_sae.reg),
             .Rm => return op,
+            .RmPred => |rm_pred| return Operand { .Rm = rm_pred.rm },
             else => unreachable,
         }
     }

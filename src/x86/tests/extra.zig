@@ -211,6 +211,20 @@ test "extra instructions" {
         testOp1(m64, .CLDEMOTE, rm_mem8, "67 0F 1C 00");
     }
 
+    // CET_IBT
+    {
+        testOp0(m64, .ENDBR32, "f30f1efb");
+        testOp0(m64, .ENDBR64, "f30f1efa");
+    }
+
+    // CET_SS
+    {
+        testOp1(m64, .INCSSPD,  reg(.EAX), "f30faee8");
+        testOp1(m64, .INCSSPQ,  reg(.RAX), "f3480faee8");
+        testOp1(m32, .CLRSSBSY, rm_mem64, "F3 0F AE 30");
+        testOp1(m64, .CLRSSBSY, rm_mem64, "67 F3 0F AE 30");
+    }
+
     // CLWB
     {
         testOp1(m32, .CLWB, rm_mem8, "66 0F AE 30");

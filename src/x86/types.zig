@@ -391,6 +391,7 @@ pub const DataType = enum (u16) {
     FloatingPoint = 0x0200,
     VoidPointer = 0x0300,
     Broadcast = 0x0400,
+    Vector = 0x0500,
     Register = 0x0F00,
 };
 
@@ -402,6 +403,7 @@ pub const DataSize = enum (u16) {
     const floating_point_tag: u16 = @enumToInt(DataType.FloatingPoint);
     const void_tag: u16 = @enumToInt(DataType.VoidPointer);
     const broadcast_tag: u16 = @enumToInt(DataType.Broadcast);
+    const vector_tag: u16 = @enumToInt(DataType.Vector);
 
     /// 8 bit data size
     BYTE = 1 | normal_tag,
@@ -411,11 +413,17 @@ pub const DataSize = enum (u16) {
     DWORD = 4 | normal_tag,
     /// 64 bit data size
     QWORD = 8 | normal_tag,
+    /// 80 bit data size
+    TBYTE = 10 | normal_tag,
     /// 128 bit data size (DQWORD)
     OWORD = 16 | normal_tag,
 
-    /// 80 bit data size
-    TBYTE = 10 | normal_tag,
+    /// 128 bit data size
+    XMM_WORD = 16 | vector_tag,
+    /// 256 bit data size
+    YMM_WORD = 32 | vector_tag,
+    /// 512 bit data size
+    ZMM_WORD = 64 | vector_tag,
 
     /// 32 bit broadcast for AVX512
     DWORD_BCST = 4 | broadcast_tag,
@@ -440,15 +448,6 @@ pub const DataSize = enum (u16) {
     Void = 0 | void_tag,
 
     Default = @enumToInt(BitSize.None),
-
-    // /// 128 bit data size
-    // XWORD = 4,
-
-    // /// 256 bit data size
-    // YWORD = 5,
-
-    // /// 512 bit data size
-    // ZWORD = 6,
 
     pub fn fromByteValue(bytes: u16) DataSize {
         return @intToEnum(DataSize, bytes | normal_tag);

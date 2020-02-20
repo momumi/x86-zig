@@ -4,6 +4,7 @@ pub usingnamespace(@import("types.zig"));
 
 const Operand = @import("operand.zig").Operand;
 const Register = @import("register.zig").Register;
+const ModRm = @import("operand.zig").ModRm;
 const Machine = @import("machine.zig").Machine;
 
 pub const AvxMagic = enum (u8) {
@@ -212,6 +213,20 @@ pub const RegisterPredicate = struct {
     }
 };
 
+pub const RmPredicate = struct {
+    rm: ModRm,
+    mask: MaskRegister,
+    z: ZeroOrMerge,
+
+    pub fn create(rm: ModRm, k: MaskRegister, z: ZeroOrMerge) RmPredicate {
+        return RmPredicate {
+            .rm = rm,
+            .mask = k,
+            .z = z,
+        };
+    }
+};
+
 pub const RegisterSae = struct {
     reg: Register,
     sae: SuppressAllExceptions,
@@ -298,7 +313,6 @@ pub const AvxOpcode = struct {
             break :x switch (v.*) {
                 .Reg => v.Reg.number(),
                 .RegPred => v.RegPred.reg.number(),
-                .RegSae => v.RegSae.reg.number(),
                 else => unreachable,
             };
         } else if (self.reg_bits) |reg_bits| x: {
@@ -334,8 +348,8 @@ pub const AvxOpcode = struct {
                         res.X = modrm.rex_x;
                         res.B = modrm.rex_b;
 
-                        switch (rm.operandType()) {
-                            .rm_m32bcst, .rm_m64bcst => res.b = 1,
+                        switch (rm.operandDataSize()) {
+                            .DWORD_BCST, .QWORD_BCST => res.b = 1,
                             else => {},
                         }
                         // unreachable;
@@ -343,6 +357,9 @@ pub const AvxOpcode = struct {
                 },
 
                 .RegSae => |reg_sae| {
+                    const num3 = reg_sae.reg.number();
+                    res.B = @intCast(u1, (num3 & 0x08) >> 3);
+                    res.X = @intCast(u1, (num3 & 0x10) >> 4);
                     switch (reg_sae.sae) {
                         .AE => {},
                         .SAE => {
@@ -355,7 +372,33 @@ pub const AvxOpcode = struct {
                             res.L_ = @intCast(u1, (LL_ >> 1) & 0x01);
                         },
                     }
+                },
 
+                .RmPred => |rm_pred| {
+                    res.aaa = @enumToInt(rm_pred.mask);
+                    res.z = @enumToInt(rm_pred.z);
+                    const rm = rm_pred.rm;
+                    switch (rm) {
+                        .Reg => |reg| {
+                            const num3 = reg.number();
+                            res.B = @intCast(u1, (num3 & 0x08) >> 3);
+                            res.X = @intCast(u1, (num3 & 0x10) >> 4);
+                        },
+
+                        else => {
+                            // TODO: probably want to handle this better.  This value
+                            // also gets computed in Machine.encodeAvx().
+                            const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
+                            res.X = modrm.rex_x;
+                            res.B = modrm.rex_b;
+
+                            switch (rm.operandDataSize()) {
+                                .DWORD_BCST, .QWORD_BCST => res.b = 1,
+                                else => {},
+                            }
+                            // unreachable;
+                        },
+                    }
                 },
                 else => unreachable,
             }

@@ -16,15 +16,204 @@ test "SSE" {
     const rm64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
     const mem_32 = rm32;
     const mem_64 = rm64;
+    const rm_mem32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
+    const rm_mem64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
+    const rm_mem128 = Operand.memoryRm(.DefaultSeg, .XMM_WORD, .EAX, 0);
     const mem_128 = Operand.memoryRm(.DefaultSeg, .OWORD, .EAX, 0);
 
 
     testOp2(m32, .ADDPD,     reg(.XMM0), mem_128, "66 0f 58 00");
     testOp2(m32, .ADDPS,     reg(.XMM0), mem_128, "0f 58 00");
+
     testOp2(m32, .ADDSD,     reg(.XMM0), mem_64,  "f2 0f 58 00");
     testOp2(m32, .ADDSS,     reg(.XMM0), mem_32,  "f3 0f 58 00");
+
     testOp2(m32, .ADDSUBPD,  reg(.XMM0), mem_128, "66 0f D0 00");
     testOp2(m32, .ADDSUBPS,  reg(.XMM0), mem_128, "f2 0f D0 00");
+
+    testOp2(m32, .ANDPD,  reg(.XMM0), mem_128, "66 0f 54 00");
+    testOp2(m32, .ANDPS,  reg(.XMM0), mem_128, "0f 54 00");
+
+    testOp2(m32, .ANDNPD,  reg(.XMM0), mem_128, "66 0f 55 00");
+    testOp2(m32, .ANDNPS,  reg(.XMM0), mem_128, "0f 55 00");
+
+    testOp3(m32, .CMPSD,   reg(.XMM0), mem_64, imm(0), "f2 0f c2 00 00");
+    testOp3(m32, .CMPSS,   reg(.XMM0), mem_32, imm(0), "f3 0f c2 00 00");
+
+    {
+        // BLENDPD
+        testOp3(m64, .BLENDPD,   reg(.XMM0), reg(.XMM0), imm(0), "66 0f 3a 0d c0 00");
+        // BLENDPS
+        testOp3(m64, .BLENDPS,   reg(.XMM0), reg(.XMM0), imm(0), "66 0f 3a 0c c0 00");
+        // BLENDVPD
+        testOp3(m64, .BLENDVPD,  reg(.XMM0), reg(.XMM0), reg(.XMM0), "66 0f 38 15 c0");
+        testOp2(m64, .BLENDVPD,  reg(.XMM0), reg(.XMM0),  "66 0f 38 15 c0");
+        // BLENDVPS
+        testOp3(m64, .BLENDVPS,  reg(.XMM0), reg(.XMM0), reg(.XMM0), "66 0f 38 14 c0");
+        testOp2(m64, .BLENDVPS,  reg(.XMM0), reg(.XMM0),  "66 0f 38 14 c0");
+    }
+
+    {
+        // COMISD
+        testOp2(m64, .COMISD,    reg(.XMM0), reg(.XMM0), "66 0f 2f c0");
+        // COMISS
+        testOp2(m64, .COMISS,    reg(.XMM0), reg(.XMM0), "0f 2f c0");
+    }
+
+    {
+        // CVTDQ2PD
+        testOp2(m64, .CVTDQ2PD,  reg(.XMM0), reg(.XMM0), "f3 0f e6 c0");
+        // CVTDQ2PS
+        testOp2(m64, .CVTDQ2PS,  reg(.XMM0), reg(.XMM0), "0f 5b c0");
+        // CVTPD2DQ
+        testOp2(m64, .CVTPD2DQ,  reg(.XMM0), reg(.XMM0), "f2 0f e6 c0");
+        // CVTPD2PI
+        testOp2(m64, .CVTPD2PI,  reg(.MM0), reg(.XMM0), "66 0f 2d c0");
+        // CVTPD2PS
+        testOp2(m64, .CVTPD2PS,  reg(.XMM0), reg(.XMM0), "66 0f 5a c0");
+        // CVTPI2PD
+        testOp2(m64, .CVTPI2PD,  reg(.XMM0), reg(.MM0), "66 0f 2a c0");
+        // CVTPI2PS
+        testOp2(m64, .CVTPI2PS,  reg(.XMM0), reg(.MM0), "0f 2a c0");
+        // CVTPS2DQ
+        testOp2(m64, .CVTPS2DQ,  reg(.XMM0), reg(.XMM0), "66 0f 5b c0");
+        // CVTPS2PD
+        testOp2(m64, .CVTPS2PD,  reg(.XMM0), reg(.XMM0), "0f 5a c0");
+        // CVTPS2PI
+        testOp2(m64, .CVTPS2PI,  reg(.MM0), reg(.XMM0), "0f 2d c0");
+        // CVTSD2SI
+        testOp2(m64, .CVTSD2SI,  reg(.EAX), reg(.XMM0), "f2 0f 2d c0");
+        testOp2(m64, .CVTSD2SI,  reg(.RAX), reg(.XMM0), "f2 48 0f 2d c0");
+        testOp2(m32, .CVTSD2SI,  reg(.RAX), reg(.XMM0), AsmError.InvalidOperand);
+        // CVTSD2SS
+        testOp2(m64, .CVTSD2SS,  reg(.XMM0), reg(.XMM0), "f2 0f 5a c0");
+        // CVTSI2SD
+        testOp2(m64, .CVTSI2SD,  reg(.XMM0), rm32, "67 f2 0f 2a 00");
+        testOp2(m64, .CVTSI2SD,  reg(.XMM0), rm64, "67 f2 48 0f 2a 00");
+        // CVTSI2SS
+        testOp2(m64, .CVTSI2SS,  reg(.XMM0), rm32, "67 f3 0f 2a 00");
+        testOp2(m64, .CVTSI2SS,  reg(.XMM0), rm64, "67 f3 48 0f 2a 00");
+        // CVTSS2SD
+        testOp2(m64, .CVTSS2SD,  reg(.XMM0), reg(.XMM0), "f3 0f 5a c0");
+        // CVTSS2SI
+        testOp2(m64, .CVTSS2SI,  reg(.EAX), reg(.XMM0), "f3 0f 2d c0");
+        testOp2(m64, .CVTSS2SI,  reg(.RAX), reg(.XMM0), "f3 48 0f 2d c0");
+        testOp2(m32, .CVTSS2SI,  reg(.RAX), reg(.XMM0), AsmError.InvalidOperand);
+        // CVTTPD2DQ
+        testOp2(m64, .CVTTPD2DQ, reg(.XMM0), reg(.XMM0), "66 0f e6 c0");
+        // CVTTPD2PI
+        testOp2(m64, .CVTTPD2PI, reg(.MM0), reg(.XMM0), "66 0f 2c c0");
+        // CVTTPS2DQ
+        testOp2(m64, .CVTTPS2DQ, reg(.XMM0), reg(.XMM0), "f3 0f 5b c0");
+        // CVTTPS2PI
+        testOp2(m64, .CVTTPS2PI, reg(.MM0), reg(.XMM0), "0f 2c c0");
+        // CVTTSD2SI
+        testOp2(m64, .CVTTSD2SI, reg(.EAX), reg(.XMM0), "f2 0f 2c c0");
+        testOp2(m64, .CVTTSD2SI, reg(.RAX), reg(.XMM0), "f2 48 0f 2c c0");
+        testOp2(m32, .CVTTSD2SI, reg(.RAX), reg(.XMM0), AsmError.InvalidOperand);
+        // CVTTSS2SI
+        testOp2(m64, .CVTTSS2SI, reg(.EAX), reg(.XMM0), "f3 0f 2c c0");
+        testOp2(m64, .CVTTSS2SI, reg(.RAX), reg(.XMM0), "f3 48 0f 2c c0");
+        testOp2(m32, .CVTTSS2SI, reg(.RAX), reg(.XMM0), AsmError.InvalidOperand);
+    }
+
+    {
+        // DIVPD
+        testOp2(m64, .DIVPD, reg(.XMM0),  reg(.XMM0), "66 0f 5e c0");
+        // DIVPS
+        testOp2(m64, .DIVPS, reg(.XMM0),  reg(.XMM0), "0f 5e c0");
+        // DIVSD
+        testOp2(m64, .DIVSD, reg(.XMM0),  reg(.XMM0), "f2 0f 5e c0");
+        // DIVSS
+        testOp2(m64, .DIVSS, reg(.XMM0),  reg(.XMM0), "f3 0f 5e c0");
+        // DPPD
+        testOp3(m64, .DPPD,  reg(.XMM0), reg(.XMM0), imm(0), "66 0f 3a 41 c0 00");
+        // DPPS
+        testOp3(m64, .DPPS,  reg(.XMM0), reg(.XMM0), imm(0), "66 0f 3a 40 c0 00");
+    }
+
+    {
+        // EXTRACTPS
+        testOp3(m64, .EXTRACTPS, rm32, reg(.XMM0), imm(0),      "67 66 0f 3a 17 00 00");
+        testOp3(m64, .EXTRACTPS, reg(.EAX), reg(.XMM0), imm(0), "66 0f 3a 17 c0 00");
+        testOp3(m64, .EXTRACTPS, reg(.RAX), reg(.XMM0), imm(0), "66 0f 3a 17 c0 00");
+        testOp3(m32, .EXTRACTPS, reg(.RAX), reg(.XMM0), imm(0), AsmError.InvalidOperand);
+    }
+
+    {
+        // HADDPD
+        testOp2(m64, .HADDPD,    reg(.XMM0), reg(.XMM0), "66 0f 7c c0");
+        // HADDPS
+        testOp2(m64, .HADDPS,    reg(.XMM0), reg(.XMM0), "f2 0f 7c c0");
+        // HSUBPD
+        testOp2(m64, .HSUBPD,    reg(.XMM0), reg(.XMM0), "66 0f 7d c0");
+        // HSUBPS
+        testOp2(m64, .HSUBPS,    reg(.XMM0), reg(.XMM0), "f2 0f 7d c0");
+    }
+
+    {
+        // INSERTPS
+        testOp3(m64, .INSERTPS,  reg(.XMM0),reg(.XMM0),imm(0), "660f3a21c000");
+    }
+
+    {
+        // MAXPD
+        testOp2(m64, .MAXPD,     reg(.XMM0), reg(.XMM0), "66 0f 5f c0");
+        // MAXPS
+        testOp2(m64, .MAXPS,     reg(.XMM0), reg(.XMM0), "0f 5f c0");
+        // MAXSD
+        testOp2(m64, .MAXSD,     reg(.XMM0), reg(.XMM0), "f2 0f 5f c0");
+        // MAXSS
+        testOp2(m64, .MAXSS,     reg(.XMM0), reg(.XMM0), "f3 0f 5f c0");
+        // MINPD
+        testOp2(m64, .MINPD,     reg(.XMM0), reg(.XMM0), "66 0f 5d c0");
+        // MINPS
+        testOp2(m64, .MINPS,     reg(.XMM0), reg(.XMM0), "0f 5d c0");
+        // MINSD
+        testOp2(m64, .MINSD,     reg(.XMM0), reg(.XMM0), "f2 0f 5d c0");
+        // MINSS
+        testOp2(m64, .MINSS,     reg(.XMM0), reg(.XMM0), "f3 0f 5d c0");
+    }
+
+    {
+        // LDDQU
+        testOp2(m64, .LDDQU,     reg(.XMM0), rm_mem128, "67 f2 0f f0 00");
+    }
+
+    {
+        // MASKMOVDQU
+        testOp2(m64, .MASKMOVDQU,reg(.XMM0), reg(.XMM0), "66 0f f7 c0");
+        // MASKMOVQ
+        testOp2(m64, .MASKMOVQ,  reg(.MM0), reg(.MM0), "0f f7 c0");
+    }
+
+    {
+        // MAXPD
+        testOp2(m64, .MAXPD,     reg(.XMM0), reg(.XMM0), "66 0f 5f c0");
+        // MAXPS
+        testOp2(m64, .MAXPS,     reg(.XMM0), reg(.XMM0), "0f 5f c0");
+        // MAXSD
+        testOp2(m64, .MAXSD,     reg(.XMM0), reg(.XMM0), "f2 0f 5f c0");
+        // MAXSS
+        testOp2(m64, .MAXSS,     reg(.XMM0), reg(.XMM0), "f3 0f 5f c0");
+        // MINPD
+        testOp2(m64, .MINPD,     reg(.XMM0), reg(.XMM0), "66 0f 5d c0");
+        // MINPS
+        testOp2(m64, .MINPS,     reg(.XMM0), reg(.XMM0), "0f 5d c0");
+        // MINSD
+        testOp2(m64, .MINSD,     reg(.XMM0), reg(.XMM0), "f2 0f 5d c0");
+        // MINSS
+        testOp2(m64, .MINSS,     reg(.XMM0), reg(.XMM0), "f3 0f 5d c0");
+    }
+
+    {
+        // MOVAPD
+        testOp2(m64, .MOVAPD,    reg(.XMM0), reg(.XMM0), "660f28c0");
+        testOp2(m64, .MOVAPD,    regRm(.XMM0), reg(.XMM0), "660f29c0");
+        // MOVAPS
+        testOp2(m64, .MOVAPS,    reg(.XMM0), reg(.XMM0), "0f28c0");
+        testOp2(m64, .MOVAPS,    regRm(.XMM0), reg(.XMM0), "0f29c0");
+    }
 
     {
         {
@@ -117,6 +306,17 @@ test "SSE" {
             testOp2(m64, .MOVQ, regRm(.XMM15), reg(.XMM15), "66 45 0F D6 ff");
             testOp2(m64, .MOVQ, regRm(.XMM31), reg(.XMM15), AsmError.InvalidOperand);
         }
+    }
+
+    {
+        // MOVDQA
+        testOp2(m64, .MOVDQA,    reg(.XMM0), reg(.XMM0), "660f6fc0");
+        testOp2(m64, .MOVDQA,    regRm(.XMM0), reg(.XMM0), "660f7fc0");
+        // MOVDQU
+        testOp2(m64, .MOVDQU,    reg(.XMM0), reg(.XMM0), "f30f6fc0");
+        testOp2(m64, .MOVDQU,    regRm(.XMM0), reg(.XMM0), "f30f7fc0");
+        // MOVDQ2Q
+        testOp2(m64, .MOVDQ2Q,    reg(.MM0), reg(.XMM0), "f20fd6c0");
     }
 
     {

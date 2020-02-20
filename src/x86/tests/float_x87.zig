@@ -125,6 +125,7 @@ test "x87 floating point instructions" {
         testOp1(m64, .FDIV,     sreg(.ST1), "D8 F1");
         testOp1(m64, .FDIVR,    sreg(.ST1), "D8 F9");
         testOp1(m64, .FFREE,    sreg(.ST1), "DD C1");
+        testOp1(m64, .FFREEP,   sreg(.ST1), "DF C1");
         testOp1(m64, .FLD,      sreg(.ST1), "D9 C1");
         testOp1(m64, .FMUL,     sreg(.ST1), "D8 C9");
         testOp1(m64, .FSUB,     sreg(.ST1), "D8 E1");

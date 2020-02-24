@@ -219,10 +219,26 @@ test "extra instructions" {
 
     // CET_SS
     {
-        testOp1(m64, .INCSSPD,  reg(.EAX), "f30faee8");
-        testOp1(m64, .INCSSPQ,  reg(.RAX), "f3480faee8");
-        testOp1(m32, .CLRSSBSY, rm_mem64, "F3 0F AE 30");
-        testOp1(m64, .CLRSSBSY, rm_mem64, "67 F3 0F AE 30");
+        // CLRSSBSY
+        testOp1(m64, .CLRSSBSY,   rm_mem64, "67 f3 0f ae 30");
+        // INCSSPD / INCSSPQ
+        testOp1(m64, .INCSSPD,    reg(.EAX), "f3 0f ae e8");
+        testOp1(m64, .INCSSPQ,    reg(.RAX), "f3 48 0f ae e8");
+        // RDSSP
+        testOp1(m64, .RDSSPD,     reg(.EAX), "f3 0f 1e c8");
+        testOp1(m64, .RDSSPQ,     reg(.RAX), "f3 48 0f 1e c8");
+        // RSTORSSP
+        testOp1(m64, .RSTORSSP,   rm_mem64, "67 f3 0f 01 28");
+        // SAVEPREVSSP
+        testOp0(m64, .SAVEPREVSSP, "f3 0f 01 ea");
+        // SETSSBSY
+        testOp0(m64, .SETSSBSY,   "f3 0f 01 e8");
+        // WRSS
+        testOp2(m64, .WRSSD,      rm32, reg(.EAX), "67 0f 38 f6 00");
+        testOp2(m64, .WRSSQ,      rm64, reg(.RAX), "67 48 0f 38 f6 00");
+        // WRUSS
+        testOp2(m64, .WRUSSD,     rm32, reg(.EAX), "67 66 0f 38 f5 00");
+        testOp2(m64, .WRUSSQ,     rm64, reg(.RAX), "67 66 48 0f 38 f5 00");
     }
 
     // CLWB

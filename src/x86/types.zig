@@ -262,20 +262,36 @@ pub const OpcodePrefixType = enum {
     /// Indicates the use of 66/F2/F3 prefixes (beyond those already part of
     /// the instructions opcode) are not allowed with the instruction.
     NP,
-    /// Mandatory prefix
-    Mandatory,
     /// No Fx prefix
     ///
     /// Indicates the use of F2/F3 prefixes (beyond those already part of the
     /// instructions opcode) are not allowed with the instruction.
     NFx,
+    /// Mandatory prefix
+    Mandatory,
+    /// Opcode is composed of multiple separate instructions
+    Compound,
+};
+
+pub const OpcodePrefix = enum(u8) {
+    Any = 0x00,
+    NFx = 0x01,
+    _NP = 0x02,
+    _66 = 0x66,
+    _F3 = 0xF3,
+    _F2 = 0xF2,
+    _,
+
+    pub fn opcode(op: u8) OpcodePrefix {
+        return @intToEnum(OpcodePrefix, op);
+    }
 };
 
 pub const Opcode = struct {
     const max_length:u8 = 4;
     opcode: [max_length]u8 = undefined,
     len: u8 = 0,
-    prefix: u8 = 0,
+    prefix: OpcodePrefix = .Any,
     prefix_type: OpcodePrefixType = .Prefixable,
     reg_bits: ?u3 = null,
 
@@ -287,13 +303,30 @@ pub const Opcode = struct {
         return self.prefixes[0..self.prefix_count];
     }
 
+    pub fn isPrefixable(self: Opcode) bool {
+        return self.prefix_type == .Prefixable;
+    }
+
+    pub fn hasPrefixByte(self: Opcode) bool {
+        return switch (self.prefix_type) {
+            .Mandatory, .Compound => true,
+            else => false,
+        };
+    }
+
     fn create_generic(
-        prefix_type: OpcodePrefixType,
-        prefix: u8,
+        prefix: OpcodePrefix,
         opcode_bytes: [4]u8,
         len: u8,
         reg_bits: ?u3
     ) Opcode {
+        const prefix_type = switch (prefix) {
+            .Any => OpcodePrefixType.Prefixable,
+            .NFx => OpcodePrefixType.NFx,
+            ._NP => OpcodePrefixType.NP,
+            ._66, ._F3, ._F2 => OpcodePrefixType.Mandatory,
+            else => OpcodePrefixType.Compound,
+        };
         return Opcode {
             .opcode = opcode_bytes,
             .len = len,
@@ -303,84 +336,68 @@ pub const Opcode = struct {
         };
     }
 
-    pub fn op1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
-    }
-
-    pub fn op2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
-    }
-
-    pub fn op3r(byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
-    }
-
-    pub fn op4r(byte0: u8, byte1: u8, byte2: u8, byte3: u8, reg_bits: u3) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, byte2, byte3, 0}, 4, reg_bits);
-    }
-
-    pub fn preOp1r(prefix: u8, byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(.Mandatory, prefix, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
-    }
-
-    pub fn preOp2r(prefix: u8, byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
-    }
-
-    pub fn preOp3r(prefix: u8, byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
-    }
-
-    pub fn npOp1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(.NP, 0, [_]u8{byte0, 0, 0}, 1, reg_bits);
-    }
-
-    pub fn npOp2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(.NP, 0, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
-    }
-
-    pub fn nfxOp1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(.NFx, 0, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
-    }
-
-    pub fn nfxOp2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(.NFx, 0, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
-    }
-
     pub fn op1(byte0: u8) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, 0, 0, 0}, 1, null);
+        return create_generic(.Any, [_]u8{byte0, 0, 0, 0}, 1, null);
     }
 
     pub fn op2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, 0, 0}, 2, null);
+        return create_generic(.Any, [_]u8{byte0, byte1, 0, 0}, 2, null);
     }
 
     pub fn op3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(.Prefixable, 0, [_]u8{byte0, byte1, byte2, 0}, 3, null);
+        return create_generic(.Any, [_]u8{byte0, byte1, byte2, 0}, 3, null);
     }
 
-    pub fn preOp1(prefix: u8, byte0: u8) Opcode {
-        return create_generic(.Mandatory, prefix, [_]u8{byte0, 0, 0, 0}, 1, null);
+    pub fn op1r(byte0: u8, reg_bits: u3) Opcode {
+        return create_generic(.Any, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
     }
 
-    pub fn preOp2(prefix: u8, byte0: u8, byte1: u8) Opcode {
-        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, 0, 0}, 2, null);
+    pub fn op2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
+        return create_generic(.Any, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
     }
 
-    pub fn preOp3(prefix: u8, byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(.Mandatory, prefix, [_]u8{byte0, byte1, byte2, 0}, 3, null);
+    pub fn op3r(byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
+        return create_generic(.Any, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
     }
 
-    pub fn npOp1(byte0: u8) Opcode {
-        return create_generic(.NP, 0, [_]u8{byte0, 0, 0, 0}, 1, null);
+    pub fn op4r(byte0: u8, byte1: u8, byte2: u8, byte3: u8, reg_bits: u3) Opcode {
+        return create_generic(.Any, [_]u8{byte0, byte1, byte2, byte3, 0}, 4, reg_bits);
     }
 
-    pub fn npOp2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(.NP, 0, [_]u8{byte0, byte1, 0, 0}, 2, null);
+    pub fn preOp1r(prefix: OpcodePrefix, byte0: u8, reg_bits: u3) Opcode {
+        return create_generic(prefix, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
     }
 
-    pub fn npOp3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(.NP, 0, [_]u8{byte0, byte1, byte2, 0}, 3, null);
+    pub fn preOp2r(prefix: OpcodePrefix, byte0: u8, byte1: u8, reg_bits: u3) Opcode {
+        return create_generic(prefix, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
+    }
+
+    pub fn preOp3r(prefix: OpcodePrefix, byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
+        return create_generic(prefix, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
+    }
+
+    pub fn preOp1(prefix: OpcodePrefix, byte0: u8) Opcode {
+        return create_generic(prefix, [_]u8{byte0, 0, 0, 0}, 1, null);
+    }
+
+    pub fn preOp2(prefix: OpcodePrefix, byte0: u8, byte1: u8) Opcode {
+        return create_generic(prefix, [_]u8{byte0, byte1, 0, 0}, 2, null);
+    }
+
+    pub fn preOp3(prefix: OpcodePrefix, byte0: u8, byte1: u8, byte2: u8) Opcode {
+        return create_generic(prefix, [_]u8{byte0, byte1, byte2, 0}, 3, null);
+    }
+
+    pub fn compOp1r(instr: u8, byte0: u8, reg_bits: u3) Opcode {
+        var res = create_generic(OpcodePrefix.opcode(instr), [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
+        res.prefix_type = .Compound;
+        return res;
+    }
+
+    pub fn compOp2(instr: u8, byte0: u8, byte1: u8) Opcode {
+        var res = create_generic(OpcodePrefix.opcode(instr), [_]u8{byte0, byte1, 0, 0}, 2, null);
+        res.prefix_type = .Compound;
+        return res;
     }
 };
 

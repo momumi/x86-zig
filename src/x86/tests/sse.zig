@@ -12,10 +12,13 @@ test "SSE" {
 
     debugPrint(false);
 
+    const rm16 = Operand.memoryRm(.DefaultSeg, .WORD, .EAX, 0);
     const rm32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
     const rm64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
     const mem_32 = rm32;
     const mem_64 = rm64;
+    const rm_mem8 = Operand.memoryRm(.DefaultSeg, .BYTE, .EAX, 0);
+    const rm_mem16 = Operand.memoryRm(.DefaultSeg, .WORD, .EAX, 0);
     const rm_mem32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
     const rm_mem64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
     const rm_mem128 = Operand.memoryRm(.DefaultSeg, .XMM_WORD, .EAX, 0);
@@ -309,14 +312,94 @@ test "SSE" {
     }
 
     {
+        // MOVDDUP
+        testOp2(m64, .MOVDDUP,   reg(.XMM1), regRm(.XMM0), "f2 0f 12 c8");
         // MOVDQA
-        testOp2(m64, .MOVDQA,    reg(.XMM0), reg(.XMM0), "660f6fc0");
-        testOp2(m64, .MOVDQA,    regRm(.XMM0), reg(.XMM0), "660f7fc0");
+        testOp2(m64, .MOVDQA,    reg(.XMM0), reg(.XMM0), "66 0f 6f c0");
+        testOp2(m64, .MOVDQA,    regRm(.XMM0), reg(.XMM0), "66 0f 7f c0");
         // MOVDQU
-        testOp2(m64, .MOVDQU,    reg(.XMM0), reg(.XMM0), "f30f6fc0");
-        testOp2(m64, .MOVDQU,    regRm(.XMM0), reg(.XMM0), "f30f7fc0");
+        testOp2(m64, .MOVDQU,    reg(.XMM0), reg(.XMM0), "f3 0f 6f c0");
+        testOp2(m64, .MOVDQU,    regRm(.XMM0), reg(.XMM0), "f3 0f 7f c0");
         // MOVDQ2Q
-        testOp2(m64, .MOVDQ2Q,    reg(.MM0), reg(.XMM0), "f20fd6c0");
+        testOp2(m64, .MOVDQ2Q,   reg(.MM0), reg(.XMM0), "f2 0f d6 c0");
+        // MOVHLPS
+        testOp2(m64, .MOVHLPS,   reg(.XMM0), reg(.XMM0), "0f 12 c0");
+        // MOVHPD
+        testOp2(m64, .MOVHPD,    reg(.XMM0), rm_mem64, "67 66 0f 16 00");
+        // MOVHPS
+        testOp2(m64, .MOVHPS,    reg(.XMM0), rm_mem64, "67 0f 16 00");
+        // MOVLHPS
+        testOp2(m64, .MOVLHPS,   reg(.XMM0), reg(.XMM0), "0f 16 c0");
+        // MOVLPD
+        testOp2(m64, .MOVLPD,    reg(.XMM0), rm_mem64, "67 66 0f 12 00");
+        // MOVLPS
+        testOp2(m64, .MOVLPS,    reg(.XMM0), rm_mem64, "67 0f 12 00");
+        // MOVMSKPD
+        testOp2(m64, .MOVMSKPD,  reg(.EAX), reg(.XMM0), "66 0f 50 c0");
+        testOp2(m64, .MOVMSKPD,  reg(.RAX), reg(.XMM0), "66 0f 50 c0");
+        // MOVMSKPS
+        testOp2(m64, .MOVMSKPS,  reg(.EAX), reg(.XMM0), "0f 50 c0");
+        testOp2(m64, .MOVMSKPS,  reg(.RAX), reg(.XMM0), "0f 50 c0");
+        // MOVNTDQA
+        testOp2(m64, .MOVNTDQA,  reg(.XMM0), rm_mem128, "67 66 0f 38 2a 00");
+        // MOVNTDQ
+        testOp2(m64, .MOVNTDQ,   rm_mem128, reg(.XMM0), "67 66 0f e7 00");
+        // MOVNTPD
+        testOp2(m64, .MOVNTPD,   rm_mem128, reg(.XMM0), "67 66 0f 2b 00");
+        // MOVNTPS
+        testOp2(m64, .MOVNTPS,   rm_mem128, reg(.XMM0), "67 0f 2b 00");
+        // MOVNTQ
+        testOp2(m64, .MOVNTQ,    rm_mem64, reg(.MM0), "67 0f e7 00");
+        // MOVQ2DQ
+        testOp2(m64, .MOVQ2DQ,   reg(.XMM0), reg(.MM0), "f3 0f d6 c0");
+        // MOVSD
+        testOp2(m64, .MOVSD,     reg(.XMM0), reg(.XMM0), "f2 0f 10 c0");
+        testOp2(m64, .MOVSD,     regRm(.XMM0), reg(.XMM0), "f2 0f 11 c0");
+        // MOVSHDUP
+        testOp2(m64, .MOVSHDUP,  reg(.XMM0), reg(.XMM0), "f3 0f 16 c0");
+        // MOVSLDUP
+        testOp2(m64, .MOVSLDUP,  reg(.XMM0), reg(.XMM0), "f3 0f 12 c0");
+        // MOVSS
+        testOp2(m64, .MOVSS,     reg(.XMM0), reg(.XMM0), "f3 0f 10 c0");
+        testOp2(m64, .MOVSS,     regRm(.XMM0), reg(.XMM0), "f3 0f 11 c0");
+        // MOVUPD
+        testOp2(m64, .MOVUPD,    reg(.XMM0), reg(.XMM0), "66 0f 10 c0");
+        testOp2(m64, .MOVUPD,    regRm(.XMM0), reg(.XMM0), "66 0f 11 c0");
+        // MOVUPS
+        testOp2(m64, .MOVUPS,    reg(.XMM0), reg(.XMM0), "0f 10 c0");
+        testOp2(m64, .MOVUPS,    regRm(.XMM0), reg(.XMM0), "0f 11 c0");
+    }
+
+    {
+        // MPSADBW
+        testOp3(m64, .MPSADBW,   reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 42 c8 00");
+        // MULPD
+        testOp2(m64, .MULPD,     reg(.XMM1), regRm(.XMM0), "66 0f 59 c8");
+        // MULPS
+        testOp2(m64, .MULPS,     reg(.XMM1), regRm(.XMM0), "0f 59 c8");
+        // MULSD
+        testOp2(m64, .MULSD,     reg(.XMM1), regRm(.XMM0), "f2 0f 59 c8");
+        // MULSS
+        testOp2(m64, .MULSS,     reg(.XMM1), regRm(.XMM0), "f3 0f 59 c8");
+    }
+
+    {
+        // ORPD
+        testOp2(m64, .ORPD,      reg(.XMM1), regRm(.XMM0), "66 0f 56 c8");
+        // ORPS
+        testOp2(m64, .ORPS,      reg(.XMM1), regRm(.XMM0), "0f 56 c8");
+    }
+
+    {
+        // PABSB
+        testOp2(m64, .PABSB,     reg(.MM1), regRm(.MM0), "0f 38 1c c8");
+        testOp2(m64, .PABSB,     reg(.XMM1), regRm(.XMM0), "66 0f 38 1c c8");
+        // PABSW
+        testOp2(m64, .PABSW,     reg(.MM1), regRm(.MM0), "0f 38 1d c8");
+        testOp2(m64, .PABSW,     reg(.XMM1), regRm(.XMM0), "66 0f 38 1d c8");
+        // PABSD
+        testOp2(m64, .PABSD,     reg(.MM1), regRm(.MM0), "0f 38 1e c8");
+        testOp2(m64, .PABSD,     reg(.XMM1), regRm(.XMM0), "66 0f 38 1e c8");
     }
 
     {
@@ -358,47 +441,157 @@ test "SSE" {
     }
 
     {
-        testOp2(m32, .PADDB,     reg(.XMM0), reg(.XMM0), "66 0f fc c0");
-        testOp2(m32, .PADDW,     reg(.XMM0), reg(.XMM0), "66 0f fd c0");
-        testOp2(m32, .PADDD,     reg(.XMM0), reg(.XMM0), "66 0f fe c0");
-        testOp2(m32, .PADDQ,     reg(.XMM0), reg(.XMM0), "66 0f d4 c0");
+        // PABSB / PABSW /PABSD
+        // PABSB
+        testOp2(m64, .PABSB,     reg(.MM1), regRm(.MM0), "0f 38 1c c8");
+        testOp2(m64, .PABSB,     reg(.XMM1), regRm(.XMM0), "66 0f 38 1c c8");
+        // PABSW
+        testOp2(m64, .PABSW,     reg(.MM1), regRm(.MM0), "0f 38 1d c8");
+        testOp2(m64, .PABSW,     reg(.XMM1), regRm(.XMM0), "66 0f 38 1d c8");
+        // PABSD
+        testOp2(m64, .PABSD,     reg(.MM1), regRm(.MM0), "0f 38 1e c8");
+        testOp2(m64, .PABSD,     reg(.XMM1), regRm(.XMM0), "66 0f 38 1e c8");
+        // PACKSSWB / PACKSSDW
+        testOp2(m64, .PACKSSWB,  reg(.MM1), regRm(.MM0), "0f 63 c8");
+        testOp2(m64, .PACKSSWB,  reg(.XMM1), regRm(.XMM0), "66 0f 63 c8");
+        //
+        testOp2(m64, .PACKSSDW,  reg(.MM1), regRm(.MM0), "0f 6b c8");
+        testOp2(m64, .PACKSSDW,  reg(.XMM1), regRm(.XMM0), "66 0f 6b c8");
+        // PACKUSWB
+        testOp2(m64, .PACKUSWB,  reg(.MM1), regRm(.MM0), "0f 67 c8");
+        testOp2(m64, .PACKUSWB,  reg(.XMM1), regRm(.XMM0), "66 0f 67 c8");
+        // PACKUSDW
+        testOp2(m64, .PACKUSDW,  reg(.XMM1), regRm(.XMM0), "66 0f 38 2b c8");
+        // PADDB / PADDW / PADDD / PADDQ
+        testOp2(m64, .PADDB,     reg(.MM1), regRm(.MM0), "0f fc c8");
+        testOp2(m64, .PADDB,     reg(.XMM1), regRm(.XMM0), "66 0f fc c8");
+        //
+        testOp2(m64, .PADDW,     reg(.MM1), regRm(.MM0), "0f fd c8");
+        testOp2(m64, .PADDW,     reg(.XMM1), regRm(.XMM0), "66 0f fd c8");
+        //
+        testOp2(m64, .PADDD,     reg(.MM1), regRm(.MM0), "0f fe c8");
+        testOp2(m64, .PADDD,     reg(.XMM1), regRm(.XMM0), "66 0f fe c8");
+        //
+        testOp2(m64, .PADDQ,     reg(.MM1), regRm(.MM0), "0f d4 c8");
+        testOp2(m64, .PADDQ,     reg(.XMM1), regRm(.XMM0), "66 0f d4 c8");
+        // PADDSB / PADDSW
+        testOp2(m64, .PADDSB,    reg(.MM1), regRm(.MM0), "0f ec c8");
+        testOp2(m64, .PADDSB,    reg(.XMM1), regRm(.XMM0), "66 0f ec c8");
+        //
+        testOp2(m64, .PADDSW,    reg(.MM1), regRm(.MM0), "0f ed c8");
+        testOp2(m64, .PADDSW,    reg(.XMM1), regRm(.XMM0), "66 0f ed c8");
+        // PADDUSB / PADDSW
+        testOp2(m64, .PADDUSB,   reg(.MM1), regRm(.MM0), "0f dc c8");
+        testOp2(m64, .PADDUSB,   reg(.XMM1), regRm(.XMM0), "66 0f dc c8");
+        //
+        testOp2(m64, .PADDUSW,   reg(.MM1), regRm(.MM0), "0f dd c8");
+        testOp2(m64, .PADDUSW,   reg(.XMM1), regRm(.XMM0), "66 0f dd c8");
+        // PALIGNR
+        testOp3(m64, .PALIGNR,   reg(.MM1),regRm(.MM0),imm(0), "0f 3a 0f c8 00");
+        testOp3(m64, .PALIGNR,   reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 0f c8 00");
+    }
 
-        testOp2(m32, .PADDSB,    reg(.XMM0), reg(.XMM0), "66 0f ec c0");
-        testOp2(m32, .PADDSW,    reg(.XMM0), reg(.XMM0), "66 0f ed c0");
+    {
+        // PAND
+        testOp2(m64, .PAND,      reg(.MM1), regRm(.MM0), "0f db c8");
+        testOp2(m64, .PAND,      reg(.XMM1), regRm(.XMM0), "66 0f db c8");
+        // PANDN
+        testOp2(m64, .PANDN,     reg(.MM1), regRm(.MM0), "0f df c8");
+        testOp2(m64, .PANDN,     reg(.XMM1), regRm(.XMM0), "66 0f df c8");
+        // PAVGB / PAVGW
+        testOp2(m64, .PAVGB,     reg(.MM1), regRm(.MM0), "0f e0 c8");
+        testOp2(m64, .PAVGB,     reg(.XMM1), regRm(.XMM0), "66 0f e0 c8");
+        //
+        testOp2(m64, .PAVGW,     reg(.MM1), regRm(.MM0), "0f e3 c8");
+        testOp2(m64, .PAVGW,     reg(.XMM1), regRm(.XMM0), "66 0f e3 c8");
+        // PBLENDVB
+        testOp3(m64, .PBLENDVB,  reg(.XMM1),regRm(.XMM0),reg(.XMM0), "66 0f 38 10 c8");
+        testOp2(m64, .PBLENDVB,  reg(.XMM1),regRm(.XMM0), "66 0f 38 10 c8");
+        // PBLENDVW
+        testOp3(m64, .PBLENDW,   reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 0e c8 00");
+        // PCLMULQDQ
+        testOp3(m64, .PCLMULQDQ, reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 44 c8 00");
+    }
 
-        testOp2(m32, .PADDUSB,   reg(.XMM0), reg(.XMM0), "66 0f dc c0");
-        testOp2(m32, .PADDUSW,   reg(.XMM0), reg(.XMM0), "66 0f dd c0");
-
-        testOp2(m32, .PAND,      reg(.XMM0), reg(.XMM0), "66 0f db c0");
-        testOp2(m32, .PANDN,     reg(.XMM0), reg(.XMM0), "66 0f df c0");
-        testOp2(m32, .POR,       reg(.XMM0), reg(.XMM0), "66 0f eb c0");
-        testOp2(m32, .PXOR,      reg(.XMM0), reg(.XMM0), "66 0f ef c0");
-
+    {
+        // PCMPEQB / PCMPEQW / PCMPEQD
+        testOp2(m64, .PCMPEQB,   reg(.MM1), regRm(.MM0), "0f 74 c8");
+        testOp2(m64, .PCMPEQB,   reg(.XMM1), regRm(.XMM0), "66 0f 74 c8");
+        //
+        testOp2(m64, .PCMPEQW,   reg(.MM1), regRm(.MM0), "0f 75 c8");
+        testOp2(m64, .PCMPEQW,   reg(.XMM1), regRm(.XMM0), "66 0f 75 c8");
+        //
+        testOp2(m64, .PCMPEQD,   reg(.MM1), regRm(.MM0), "0f 76 c8");
+        testOp2(m64, .PCMPEQD,   reg(.XMM1), regRm(.XMM0), "66 0f 76 c8");
+        // PCMPEQQ
+        testOp2(m64, .PCMPEQQ,   reg(.XMM1), regRm(.XMM0), "66 0f 38 29 c8");
+        // PCMPESTRI
+        testOp3(m64, .PCMPESTRI, reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 61 c8 00");
+        // PCMPESTRM
+        testOp3(m64, .PCMPESTRM, reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 60 c8 00");
+        // PCMPGTB / PCMPGTW / PCMPGTD
+        testOp2(m64, .PCMPGTB,   reg(.MM1), regRm(.MM0), "0f 64 c8");
+        testOp2(m64, .PCMPGTB,   reg(.XMM1), regRm(.XMM0), "66 0f 64 c8");
+        //
+        testOp2(m64, .PCMPGTW,   reg(.MM1), regRm(.MM0), "0f 65 c8");
+        testOp2(m64, .PCMPGTW,   reg(.XMM1), regRm(.XMM0), "66 0f 65 c8");
+        //
+        testOp2(m64, .PCMPGTD,   reg(.MM1), regRm(.MM0), "0f 66 c8");
+        testOp2(m64, .PCMPGTD,   reg(.XMM1), regRm(.XMM0), "66 0f 66 c8");
+        // PCMPISTRI
+        testOp3(m64, .PCMPISTRI, reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 63 c8 00");
+        // PCMPISTRM
+        testOp3(m64, .PCMPISTRM, reg(.XMM1),regRm(.XMM0),imm(0), "66 0f 3a 62 c8 00");
+        //
         testOp2(m32, .PCMPEQB,   reg(.XMM0), reg(.XMM0), "66 0f 74 c0");
         testOp2(m32, .PCMPEQW,   reg(.XMM0), reg(.XMM0), "66 0f 75 c0");
         testOp2(m32, .PCMPEQD,   reg(.XMM0), reg(.XMM0), "66 0f 76 c0");
-
+        //
         testOp2(m32, .PCMPGTB,   reg(.XMM0), reg(.XMM0), "66 0f 64 c0");
         testOp2(m32, .PCMPGTW,   reg(.XMM0), reg(.XMM0), "66 0f 65 c0");
         testOp2(m32, .PCMPGTD,   reg(.XMM0), reg(.XMM0), "66 0f 66 c0");
 
+    }
+
+    {
+        // PEXTRB / PEXTRD / PEXTRQ
+        testOp3(m64, .PEXTRB,    rm_mem8, reg(.XMM1), imm(0), "67 66 0f 3a 14 08 00");
+        testOp3(m64, .PEXTRB,    reg(.EAX), reg(.XMM1), imm(0), "66 0f 3a 14 c8 00");
+        testOp3(m64, .PEXTRB,    reg(.RAX), reg(.XMM1), imm(0), "66 0f 3a 14 c8 00");
+        testOp3(m64, .PEXTRD,    rm32, reg(.XMM1), imm(0), "67 66 0f 3a 16 08 00");
+        testOp3(m64, .PEXTRQ,    rm64, reg(.XMM1), imm(0), "67 66 48 0f 3a 16 08 00");
+        // PEXTRW
+        testOp3(m64, .PEXTRW,    reg(.AX), reg(.MM1), imm(0), "0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    reg(.EAX), reg(.MM1), imm(0), "0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    reg(.RAX), reg(.MM1), imm(0), "0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    reg(.AX), reg(.XMM1), imm(0), "66 0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    reg(.EAX), reg(.XMM1), imm(0), "66 0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    reg(.RAX), reg(.XMM1), imm(0), "66 0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    rm16, reg(.XMM1), imm(0), "67 66 0f 3a 15 08 00");
+        testOp3(m64, .PEXTRW,    regRm(.EAX), reg(.XMM1), imm(0), "66 0f 3a 15 c8 00");
+        testOp3(m64, .PEXTRW,    regRm(.RAX), reg(.XMM1), imm(0), "66 0f 3a 15 c8 00");
+        testOp3(m64, .PEXTRW,    reg(.EAX), reg(.XMM1), imm(0), "66 0f c5 c1 00");
+        testOp3(m64, .PEXTRW,    reg(.RAX), reg(.XMM1), imm(0), "66 0f c5 c1 00");
+        //
         testOp3(m32, .PEXTRB,   reg(.EAX), reg(.XMM0), imm(0), "66 0f 3a 14 c0 00");
         testOp3(m32, .PEXTRB,   reg(.RAX), reg(.XMM0), imm(0), AsmError.InvalidOperand);
-        testOp3(m64, .PEXTRB,   reg(.RAX), reg(.XMM0), imm(0), "66 0f 3a 14 c0 00");
-
+        //
         testOp3(m32, .PEXTRW,   reg( .AX), reg(.XMM0), imm(0), "66 0f c5 c0 00");
         testOp3(m32, .PEXTRW,   reg(.EAX), reg(.XMM0), imm(0), "66 0f c5 c0 00");
         testOp3(m32, .PEXTRW,   reg(.RAX), reg(.XMM0), imm(0), AsmError.InvalidOperand);
-        testOp3(m64, .PEXTRW,   reg(.RAX), reg(.XMM0), imm(0), "66 0f c5 c0 00");
-
+        //
         testOp3(m32, .PEXTRW,   regRm( .AX), reg(.XMM0), imm(0), "66 0f 3A 15 c0 00");
         testOp3(m32, .PEXTRW,   regRm(.EAX), reg(.XMM0), imm(0), "66 0f 3A 15 c0 00");
         testOp3(m32, .PEXTRW,   regRm(.RAX), reg(.XMM0), imm(0), AsmError.InvalidOperand);
-        testOp3(m64, .PEXTRW,   regRm(.RAX), reg(.XMM0), imm(0), "66 0f 3A 15 c0 00");
-
+        //
         testOp3(m32, .PEXTRD,   reg(.EAX), reg(.XMM0), imm(0), "66 0f 3a 16 c0 00");
         testOp3(m32, .PEXTRQ,   reg(.RAX), reg(.XMM0), imm(0), AsmError.InvalidOperand);
-        testOp3(m64, .PEXTRQ,   reg(.RAX), reg(.XMM0), imm(0), "66 48 0f 3a 16 c0 00");
+
+    }
+
+    {
+        testOp2(m32, .POR,       reg(.XMM0), reg(.XMM0), "66 0f eb c0");
+        testOp2(m32, .PXOR,      reg(.XMM0), reg(.XMM0), "66 0f ef c0");
 
         testOp2(m32, .PMADDWD,   reg(.XMM0), reg(.XMM0), "66 0f f5 c0");
         testOp2(m32, .PMULHW,    reg(.XMM0), reg(.XMM0), "66 0f e5 c0");

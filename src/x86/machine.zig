@@ -347,23 +347,23 @@ pub const Machine = struct {
     pub fn encodeAvx(
         self: Machine,
         avx_opcode: avx.AvxOpcode,
-        vec1: ?*const Operand,
-        vec2: ?*const Operand,
+        vec1_r: ?*const Operand,
+        vec2_v: ?*const Operand,
         rm_op: ?*const Operand,
-        vec4: ?*const Operand,
+        vec4_is: ?*const Operand,
         imm_op: ?*const Operand,
         default_size: DefaultSize
     ) AsmError!Instruction {
         var res = Instruction{};
 
-        const avx_res = try avx_opcode.encode(self, vec1, vec2, rm_op);
+        const avx_res = try avx_opcode.encode(self, vec1_r, vec2_v, rm_op);
 
         var modrm: operand.ModRmResult = undefined;
         var has_modrm: bool = undefined;
 
-        if (vec1 == null and rm_op == null) {
+        if (vec1_r == null and rm_op == null) {
             has_modrm = false;
-        } else if (vec1) |v| {
+        } else if (vec1_r) |v| {
             const rm = self.coerceRm(rm_op.?.*).Rm;
             const reg = switch (v.*) {
                 .Reg => v.Reg,
@@ -391,7 +391,7 @@ pub const Machine = struct {
             res.modrm(modrm);
         }
 
-        if (vec4) |vec| {
+        if (vec4_is) |vec| {
             // currently EVEX support for 4 operands is not officialy documented
             assert(avx_opcode.encoding != .EVEX);
 

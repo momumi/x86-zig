@@ -47,7 +47,7 @@ pub const OperandType = enum(u32) {
         none = 0xff,
 
         pub fn asTag(self: Class) u16 {
-            return @intCast(u16, @enumToInt(self)) << 8;
+            return @intCast(u16, @enumToInt(self)) << Class.pos;
         }
     };
 
@@ -111,8 +111,6 @@ pub const OperandType = enum(u32) {
         low16 = 1,
         match_larger_versions = 2,
     };
-
-    // const _pos = 28;
 
     pub fn create(
         num: u8,
@@ -419,11 +417,11 @@ pub const OperandType = enum(u32) {
     rm_mem64 = create_rm(0, .mem, .mem64),
 
     // matches memory of any type
-    rm_mem = create(0, .mem, .mem_void, .rm, .no_mod, .no_bcst, .no_special),
-    rm_mem80 = create(0, .mem, .mem80, .rm, .no_mod, .no_bcst, .no_special),
-    rm_mem128 = create(0, .mem, .mem128, .rm, .no_mod, .no_bcst, .no_special),
-    rm_mem256 = create(0, .mem, .mem256, .rm, .no_mod, .no_bcst, .no_special),
-    rm_mem512 = create(0, .mem, .mem512, .rm, .no_mod, .no_bcst, .no_special),
+    rm_mem = create_rm(0, .mem, .mem_void),
+    rm_mem80 = create_rm(0, .mem, .mem80),
+    rm_mem128 = create_rm(0, .mem, .mem128),
+    rm_mem256 = create_rm(0, .mem, .mem256),
+    rm_mem512 = create_rm(0, .mem, .mem512),
     rm_m32bcst = create(0, .mem, .no_mem, .rm, .no_mod, .m32bcst, .no_special),
     rm_m64bcst = create(0, .mem, .no_mem, .rm, .no_mod, .m64bcst, .no_special),
 
@@ -443,6 +441,9 @@ pub const OperandType = enum(u32) {
     rm_xmm = create_rm(0, .xmm, .no_mem),
     rm_ymm = create_rm(0, .ymm, .no_mem),
     rm_zmm = create_rm(0, .zmm, .no_mem),
+    rm_xmm_kz = create(0, .xmm, .no_mem, .rm,    .kz,     .no_bcst, .no_special),
+    rm_ymm_kz = create(0, .ymm, .no_mem, .rm,    .kz,     .no_bcst, .no_special),
+    rm_zmm_kz = create(0, .zmm, .no_mem, .rm,    .kz,     .no_bcst, .no_special),
 
     moffs = create_basic(0, .moffs),
     moffs8,
@@ -485,6 +486,7 @@ pub const OperandType = enum(u32) {
     reg64_er     = create(0, .reg64, .no_mem, .rm, .er, .no_bcst, .no_special),
     rm32_er      = create(0, .reg32, .mem32,  .rm, .er, .no_bcst, .no_special),
     rm64_er      = create(0, .reg64, .mem64,  .rm, .er, .no_bcst, .no_special),
+    rm_mem64_kz  = create(0, .mem,   .mem64,  .rm, .kz, .no_bcst, .no_special),
     rm_mem128_kz = create(0, .mem,   .mem128, .rm, .kz, .no_bcst, .no_special),
     rm_mem256_kz = create(0, .mem,   .mem256, .rm, .kz, .no_bcst, .no_special),
     rm_mem512_kz = create(0, .mem,   .mem512, .rm, .kz, .no_bcst, .no_special),
@@ -498,6 +500,7 @@ pub const OperandType = enum(u32) {
 
     /// Only matches xmm[0..15]
     xmml      = create(0, .xmm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
+    xmml_m16  = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .low16),
     xmml_m32  = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .low16),
     xmml_m64  = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .low16),
     xmml_m128 = create(0, .xmm, .mem128, .rm,    .no_mod, .no_bcst, .low16),
@@ -511,6 +514,7 @@ pub const OperandType = enum(u32) {
     xmm_kz               = create(0, .xmm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
     xmm_sae              = create(0, .xmm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
     xmm_er               = create(0, .xmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
+    xmm_m16              = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .no_special),
     xmm_m32              = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
     xmm_m32_er           = create(0, .xmm, .mem32,  .rm,    .er,     .no_bcst, .no_special),
     xmm_m32_sae          = create(0, .xmm, .mem32,  .rm,    .sae,    .no_bcst, .no_special),

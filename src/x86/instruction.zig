@@ -115,16 +115,14 @@ pub const Instruction = struct {
     }
 
     pub fn addPrefixes(self: *@This(), prefix: Prefixes, opcode: Opcode) void {
-        if (prefix.len == 0 and opcode.prefix_type != .Mandatory) {
+        if (prefix.len == 0 and !opcode.hasPrefixByte()) {
             return;
         }
-        // can't have any prefixes for NP opcodes
-        std.debug.assert(!(opcode.prefix_type == .NP and prefix.len == 0));
 
-        if (opcode.prefix_type == .Mandatory) {
+        if (opcode.hasPrefixByte()) {
             self.view.prefix = self.makeViewPart(prefix.len + 1);
             self.addBytes(prefix.asSlice());
-            self.addByte(opcode.prefix);
+            self.addByte(@enumToInt(opcode.prefix));
         } else {
             self.view.prefix = self.makeViewPart(prefix.len);
             self.addBytes(prefix.asSlice());

@@ -135,7 +135,7 @@ pub const AvxEncoding = enum {
 
 pub const VexPrefix = enum(u2) {
     /// No prefix
-    NP = 0b00,
+    _NP = 0b00,
     _66 = 0b01,
     _F3 = 0b10,
     _F2 = 0b11,
@@ -267,9 +267,9 @@ pub const AvxOpcode = struct {
     pub fn encode(
         self: AvxOpcode,
         machine: Machine,
-        vec1: ?*const Operand,
-        vec2: ?*const Operand,
-        vec3: ?*const Operand,
+        vec1_r: ?*const Operand,
+        vec2_v: ?*const Operand,
+        vec3_rm: ?*const Operand,
     ) AsmError!AvxResult {
         var res = AvxResult{};
 
@@ -298,7 +298,7 @@ pub const AvxOpcode = struct {
             },
         }
 
-        if (vec1) |v| {
+        if (vec1_r) |v| {
             switch (v.*) {
                 .RegPred => |reg_pred| {
                     res.aaa = @enumToInt(reg_pred.mask);
@@ -309,7 +309,18 @@ pub const AvxOpcode = struct {
             }
         }
 
-        const vec_num1: u8 = if (vec1) |v| x: {
+        if (vec2_v) |v| {
+            switch (v.*) {
+                .RegPred => |reg_pred| {
+                    res.aaa = @enumToInt(reg_pred.mask);
+                    res.z = @enumToInt(reg_pred.z);
+                },
+
+                else => {},
+            }
+        }
+
+        const vec_num1: u8 = if (vec1_r) |v| x: {
             break :x switch (v.*) {
                 .Reg => v.Reg.number(),
                 .RegPred => v.RegPred.reg.number(),
@@ -323,11 +334,19 @@ pub const AvxOpcode = struct {
         res.R = @intCast(u1, (vec_num1 & 0x08) >> 3);
         res.R_ = @intCast(u1, (vec_num1 & 0x10) >> 4);
 
-        const vec_num2 = if (vec2) |vec| vec.Reg.number() else 0;
+        const vec_num2 = if (vec2_v) |v| x: {
+            break :x switch (v.*) {
+                .Reg => v.Reg.number(),
+                .RegPred => v.RegPred.reg.number(),
+                else => unreachable,
+            };
+        } else x: {
+            break :x 0;
+        };
         res.vvvv = @intCast(u4, (vec_num2 & 0x0f));
         res.V_ = @intCast(u1, (vec_num2 & 0x10) >> 4);
 
-        if (vec3) |vec| {
+        if (vec3_rm) |vec| {
             switch (vec.*) {
                 .Reg => |reg| {
                     const num3 = reg.number();
@@ -421,7 +440,7 @@ pub const AvxOpcode = struct {
                 std.debug.assert(
                     (res.L_ == 0)
                     and (res.R_ == 0)
-                    and (vec2 == null or res.V_ == 0)
+                    and (vec2_v == null or res.V_ == 0)
                     and (res.aaa == 0)
                     and (res.b == 0)
                     and (res.z == 0)
@@ -447,11 +466,11 @@ pub const AvxOpcode = struct {
         w: VexW,
         op: u8
     ) AvxOpcode {
-        return evex_r(len, pre, esc, w, op, null);
+        return evexr(len, pre, esc, w, op, null);
     }
 
 
-    pub fn evex_r(
+    pub fn evexr(
         len: EvexLength,
         pre: VexPrefix,
         esc: VexEscape,

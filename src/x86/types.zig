@@ -204,8 +204,8 @@ pub const DefaultSize = enum (u8) {
 
     pub fn needsSizeCheck(self: DefaultSize) bool {
         return switch (self) {
-            .RM32_RM, .RM32_Reg, .RM64_RM, .RM64_Reg,
-            .ZO, .R_Over16, .R_Over32, .R_Over64 => false,
+            .RM32_RM, .RM32_Reg, .RM64_RM, .RM64_Reg, .REX_W,
+            .ZO, .R_Over16, .R_Over32, .R_Over64, => false,
             else => true,
         };
     }

@@ -292,7 +292,7 @@ pub const Machine = struct {
                 }
             },
 
-            .RM32_RM, .ZO => {},
+            .RM32_RM, .ZO, .REX_W => {},
 
             else => unreachable,
         }

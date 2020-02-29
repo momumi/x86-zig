@@ -13,7 +13,7 @@ AVX: VEX and XOP encoding
     * eg: ANDN, BEXTR, BLSI, BLSMSK, BLSR, BZHI, MULX, PDEP, PEXT, RORX, SARX, SHLX, SHRX
 
 
-// Prefixes | VEX(2,3) | Opcode(1) | ModRM(1) | SIB(0,1) | disp(0,1,2,4) | imm8(0,1)
+// Prefixes | VEX(2,3) | Opcode(1) | ModRM(1) | SIB/VSIB(0,1) | disp(0,1,2,4) | imm8(0,1)
 11 bytes maximum
 
 2 byte VEX
@@ -75,7 +75,7 @@ P1: | W | v | v | v | v | L | p | p |
         * other values reserved
         * If 2 byte VEX is used, 0F prefix is implied
     * opcode, exactly one byte immediately following VEX prefix
-    * ModRM / SIB / displacement
+    * ModRM / SIB / VSIB / displacement
         * ModRM.rm
             * Encodes the operand that is a memory address
             * Otherwise it can encode either a source or destination register
@@ -83,17 +83,34 @@ P1: | W | v | v | v | v | L | p | p |
             * Opcode extension
             * Otherwise it can encode either a source or destination register
         * SIB and displacement work the same way as in other instructions
-            * VSIB
-                * In AVX2, SIB can be used as part of a VSIB memory addressing
-                * scale field same as SIB
-                * index field: register number of a vector index register
-                * base field: register number of the base register (GPR)
-                * In 64bit modes, use VEX.B, VEX.X for 4th bit of register number
+        * VSIB
+            * In AVX2/AVX512, SIB byte can encode also encode VSIB (vector SIB memory addressing)
+                * Only specific instructions support it
+                * `vgatherdpd xmm0, [1*xmm5 + rax + 0x10], xmm2`
+                * `[scale*index + base + disp]`
+                    * scale ∈ {1, 2, 4, 8}
+                    * index register: index register, vector register
+                    * base register: general purpose register (EAX/RAX, etc)
+                    * disp: 0, 8, or 32 bit displacement
+            * scale field same encoding as normal SIB
+            * index field: register number of vector index register
+            * base field: register number of the base register (GPR)
+            * modrm.mod controls displacement size:
+                * mod = 0b00 -> no displacement
+                * mod = 0b01 -> 8 bit displacement
+                * mod = 0b10 -> 32 bit displacement
+                * mod = 0b10 -> invalid
+            * modrm.rm == 4 (because SIB byte must always be present)
+            * Can use `[scale*index + disp32]` (no base register) with special encoding
+                * Must set (base to RBP/R13) and (modrm.mod == 00)
+                * This means RBP/R13 can only be used as a base register with 8 or 32 bit displacement
+            * In 64bit modes, use VEX.B, VEX.X for 4th bit of register number
+            * In AVX512, use EVEX.V' for 5th bit of index register
     * imm8[7:4]
         * The 4 bits imm8[7:4] encode the third source operand in a 4 operand instruction
 
 
-## VEX in instruction summary table 
+## VEX in instruction summary table
 
 VEX.[128,256,LIG,LZ].[66,F2,F3].0F/0F3A/0F38.[W0,W1,WIG] opcode [/r] [/ib,/is4]
 
@@ -107,7 +124,6 @@ VEX.[128,256,LIG,LZ].[66,F2,F3].0F/0F3A/0F38.[W0,W1,WIG] opcode [/r] [/ib,/is4]
 * VEX.WIG -> VEX.W is ignored (can use 2 or 3 byte vex)
 * `/is4` imm8[7:4] contains source register, imm8[3:0] instruction specific payload
 
-
 --------------------------------------------------------------------------------
 
 # AVX-512 encoding EVEX prefix
@@ -118,7 +134,7 @@ References:
 
 AVX-512: EVEX encoding
 
-`Prefixes | EVEX(4) | Opcode(1) | ModRM(1) | SIB(1) | disp(1,2,4) | imm(1)`
+`Prefixes | EVEX(4) | Opcode(1) | ModRM(1) | SIB/VSIB(0,1) | disp(1,2,4) | imm(1)`
 
 * 0x62, P0, P1, P2
     * EVEX is 4 byte prefix (replaces 0x62 BOUND instruction)
@@ -149,9 +165,10 @@ P2: | z | L'| L | b | V'| a | a | a |
     * EVEX.XB can extend ModRM.rm to 5 bits when SIB/VSIB absent
 * EVEX.R'R
     * extends ModRM.reg to 5 bits
-* EVEX.V'vvvv
-* EVEX.vvvv
+* EVEX.V' / EVEX.vvvv / EVEX.V'vvvv
     * bits are inverted like VEX.vvvv
+    * EVEX.V' extends EVEX.vvvv to 5 bits
+    * When using VSIB addressing, V' encodes the 5th bit of the VSIB index register
 * EVEX.L'L : vector length / rounding control
     * vector length information for packed instructions
         * `0b00 -> EVEX.128`
@@ -241,7 +258,7 @@ Fields that are "part of the operands"
 * EVEX.b -> 1 bit SAE (suppress all exceptions on float operations)
 
 
-## EVEX in instruction summary table 
+## EVEX in instruction summary table
 
 EVEX.[128,256,512,LIG].[66,F2,F3].0F/0F3A/0F38.[W0,W1,WIG] opcode [/r] [ib]
 

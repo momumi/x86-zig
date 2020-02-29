@@ -317,10 +317,14 @@ pub const CpuVersion = enum {
     CET_SS,
     /// CPUID flag CLWB
     CLWB,
+    /// CPUID flag FMA (Fused Multiply and Add)
+    FMA,
     /// CPUID flag FSGSBASE
     FSGSBASE,
     /// CPUID flag FXSR
     FXSR,
+    /// CPUID flag F16C
+    F16C,
     /// CPUID flag SGX (Software Guard eXtensions)
     SGX,
     /// CPUID flag SMX (Safer Mode eXtensions)
@@ -758,8 +762,10 @@ const CLFLUSHOPT = cpu.CLFLUSHOPT;
 const CET_IBT = cpu.CET_IBT;
 const CET_SS = cpu.CET_SS;
 const CLWB = cpu.CLWB;
+const FMA = cpu.FMA;
 const FSGSBASE = cpu.FSGSBASE;
 const FXSR = cpu.FXSR;
+const F16C = cpu.F16C;
 const SGX = cpu.SGX;
 const SMX = cpu.SMX;
 const GFNI = cpu.GFNI;
@@ -807,8 +813,6 @@ const XSS = cpu.XSS;
 // first. This insures that the shortest encoding is chosen when the operand
 // is an Immediate without a fixed size.
 //
-// TODO: add a comptime function to check that they have correct order.
-//
 // TODO: string functions should support memory operand(s) to select 66 and/or 67
 // prefixes. eg:
 //      66 67 a7 -> cmps   WORD ds:[esi],WORD es:[edi]
@@ -820,6 +824,8 @@ const XSS = cpu.XSS;
 // CMPS / CMPSB / CMPSW / CMPSD / CMPSQ
 // STOS / STOSB / STOSW / STOSD / STOSQ
 // SCAS / SCASB / SCASW / SCASD / SCASQ
+//
+// TODO: AVX512 needs to handle `disp*8` feature
 pub const instruction_database = [_]InstructionItem {
 //
 // 8086 / 80186
@@ -4730,136 +4736,689 @@ pub const instruction_database = [_]InstructionItem {
 //
 // VALIGND / VALIGNQ
     // VALIGND
-    instr(.VALIGND,    ops4(.xmm_kz,.xmm,.xmm_m128_m32bcst,.imm8), evex(.L128,._66,._0F3A,.W0, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
-    instr(.VALIGND,    ops4(.ymm_kz,.xmm,.ymm_m256_m32bcst,.imm8), evex(.L256,._66,._0F3A,.W0, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
-    instr(.VALIGND,    ops4(.zmm_kz,.xmm,.zmm_m512_m32bcst,.imm8), evex(.L512,._66,._0F3A,.W0, 0x03),  .RVMI,.ZO, .{AVX512F} ),
+    instr(.VALIGND,    ops4(.xmm_kz,.xmm,.xmm_m128_m32bcst,.imm8),  evex(.L128,._66,._0F3A,.W0, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VALIGND,    ops4(.ymm_kz,.xmm,.ymm_m256_m32bcst,.imm8),  evex(.L256,._66,._0F3A,.W0, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VALIGND,    ops4(.zmm_kz,.xmm,.zmm_m512_m32bcst,.imm8),  evex(.L512,._66,._0F3A,.W0, 0x03),  .RVMI,.ZO, .{AVX512F} ),
     // VALIGNQ
-    instr(.VALIGNQ,    ops4(.xmm_kz,.xmm,.xmm_m128_m64bcst,.imm8), evex(.L128,._66,._0F3A,.W1, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
-    instr(.VALIGNQ,    ops4(.ymm_kz,.xmm,.ymm_m256_m64bcst,.imm8), evex(.L256,._66,._0F3A,.W1, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
-    instr(.VALIGNQ,    ops4(.zmm_kz,.xmm,.zmm_m512_m64bcst,.imm8), evex(.L512,._66,._0F3A,.W1, 0x03),  .RVMI,.ZO, .{AVX512F} ),
+    instr(.VALIGNQ,    ops4(.xmm_kz,.xmm,.xmm_m128_m64bcst,.imm8),  evex(.L128,._66,._0F3A,.W1, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VALIGNQ,    ops4(.ymm_kz,.xmm,.ymm_m256_m64bcst,.imm8),  evex(.L256,._66,._0F3A,.W1, 0x03),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VALIGNQ,    ops4(.zmm_kz,.xmm,.zmm_m512_m64bcst,.imm8),  evex(.L512,._66,._0F3A,.W1, 0x03),  .RVMI,.ZO, .{AVX512F} ),
 // VBLENDMPD / VBLENDMPS
     // VBLENDMPD
-    instr(.VBLENDMPD,  ops3(.xmm_kz, .xmm, .xmm_m128_m64bcst),     evex(.L128,._66,._0F38,.W1, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBLENDMPD,  ops3(.ymm_kz, .ymm, .ymm_m256_m64bcst),     evex(.L256,._66,._0F38,.W1, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBLENDMPD,  ops3(.zmm_kz, .zmm, .zmm_m512_m64bcst),     evex(.L512,._66,._0F38,.W1, 0x65),  .RVM, .ZO, .{AVX512F} ),
+    instr(.VBLENDMPD,  ops3(.xmm_kz, .xmm, .xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBLENDMPD,  ops3(.ymm_kz, .ymm, .ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBLENDMPD,  ops3(.zmm_kz, .zmm, .zmm_m512_m64bcst),      evex(.L512,._66,._0F38,.W1, 0x65),  .RVM, .ZO, .{AVX512F} ),
     // VBLENDMPS
-    instr(.VBLENDMPS,  ops3(.xmm_kz, .xmm, .xmm_m128_m32bcst),     evex(.L128,._66,._0F38,.W0, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBLENDMPS,  ops3(.ymm_kz, .ymm, .ymm_m256_m32bcst),     evex(.L256,._66,._0F38,.W0, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBLENDMPS,  ops3(.zmm_kz, .zmm, .zmm_m512_m32bcst),     evex(.L512,._66,._0F38,.W0, 0x65),  .RVM, .ZO, .{AVX512F} ),
+    instr(.VBLENDMPS,  ops3(.xmm_kz, .xmm, .xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBLENDMPS,  ops3(.ymm_kz, .ymm, .ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0x65),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBLENDMPS,  ops3(.zmm_kz, .zmm, .zmm_m512_m32bcst),      evex(.L512,._66,._0F38,.W0, 0x65),  .RVM, .ZO, .{AVX512F} ),
 // VBROADCAST
     // VBROADCASTSS
-    instr(.VBROADCASTSS,     ops2(.xmml, .rm_mem32),                vex(.L128,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX} ),
-    instr(.VBROADCASTSS,     ops2(.ymml, .rm_mem32),                vex(.L256,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX} ),
-    instr(.VBROADCASTSS,     ops2(.xmml, .rm_xmml),                 vex(.L128,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX2} ),
-    instr(.VBROADCASTSS,     ops2(.ymml, .rm_xmml),                 vex(.L256,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX2} ),
-    instr(.VBROADCASTSS,     ops2(.xmm_kz, .xmm_m32),              evex(.L128,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBROADCASTSS,     ops2(.ymm_kz, .xmm_m32),              evex(.L256,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBROADCASTSS,     ops2(.zmm_kz, .xmm_m32),              evex(.L512,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX512F} ),
+    instr(.VBROADCASTSS,     ops2(.xmml, .rm_mem32),                 vex(.L128,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX} ),
+    instr(.VBROADCASTSS,     ops2(.ymml, .rm_mem32),                 vex(.L256,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX} ),
+    instr(.VBROADCASTSS,     ops2(.xmml, .rm_xmml),                  vex(.L128,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX2} ),
+    instr(.VBROADCASTSS,     ops2(.ymml, .rm_xmml),                  vex(.L256,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX2} ),
+    instr(.VBROADCASTSS,     ops2(.xmm_kz, .xmm_m32),               evex(.L128,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBROADCASTSS,     ops2(.ymm_kz, .xmm_m32),               evex(.L256,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBROADCASTSS,     ops2(.zmm_kz, .xmm_m32),               evex(.L512,._66,._0F38,.W0, 0x18),  .vRM, .ZO, .{AVX512F} ),
     // VBROADCASTSD
-    instr(.VBROADCASTSD,     ops2(.ymml, .rm_mem64),                vex(.L256,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX} ),
-    instr(.VBROADCASTSD,     ops2(.ymml, .rm_xmml),                 vex(.L256,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX2} ),
-    instr(.VBROADCASTSD,     ops2(.ymm_kz, .xmm_m64),              evex(.L256,._66,._0F38,.W1, 0x19),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBROADCASTSD,     ops2(.zmm_kz, .xmm_m64),              evex(.L512,._66,._0F38,.W1, 0x19),  .vRM, .ZO, .{AVX512F} ),
+    instr(.VBROADCASTSD,     ops2(.ymml, .rm_mem64),                 vex(.L256,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX} ),
+    instr(.VBROADCASTSD,     ops2(.ymml, .rm_xmml),                  vex(.L256,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX2} ),
+    instr(.VBROADCASTSD,     ops2(.ymm_kz, .xmm_m64),               evex(.L256,._66,._0F38,.W1, 0x19),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBROADCASTSD,     ops2(.zmm_kz, .xmm_m64),               evex(.L512,._66,._0F38,.W1, 0x19),  .vRM, .ZO, .{AVX512F} ),
     // VBROADCASTF128
-    instr(.VBROADCASTF128,   ops2(.ymml, .rm_mem128),               vex(.L256,._66,._0F38,.W0, 0x1A),  .vRM, .ZO, .{AVX} ),
+    instr(.VBROADCASTF128,   ops2(.ymml, .rm_mem128),                vex(.L256,._66,._0F38,.W0, 0x1A),  .vRM, .ZO, .{AVX} ),
     // VBROADCASTF32X2
-    instr(.VBROADCASTF32X2,  ops2(.ymm_kz, .xmm_m64),              evex(.L256,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
-    instr(.VBROADCASTF32X2,  ops2(.zmm_kz, .xmm_m64),              evex(.L512,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX512DQ} ),
+    instr(.VBROADCASTF32X2,  ops2(.ymm_kz, .xmm_m64),               evex(.L256,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VBROADCASTF32X2,  ops2(.zmm_kz, .xmm_m64),               evex(.L512,._66,._0F38,.W0, 0x19),  .vRM, .ZO, .{AVX512DQ} ),
     // VBROADCASTF32X4
-    instr(.VBROADCASTF32X4,  ops2(.ymm_kz, .rm_mem128),            evex(.L256,._66,._0F38,.W0, 0x1A),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VBROADCASTF32X4,  ops2(.zmm_kz, .rm_mem128),            evex(.L512,._66,._0F38,.W0, 0x1A),  .vRM, .ZO, .{AVX512F} ),
+    instr(.VBROADCASTF32X4,  ops2(.ymm_kz, .rm_mem128),             evex(.L256,._66,._0F38,.W0, 0x1A),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VBROADCASTF32X4,  ops2(.zmm_kz, .rm_mem128),             evex(.L512,._66,._0F38,.W0, 0x1A),  .vRM, .ZO, .{AVX512F} ),
     // VBROADCASTF64X2
-    instr(.VBROADCASTF64X2,  ops2(.ymm_kz, .rm_mem128),            evex(.L256,._66,._0F38,.W1, 0x1A),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
-    instr(.VBROADCASTF64X2,  ops2(.zmm_kz, .rm_mem128),            evex(.L512,._66,._0F38,.W1, 0x1A),  .vRM, .ZO, .{AVX512DQ} ),
+    instr(.VBROADCASTF64X2,  ops2(.ymm_kz, .rm_mem128),             evex(.L256,._66,._0F38,.W1, 0x1A),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VBROADCASTF64X2,  ops2(.zmm_kz, .rm_mem128),             evex(.L512,._66,._0F38,.W1, 0x1A),  .vRM, .ZO, .{AVX512DQ} ),
     // VBROADCASTF32X8
-    instr(.VBROADCASTF32X8,  ops2(.zmm_kz, .rm_mem256),            evex(.L512,._66,._0F38,.W0, 0x1B),  .vRM, .ZO, .{AVX512DQ} ),
+    instr(.VBROADCASTF32X8,  ops2(.zmm_kz, .rm_mem256),             evex(.L512,._66,._0F38,.W0, 0x1B),  .vRM, .ZO, .{AVX512DQ} ),
     // VBROADCASTF64X4
-    instr(.VBROADCASTF64X4,  ops2(.zmm_kz, .rm_mem256),            evex(.L512,._66,._0F38,.W1, 0x1B),  .vRM, .ZO, .{AVX512F} ),
+    instr(.VBROADCASTF64X4,  ops2(.zmm_kz, .rm_mem256),             evex(.L512,._66,._0F38,.W1, 0x1B),  .vRM, .ZO, .{AVX512F} ),
 // VCOMPRESSPD
-    instr(.VCOMPRESSPD,      ops2(.xmm_m128_kz, .xmm),             evex(.L128,._66,._0F38,.W1, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VCOMPRESSPD,      ops2(.ymm_m256_kz, .ymm),             evex(.L256,._66,._0F38,.W1, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VCOMPRESSPD,      ops2(.zmm_m512_kz, .zmm),             evex(.L512,._66,._0F38,.W1, 0x8A),  .vMR, .ZO, .{AVX512F} ),
+    instr(.VCOMPRESSPD,      ops2(.xmm_m128_kz, .xmm),              evex(.L128,._66,._0F38,.W1, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCOMPRESSPD,      ops2(.ymm_m256_kz, .ymm),              evex(.L256,._66,._0F38,.W1, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCOMPRESSPD,      ops2(.zmm_m512_kz, .zmm),              evex(.L512,._66,._0F38,.W1, 0x8A),  .vMR, .ZO, .{AVX512F} ),
 // VCOMPRESSPS
-    instr(.VCOMPRESSPS,      ops2(.xmm_m128_kz, .xmm),             evex(.L128,._66,._0F38,.W0, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VCOMPRESSPS,      ops2(.ymm_m256_kz, .ymm),             evex(.L256,._66,._0F38,.W0, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
-    instr(.VCOMPRESSPS,      ops2(.zmm_m512_kz, .zmm),             evex(.L512,._66,._0F38,.W0, 0x8A),  .vMR, .ZO, .{AVX512F} ),
+    instr(.VCOMPRESSPS,      ops2(.xmm_m128_kz, .xmm),              evex(.L128,._66,._0F38,.W0, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCOMPRESSPS,      ops2(.ymm_m256_kz, .ymm),              evex(.L256,._66,._0F38,.W0, 0x8A),  .vMR, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCOMPRESSPS,      ops2(.zmm_m512_kz, .zmm),              evex(.L512,._66,._0F38,.W0, 0x8A),  .vMR, .ZO, .{AVX512F} ),
 // VCVTPD2QQ
+    instr(.VCVTPD2QQ,        ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._66,._0F,.W1, 0x7B),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPD2QQ,        ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._66,._0F,.W1, 0x7B),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPD2QQ,        ops2(.zmm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._66,._0F,.W1, 0x7B),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTPD2UDQ
+    instr(.VCVTPD2UDQ,       ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._NP,._0F,.W1, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPD2UDQ,       ops2(.xmm_kz, .ymm_m256_m64bcst),      evex(.L256,._NP,._0F,.W1, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPD2UDQ,       ops2(.ymm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._NP,._0F,.W1, 0x79),    .vRM, .ZO, .{AVX512F} ),
 // VCVTPD2UQQ
+    instr(.VCVTPD2UQQ,       ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._66,._0F,.W1, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPD2UQQ,       ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._66,._0F,.W1, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPD2UQQ,       ops2(.zmm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._66,._0F,.W1, 0x79),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTPH2PS
+    instr(.VCVTPH2PS,        ops2(.xmml, .xmml_m64),                 vex(.L128,._66,._0F38,.W0, 0x13),  .vRM, .ZO, .{F16C} ),
+    instr(.VCVTPH2PS,        ops2(.ymml, .xmml_m128),                vex(.L256,._66,._0F38,.W0, 0x13),  .vRM, .ZO, .{F16C} ),
+    instr(.VCVTPH2PS,        ops2(.xmm_kz, .xmm_m64),               evex(.L128,._66,._0F38,.W0, 0x13),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPH2PS,        ops2(.ymm_kz, .xmm_m128),              evex(.L256,._66,._0F38,.W0, 0x13),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPH2PS,        ops2(.zmm_kz, .ymm_m256_sae),          evex(.L512,._66,._0F38,.W0, 0x13),  .vRM, .ZO, .{AVX512F} ),
 // VCVTPS2PH
-// VCVTPS2UDQ
+    instr(.VCVTPS2PH,        ops3(.xmml_m64, .xmml, .imm8),          vex(.L128,._66,._0F3A,.W0, 0x1D),  .vMRI,.ZO, .{F16C} ),
+    instr(.VCVTPS2PH,        ops3(.xmml_m128, .ymml, .imm8),         vex(.L256,._66,._0F3A,.W0, 0x1D),  .vMRI,.ZO, .{F16C} ),
+    instr(.VCVTPS2PH,        ops3(.xmm_m64_kz, .xmm, .imm8),        evex(.L128,._66,._0F3A,.W0, 0x1D),  .vMRI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPS2PH,        ops3(.xmm_m128_kz, .ymm, .imm8),       evex(.L256,._66,._0F3A,.W0, 0x1D),  .vMRI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPS2PH,        ops3(.ymm_m256_kz, .zmm_sae, .imm8),   evex(.L512,._66,._0F3A,.W0, 0x1D),  .vMRI,.ZO, .{AVX512F} ),
 // VCVTPS2QQ
+    instr(.VCVTPS2QQ,        ops2(.xmm_kz, .xmm_m64_m32bcst),       evex(.L128,._66,._0F,.W0, 0x7B),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPS2QQ,        ops2(.ymm_kz, .xmm_m128_m32bcst),      evex(.L256,._66,._0F,.W0, 0x7B),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPS2QQ,        ops2(.zmm_kz, .ymm_m256_m32bcst_er),   evex(.L512,._66,._0F,.W0, 0x7B),    .vRM, .ZO, .{AVX512DQ} ),
+// VCVTPS2UDQ
+    instr(.VCVTPS2UDQ,       ops2(.xmm_kz, .xmm_m128_m32bcst),      evex(.L128,._NP,._0F,.W0, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPS2UDQ,       ops2(.ymm_kz, .ymm_m256_m32bcst),      evex(.L256,._NP,._0F,.W0, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTPS2UDQ,       ops2(.zmm_kz, .zmm_m512_m32bcst_er),   evex(.L512,._NP,._0F,.W0, 0x79),    .vRM, .ZO, .{AVX512F} ),
 // VCVTPS2UQQ
+    instr(.VCVTPS2UQQ,       ops2(.xmm_kz, .xmm_m64_m32bcst),       evex(.L128,._66,._0F,.W0, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPS2UQQ,       ops2(.ymm_kz, .xmm_m128_m32bcst),      evex(.L256,._66,._0F,.W0, 0x79),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTPS2UQQ,       ops2(.zmm_kz, .ymm_m256_m32bcst_er),   evex(.L512,._66,._0F,.W0, 0x79),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTQQ2PD
+    instr(.VCVTQQ2PD,        ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._F3,._0F,.W1, 0xE6),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTQQ2PD,        ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._F3,._0F,.W1, 0xE6),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTQQ2PD,        ops2(.zmm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._F3,._0F,.W1, 0xE6),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTQQ2PS
+    instr(.VCVTQQ2PS,        ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._NP,._0F,.W1, 0x5B),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTQQ2PS,        ops2(.xmm_kz, .ymm_m256_m64bcst),      evex(.L256,._NP,._0F,.W1, 0x5B),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTQQ2PS,        ops2(.ymm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._NP,._0F,.W1, 0x5B),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTSD2USI
+    instr(.VCVTSD2USI,       ops2(.reg32, .xmm_m64_er),             evex(.LIG,._F2,._0F,.W0,  0x79),    .vRM, .ZO, .{AVX512F} ),
+    instr(.VCVTSD2USI,       ops2(.reg64, .xmm_m64_er),             evex(.LIG,._F2,._0F,.W1,  0x79),    .vRM, .ZO, .{AVX512F, No32} ),
 // VCVTSS2USI
+    instr(.VCVTSS2USI,       ops2(.reg32, .xmm_m32_er),             evex(.LIG,._F3,._0F,.W0,  0x79),    .vRM, .ZO, .{AVX512F} ),
+    instr(.VCVTSS2USI,       ops2(.reg64, .xmm_m32_er),             evex(.LIG,._F3,._0F,.W1,  0x79),    .vRM, .ZO, .{AVX512F, No32} ),
 // VCVTTPD2QQ
+    instr(.VCVTTPD2QQ,       ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._66,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPD2QQ,       ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._66,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPD2QQ,       ops2(.zmm_kz, .zmm_m512_m64bcst_sae),  evex(.L512,._66,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTTPD2UDQ
+    instr(.VCVTTPD2UDQ,      ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._NP,._0F,.W1, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTTPD2UDQ,      ops2(.xmm_kz, .ymm_m256_m64bcst),      evex(.L256,._NP,._0F,.W1, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTTPD2UDQ,      ops2(.ymm_kz, .zmm_m512_m64bcst_sae),  evex(.L512,._NP,._0F,.W1, 0x78),    .vRM, .ZO, .{AVX512F} ),
 // VCVTTPD2UQQ
-// VCVTTPS2UDQ
+    instr(.VCVTTPD2UQQ,      ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._66,._0F,.W1, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPD2UQQ,      ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._66,._0F,.W1, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPD2UQQ,      ops2(.zmm_kz, .zmm_m512_m64bcst_sae),  evex(.L512,._66,._0F,.W1, 0x78),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTTPS2QQ
+    instr(.VCVTTPS2QQ,       ops2(.xmm_kz, .xmm_m64_m32bcst),       evex(.L128,._66,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPS2QQ,       ops2(.ymm_kz, .xmm_m128_m32bcst),      evex(.L256,._66,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPS2QQ,       ops2(.zmm_kz, .ymm_m256_m32bcst_sae),  evex(.L512,._66,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512DQ} ),
+// VCVTTPS2UDQ
+    instr(.VCVTTPS2UDQ,      ops2(.xmm_kz, .xmm_m128_m32bcst),      evex(.L128,._NP,._0F,.W0, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTTPS2UDQ,      ops2(.ymm_kz, .ymm_m256_m32bcst),      evex(.L256,._NP,._0F,.W0, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTTPS2UDQ,      ops2(.zmm_kz, .zmm_m512_m32bcst_sae),  evex(.L512,._NP,._0F,.W0, 0x78),    .vRM, .ZO, .{AVX512F} ),
 // VCVTTPS2UQQ
+    instr(.VCVTTPS2UQQ,      ops2(.xmm_kz, .xmm_m64_m32bcst),       evex(.L128,._66,._0F,.W0, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPS2UQQ,      ops2(.ymm_kz, .xmm_m128_m32bcst),      evex(.L256,._66,._0F,.W0, 0x78),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTTPS2UQQ,      ops2(.zmm_kz, .ymm_m256_m32bcst_sae),  evex(.L512,._66,._0F,.W0, 0x78),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTTSD2USI
+    instr(.VCVTTSD2USI,      ops2(.reg32, .xmm_m64_sae),            evex(.LIG,._F2,._0F,.W0,  0x78),    .vRM, .ZO, .{AVX512F} ),
+    instr(.VCVTTSD2USI,      ops2(.reg64, .xmm_m64_sae),            evex(.LIG,._F2,._0F,.W1,  0x78),    .vRM, .ZO, .{AVX512F, No32} ),
 // VCVTTSS2USI
+    instr(.VCVTTSS2USI,      ops2(.reg32, .xmm_m32_sae),            evex(.LIG,._F3,._0F,.W0,  0x78),    .vRM, .ZO, .{AVX512F} ),
+    instr(.VCVTTSS2USI,      ops2(.reg64, .xmm_m32_sae),            evex(.LIG,._F3,._0F,.W1,  0x78),    .vRM, .ZO, .{AVX512F, No32} ),
 // VCVTUDQ2PD
+    instr(.VCVTUDQ2PD,       ops2(.xmm_kz, .xmm_m64_m32bcst),       evex(.L128,._F3,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTUDQ2PD,       ops2(.ymm_kz, .xmm_m128_m32bcst),      evex(.L256,._F3,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTUDQ2PD,       ops2(.zmm_kz, .ymm_m256_m32bcst),      evex(.L512,._F3,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512F} ),
 // VCVTUDQ2PS
+    instr(.VCVTUDQ2PS,       ops2(.xmm_kz, .xmm_m128_m32bcst),      evex(.L128,._F2,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTUDQ2PS,       ops2(.ymm_kz, .ymm_m256_m32bcst),      evex(.L256,._F2,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VCVTUDQ2PS,       ops2(.zmm_kz, .zmm_m512_m32bcst_er),   evex(.L512,._F2,._0F,.W0, 0x7A),    .vRM, .ZO, .{AVX512F} ),
 // VCVTUQQ2PD
+    instr(.VCVTUQQ2PD,       ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._F3,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTUQQ2PD,       ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._F3,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTUQQ2PD,       ops2(.zmm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._F3,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTUQQ2PS
+    instr(.VCVTUQQ2PS,       ops2(.xmm_kz, .xmm_m128_m64bcst),      evex(.L128,._F2,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTUQQ2PS,       ops2(.xmm_kz, .ymm_m256_m64bcst),      evex(.L256,._F2,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VCVTUQQ2PS,       ops2(.ymm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._F2,._0F,.W1, 0x7A),    .vRM, .ZO, .{AVX512DQ} ),
 // VCVTUSI2SD
+    instr(.VCVTUSI2SD,       ops3(.xmm, .xmm, .rm32),               evex(.LIG,._F2,._0F,.W0,  0x7B),    .RVM, .ZO, .{AVX512F} ),
+    instr(.VCVTUSI2SD,       ops3(.xmm, .xmm, .rm64_er),            evex(.LIG,._F2,._0F,.W1,  0x7B),    .RVM, .ZO, .{AVX512F, No32} ),
 // VCVTUSI2SS
+    instr(.VCVTUSI2SS,       ops3(.xmm, .xmm, .rm32_er),            evex(.LIG,._F3,._0F,.W0,  0x7B),    .RVM, .ZO, .{AVX512F} ),
+    instr(.VCVTUSI2SS,       ops3(.xmm, .xmm, .rm64_er),            evex(.LIG,._F3,._0F,.W1,  0x7B),    .RVM, .ZO, .{AVX512F, No32} ),
 // VDBPSADBW
+    instr(.VDBPSADBW,        ops4(.xmm_kz,.xmm,.xmm_m128,.imm8),    evex(.L128,._66,._0F3A,.W0, 0x42),  .RVMI,.ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VDBPSADBW,        ops4(.ymm_kz,.ymm,.ymm_m256,.imm8),    evex(.L256,._66,._0F3A,.W0, 0x42),  .RVMI,.ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VDBPSADBW,        ops4(.zmm_kz,.zmm,.zmm_m512,.imm8),    evex(.L512,._66,._0F3A,.W0, 0x42),  .RVMI,.ZO, .{AVX512BW} ),
 // VEXPANDPD
+    instr(.VEXPANDPD,       ops2(.xmm_kz, .xmm_m128),               evex(.L128,._66,._0F38,.W1, 0x88),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VEXPANDPD,       ops2(.ymm_kz, .ymm_m256),               evex(.L256,._66,._0F38,.W1, 0x88),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VEXPANDPD,       ops2(.zmm_kz, .zmm_m512),               evex(.L512,._66,._0F38,.W1, 0x88),  .vRM, .ZO, .{AVX512F} ),
 // VEXPANDPS
+    instr(.VEXPANDPS,       ops2(.xmm_kz, .xmm_m128),               evex(.L128,._66,._0F38,.W0, 0x88),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VEXPANDPS,       ops2(.ymm_kz, .ymm_m256),               evex(.L256,._66,._0F38,.W0, 0x88),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VEXPANDPS,       ops2(.zmm_kz, .zmm_m512),               evex(.L512,._66,._0F38,.W0, 0x88),  .vRM, .ZO, .{AVX512F} ),
 // VEXTRACTF (128, F32x4, 64x2, 32x8, 64x4)
+    // VEXTRACTF128
+    instr(.VEXTRACTF128,   ops3(.xmml_m128, .ymml, .imm8),           vex(.L256,._66,._0F3A,.W0, 0x19),  .vMRI,.ZO, .{AVX} ),
+    // VEXTRACTF32X4
+    instr(.VEXTRACTF32X4,  ops3(.xmm_m128_kz, .ymm, .imm8),         evex(.L256,._66,._0F3A,.W0, 0x19),  .vMRI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VEXTRACTF32X4,  ops3(.xmm_m128_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W0, 0x19),  .vMRI,.ZO, .{AVX512F} ),
+    // VEXTRACTF64X2
+    instr(.VEXTRACTF64X2,  ops3(.xmm_m128_kz, .ymm, .imm8),         evex(.L256,._66,._0F3A,.W1, 0x19),  .vMRI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VEXTRACTF64X2,  ops3(.xmm_m128_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W1, 0x19),  .vMRI,.ZO, .{AVX512DQ} ),
+    // VEXTRACTF32X8
+    instr(.VEXTRACTF32X8,  ops3(.ymm_m256_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W0, 0x1B),  .vMRI,.ZO, .{AVX512DQ} ),
+    // VEXTRACTF64X4
+    instr(.VEXTRACTF64X4,  ops3(.ymm_m256_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W1, 0x1B),  .vMRI,.ZO, .{AVX512F} ),
 // VEXTRACTI (128, F32x4, 64x2, 32x8, 64x4)
+    // VEXTRACTI128
+    instr(.VEXTRACTI128,   ops3(.xmml_m128, .ymml, .imm8),           vex(.L256,._66,._0F3A,.W0, 0x39),  .vMRI,.ZO, .{AVX2} ),
+    // VEXTRACTI32X4
+    instr(.VEXTRACTI32X4,  ops3(.xmm_m128_kz, .ymm, .imm8),         evex(.L256,._66,._0F3A,.W0, 0x39),  .vMRI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VEXTRACTI32X4,  ops3(.xmm_m128_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W0, 0x39),  .vMRI,.ZO, .{AVX512F} ),
+    // VEXTRACTI64X2
+    instr(.VEXTRACTI64X2,  ops3(.xmm_m128_kz, .ymm, .imm8),         evex(.L256,._66,._0F3A,.W1, 0x39),  .vMRI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VEXTRACTI64X2,  ops3(.xmm_m128_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W1, 0x39),  .vMRI,.ZO, .{AVX512DQ} ),
+    // VEXTRACTI32X8
+    instr(.VEXTRACTI32X8,  ops3(.ymm_m256_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W0, 0x3B),  .vMRI,.ZO, .{AVX512DQ} ),
+    // VEXTRACTI64X4
+    instr(.VEXTRACTI64X4,  ops3(.ymm_m256_kz, .zmm, .imm8),         evex(.L512,._66,._0F3A,.W1, 0x3B),  .vMRI,.ZO, .{AVX512F} ),
 // VFIXUPIMMPD
+    instr(.VFIXUPIMMPD, ops4(.xmm_kz,.xmm,.xmm_m128_m64bcst,.imm8),     evex(.L128,._66,._0F3A,.W1, 0x54),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFIXUPIMMPD, ops4(.ymm_kz,.ymm,.ymm_m256_m64bcst,.imm8),     evex(.L256,._66,._0F3A,.W1, 0x54),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFIXUPIMMPD, ops4(.zmm_kz,.ymm,.zmm_m512_m64bcst_sae,.imm8), evex(.L512,._66,._0F3A,.W1, 0x54),  .RVMI,.ZO, .{AVX512F} ),
 // VFIXUPIMMPS
+    instr(.VFIXUPIMMPS, ops4(.xmm_kz,.xmm,.xmm_m128_m32bcst,.imm8),     evex(.L128,._66,._0F3A,.W0, 0x54),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFIXUPIMMPS, ops4(.ymm_kz,.ymm,.ymm_m256_m32bcst,.imm8),     evex(.L256,._66,._0F3A,.W0, 0x54),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFIXUPIMMPS, ops4(.zmm_kz,.ymm,.zmm_m512_m32bcst_sae,.imm8), evex(.L512,._66,._0F3A,.W0, 0x54),  .RVMI,.ZO, .{AVX512F} ),
 // VFIXUPIMMSD
+    instr(.VFIXUPIMMSD, ops4(.xmm_kz,.xmm,.xmm_m64_sae,.imm8),          evex(.LIG,._66,._0F3A,.W1, 0x55),   .RVMI,.ZO, .{AVX512VL, AVX512F} ),
 // VFIXUPIMMSS
+    instr(.VFIXUPIMMSS, ops4(.xmm_kz,.xmm,.xmm_m32_sae,.imm8),          evex(.LIG,._66,._0F3A,.W0, 0x55),   .RVMI,.ZO, .{AVX512VL, AVX512F} ),
 // VFMADD132PD / VFMADD213PD / VFMADD231PD
+    instr(.VFMADD132PD, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W1, 0x98),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD132PD, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W1, 0x98),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD132PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),       evex(.L128,._66,._0F38,.W1, 0x98),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD132PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),       evex(.L256,._66,._0F38,.W1, 0x98),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD132PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),    evex(.L512,._66,._0F38,.W1, 0x98),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD213PD, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W1, 0xA8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD213PD, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W1, 0xA8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD213PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),       evex(.L128,._66,._0F38,.W1, 0xA8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD213PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),       evex(.L256,._66,._0F38,.W1, 0xA8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD213PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),    evex(.L512,._66,._0F38,.W1, 0xA8),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD231PD, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W1, 0xB8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD231PD, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W1, 0xB8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD231PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),       evex(.L128,._66,._0F38,.W1, 0xB8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD231PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),       evex(.L256,._66,._0F38,.W1, 0xB8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD231PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),    evex(.L512,._66,._0F38,.W1, 0xB8),  .RVM, .ZO, .{AVX512F} ),
 // VFMADD132PS / VFMADD213PS / VFMADD231PS
+    instr(.VFMADD132PS, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W0, 0x98),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD132PS, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W0, 0x98),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD132PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),       evex(.L128,._66,._0F38,.W0, 0x98),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD132PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),       evex(.L256,._66,._0F38,.W0, 0x98),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD132PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),    evex(.L512,._66,._0F38,.W0, 0x98),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD213PS, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W0, 0xA8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD213PS, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W0, 0xA8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD213PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),       evex(.L128,._66,._0F38,.W0, 0xA8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD213PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),       evex(.L256,._66,._0F38,.W0, 0xA8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD213PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),    evex(.L512,._66,._0F38,.W0, 0xA8),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD231PS, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W0, 0xB8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD231PS, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W0, 0xB8),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD231PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),       evex(.L128,._66,._0F38,.W0, 0xB8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD231PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),       evex(.L256,._66,._0F38,.W0, 0xB8),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADD231PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),    evex(.L512,._66,._0F38,.W0, 0xB8),  .RVM, .ZO, .{AVX512F} ),
 // VFMADD132SD / VFMADD213SD / VFMADD231SD
+    instr(.VFMADD132SD, ops3(.xmml, .xmml, .xmml_m64),               vex(.LIG,._66,._0F38,.W1, 0x99),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD132SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),             evex(.LIG,._66,._0F38,.W1, 0x99),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD213SD, ops3(.xmml, .xmml, .xmml_m64),               vex(.LIG,._66,._0F38,.W1, 0xA9),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD213SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),             evex(.LIG,._66,._0F38,.W1, 0xA9),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD231SD, ops3(.xmml, .xmml, .xmml_m64),               vex(.LIG,._66,._0F38,.W1, 0xB9),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD231SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),             evex(.LIG,._66,._0F38,.W1, 0xB9),   .RVM, .ZO, .{AVX512F} ),
 // VFMADD132SS / VFMADD213SS / VFMADD231SS
+    instr(.VFMADD132SS, ops3(.xmml, .xmml, .xmml_m32),               vex(.LIG,._66,._0F38,.W0, 0x99),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD132SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),             evex(.LIG,._66,._0F38,.W0, 0x99),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD213SS, ops3(.xmml, .xmml, .xmml_m32),               vex(.LIG,._66,._0F38,.W0, 0xA9),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD213SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),             evex(.LIG,._66,._0F38,.W0, 0xA9),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADD231SS, ops3(.xmml, .xmml, .xmml_m32),               vex(.LIG,._66,._0F38,.W0, 0xB9),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMADD231SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),             evex(.LIG,._66,._0F38,.W0, 0xB9),   .RVM, .ZO, .{AVX512F} ),
 // VFMADDSUB132PD / VFMADDSUB213PD / VFMADDSUB231PD
+    instr(.VFMADDSUB132PD, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W1, 0x96),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB132PD, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W1, 0x96),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB132PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),    evex(.L128,._66,._0F38,.W1, 0x96),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB132PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),    evex(.L256,._66,._0F38,.W1, 0x96),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB132PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er), evex(.L512,._66,._0F38,.W1, 0x96),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADDSUB213PD, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W1, 0xA6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB213PD, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W1, 0xA6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB213PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),    evex(.L128,._66,._0F38,.W1, 0xA6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB213PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),    evex(.L256,._66,._0F38,.W1, 0xA6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB213PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er), evex(.L512,._66,._0F38,.W1, 0xA6),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADDSUB231PD, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W1, 0xB6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB231PD, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W1, 0xB6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB231PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),    evex(.L128,._66,._0F38,.W1, 0xB6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB231PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),    evex(.L256,._66,._0F38,.W1, 0xB6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB231PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er), evex(.L512,._66,._0F38,.W1, 0xB6),  .RVM, .ZO, .{AVX512F} ),
 // VFMADDSUB132PS / VFMADDSUB213PS / VFMADDSUB231PS
+    instr(.VFMADDSUB132PS, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W0, 0x96),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB132PS, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W0, 0x96),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB132PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),    evex(.L128,._66,._0F38,.W0, 0x96),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB132PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),    evex(.L256,._66,._0F38,.W0, 0x96),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB132PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er), evex(.L512,._66,._0F38,.W0, 0x96),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADDSUB213PS, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W0, 0xA6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB213PS, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W0, 0xA6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB213PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),    evex(.L128,._66,._0F38,.W0, 0xA6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB213PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),    evex(.L256,._66,._0F38,.W0, 0xA6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB213PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er), evex(.L512,._66,._0F38,.W0, 0xA6),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMADDSUB231PS, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W0, 0xB6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB231PS, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W0, 0xB6),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMADDSUB231PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),    evex(.L128,._66,._0F38,.W0, 0xB6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB231PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),    evex(.L256,._66,._0F38,.W0, 0xB6),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMADDSUB231PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er), evex(.L512,._66,._0F38,.W0, 0xB6),  .RVM, .ZO, .{AVX512F} ),
 // VFMSUBADD132PD / VFMSUBADD213PD / VFMSUBADD231PD
+    instr(.VFMSUBADD132PD, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W1, 0x97),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD132PD, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W1, 0x97),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD132PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),    evex(.L128,._66,._0F38,.W1, 0x97),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD132PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),    evex(.L256,._66,._0F38,.W1, 0x97),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD132PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er), evex(.L512,._66,._0F38,.W1, 0x97),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUBADD213PD, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W1, 0xA7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD213PD, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W1, 0xA7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD213PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),    evex(.L128,._66,._0F38,.W1, 0xA7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD213PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),    evex(.L256,._66,._0F38,.W1, 0xA7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD213PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er), evex(.L512,._66,._0F38,.W1, 0xA7),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUBADD231PD, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W1, 0xB7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD231PD, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W1, 0xB7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD231PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),    evex(.L128,._66,._0F38,.W1, 0xB7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD231PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),    evex(.L256,._66,._0F38,.W1, 0xB7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD231PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er), evex(.L512,._66,._0F38,.W1, 0xB7),  .RVM, .ZO, .{AVX512F} ),
 // VFMSUBADD132PS / VFMSUBADD213PS / VFMSUBADD231PS
+    instr(.VFMSUBADD132PS, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W0, 0x97),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD132PS, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W0, 0x97),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD132PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),    evex(.L128,._66,._0F38,.W0, 0x97),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD132PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),    evex(.L256,._66,._0F38,.W0, 0x97),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD132PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er), evex(.L512,._66,._0F38,.W0, 0x97),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUBADD213PS, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W0, 0xA7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD213PS, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W0, 0xA7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD213PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),    evex(.L128,._66,._0F38,.W0, 0xA7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD213PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),    evex(.L256,._66,._0F38,.W0, 0xA7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD213PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er), evex(.L512,._66,._0F38,.W0, 0xA7),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUBADD231PS, ops3(.xmml, .xmml, .xmml_m128),           vex(.L128,._66,._0F38,.W0, 0xB7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD231PS, ops3(.ymml, .ymml, .ymml_m256),           vex(.L256,._66,._0F38,.W0, 0xB7),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUBADD231PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),    evex(.L128,._66,._0F38,.W0, 0xB7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD231PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),    evex(.L256,._66,._0F38,.W0, 0xB7),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUBADD231PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er), evex(.L512,._66,._0F38,.W0, 0xB7),  .RVM, .ZO, .{AVX512F} ),
 // VFMSUB132PD / VFMSUB213PD / VFMSUB231PD
+    instr(.VFMSUB132PD, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W1, 0x9A),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB132PD, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W1, 0x9A),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB132PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),       evex(.L128,._66,._0F38,.W1, 0x9A),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB132PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),       evex(.L256,._66,._0F38,.W1, 0x9A),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB132PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),    evex(.L512,._66,._0F38,.W1, 0x9A),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB213PD, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W1, 0xAA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB213PD, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W1, 0xAA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB213PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),       evex(.L128,._66,._0F38,.W1, 0xAA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB213PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),       evex(.L256,._66,._0F38,.W1, 0xAA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB213PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),    evex(.L512,._66,._0F38,.W1, 0xAA),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB231PD, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W1, 0xBA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB231PD, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W1, 0xBA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB231PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),       evex(.L128,._66,._0F38,.W1, 0xBA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB231PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),       evex(.L256,._66,._0F38,.W1, 0xBA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB231PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),    evex(.L512,._66,._0F38,.W1, 0xBA),  .RVM, .ZO, .{AVX512F} ),
 // VFMSUB132PS / VFMSUB213PS / VFMSUB231PS
+    instr(.VFMSUB132PS, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W0, 0x9A),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB132PS, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W0, 0x9A),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB132PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),       evex(.L128,._66,._0F38,.W0, 0x9A),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB132PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),       evex(.L256,._66,._0F38,.W0, 0x9A),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB132PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),    evex(.L512,._66,._0F38,.W0, 0x9A),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB213PS, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W0, 0xAA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB213PS, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W0, 0xAA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB213PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),       evex(.L128,._66,._0F38,.W0, 0xAA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB213PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),       evex(.L256,._66,._0F38,.W0, 0xAA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB213PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),    evex(.L512,._66,._0F38,.W0, 0xAA),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB231PS, ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F38,.W0, 0xBA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB231PS, ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F38,.W0, 0xBA),  .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB231PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),       evex(.L128,._66,._0F38,.W0, 0xBA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB231PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),       evex(.L256,._66,._0F38,.W0, 0xBA),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFMSUB231PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),    evex(.L512,._66,._0F38,.W0, 0xBA),  .RVM, .ZO, .{AVX512F} ),
 // VFMSUB132SD / VFMSUB213SD / VFMSUB231SD
+    instr(.VFMSUB132SD, ops3(.xmml, .xmml, .xmml_m64),               vex(.LIG,._66,._0F38,.W1, 0x9B),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB132SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),             evex(.LIG,._66,._0F38,.W1, 0x9B),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB213SD, ops3(.xmml, .xmml, .xmml_m64),               vex(.LIG,._66,._0F38,.W1, 0xAB),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB213SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),             evex(.LIG,._66,._0F38,.W1, 0xAB),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB231SD, ops3(.xmml, .xmml, .xmml_m64),               vex(.LIG,._66,._0F38,.W1, 0xBB),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB231SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),             evex(.LIG,._66,._0F38,.W1, 0xBB),   .RVM, .ZO, .{AVX512F} ),
 // VFMSUB132SS / VFMSUB213SS / VFMSUB231SS
+    instr(.VFMSUB132SS, ops3(.xmml, .xmml, .xmml_m32),               vex(.LIG,._66,._0F38,.W0, 0x9B),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB132SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),             evex(.LIG,._66,._0F38,.W0, 0x9B),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB213SS, ops3(.xmml, .xmml, .xmml_m32),               vex(.LIG,._66,._0F38,.W0, 0xAB),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB213SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),             evex(.LIG,._66,._0F38,.W0, 0xAB),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFMSUB231SS, ops3(.xmml, .xmml, .xmml_m32),               vex(.LIG,._66,._0F38,.W0, 0xBB),   .RVM, .ZO, .{FMA} ),
+    instr(.VFMSUB231SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),             evex(.LIG,._66,._0F38,.W0, 0xBB),   .RVM, .ZO, .{AVX512F} ),
 // VFNMADD132PD / VFNMADD213PD / VFNMADD231PD
+    instr(.VFNMADD132PD, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W1, 0x9C),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD132PD, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W1, 0x9C),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD132PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0x9C),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD132PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0x9C),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD132PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),   evex(.L512,._66,._0F38,.W1, 0x9C),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD213PD, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W1, 0xAC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD213PD, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W1, 0xAC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD213PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0xAC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD213PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0xAC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD213PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),   evex(.L512,._66,._0F38,.W1, 0xAC),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD231PD, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W1, 0xBC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD231PD, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W1, 0xBC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD231PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0xBC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD231PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0xBC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD231PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),   evex(.L512,._66,._0F38,.W1, 0xBC),  .RVM, .ZO, .{AVX512F} ),
 // VFNMADD132PS / VFNMADD213PS / VFNMADD231PS
+    instr(.VFNMADD132PS, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W0, 0x9C),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD132PS, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W0, 0x9C),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD132PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0x9C),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD132PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0x9C),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD132PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),   evex(.L512,._66,._0F38,.W0, 0x9C),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD213PS, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W0, 0xAC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD213PS, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W0, 0xAC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD213PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0xAC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD213PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0xAC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD213PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),   evex(.L512,._66,._0F38,.W0, 0xAC),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD231PS, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W0, 0xBC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD231PS, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W0, 0xBC),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD231PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0xBC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD231PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0xBC),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMADD231PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),   evex(.L512,._66,._0F38,.W0, 0xBC),  .RVM, .ZO, .{AVX512F} ),
 // VFNMADD132SD / VFNMADD213SD / VFNMADD231SD
+    instr(.VFNMADD132SD, ops3(.xmml, .xmml, .xmml_m64),              vex(.LIG,._66,._0F38,.W1, 0x9D),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD132SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),            evex(.LIG,._66,._0F38,.W1, 0x9D),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD213SD, ops3(.xmml, .xmml, .xmml_m64),              vex(.LIG,._66,._0F38,.W1, 0xAD),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD213SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),            evex(.LIG,._66,._0F38,.W1, 0xAD),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD231SD, ops3(.xmml, .xmml, .xmml_m64),              vex(.LIG,._66,._0F38,.W1, 0xBD),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD231SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),            evex(.LIG,._66,._0F38,.W1, 0xBD),   .RVM, .ZO, .{AVX512F} ),
 // VFNMADD132SS / VFNMADD213SS / VFNMADD231SS
+    instr(.VFNMADD132SS, ops3(.xmml, .xmml, .xmml_m32),              vex(.LIG,._66,._0F38,.W0, 0x9D),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD132SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),            evex(.LIG,._66,._0F38,.W0, 0x9D),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD213SS, ops3(.xmml, .xmml, .xmml_m32),              vex(.LIG,._66,._0F38,.W0, 0xAD),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD213SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),            evex(.LIG,._66,._0F38,.W0, 0xAD),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMADD231SS, ops3(.xmml, .xmml, .xmml_m32),              vex(.LIG,._66,._0F38,.W0, 0xBD),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMADD231SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),            evex(.LIG,._66,._0F38,.W0, 0xBD),   .RVM, .ZO, .{AVX512F} ),
 // VFNMSUB132PD / VFNMSUB213PD / VFNMSUB231PD
+    instr(.VFNMSUB132PD, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W1, 0x9E),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB132PD, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W1, 0x9E),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB132PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0x9E),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB132PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0x9E),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB132PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),   evex(.L512,._66,._0F38,.W1, 0x9E),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB213PD, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W1, 0xAE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB213PD, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W1, 0xAE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB213PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0xAE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB213PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0xAE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB213PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),   evex(.L512,._66,._0F38,.W1, 0xAE),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB231PD, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W1, 0xBE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB231PD, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W1, 0xBE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB231PD, ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),      evex(.L128,._66,._0F38,.W1, 0xBE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB231PD, ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),      evex(.L256,._66,._0F38,.W1, 0xBE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB231PD, ops3(.zmm_kz,.ymm,.zmm_m512_m64bcst_er),   evex(.L512,._66,._0F38,.W1, 0xBE),  .RVM, .ZO, .{AVX512F} ),
 // VFNMSUB132PS / VFNMSUB213PS / VFNMSUB231PS
+    instr(.VFNMSUB132PS, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W0, 0x9E),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB132PS, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W0, 0x9E),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB132PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0x9E),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB132PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0x9E),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB132PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),   evex(.L512,._66,._0F38,.W0, 0x9E),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB213PS, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W0, 0xAE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB213PS, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W0, 0xAE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB213PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0xAE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB213PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0xAE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB213PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),   evex(.L512,._66,._0F38,.W0, 0xAE),  .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB231PS, ops3(.xmml, .xmml, .xmml_m128),             vex(.L128,._66,._0F38,.W0, 0xBE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB231PS, ops3(.ymml, .ymml, .ymml_m256),             vex(.L256,._66,._0F38,.W0, 0xBE),  .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB231PS, ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),      evex(.L128,._66,._0F38,.W0, 0xBE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB231PS, ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),      evex(.L256,._66,._0F38,.W0, 0xBE),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VFNMSUB231PS, ops3(.zmm_kz,.ymm,.zmm_m512_m32bcst_er),   evex(.L512,._66,._0F38,.W0, 0xBE),  .RVM, .ZO, .{AVX512F} ),
 // VFNMSUB132SD / VFNMSUB213SD / VFNMSUB231SD
+    instr(.VFNMSUB132SD, ops3(.xmml, .xmml, .xmml_m64),              vex(.LIG,._66,._0F38,.W1, 0x9F),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB132SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),            evex(.LIG,._66,._0F38,.W1, 0x9F),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB213SD, ops3(.xmml, .xmml, .xmml_m64),              vex(.LIG,._66,._0F38,.W1, 0xAF),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB213SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),            evex(.LIG,._66,._0F38,.W1, 0xAF),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB231SD, ops3(.xmml, .xmml, .xmml_m64),              vex(.LIG,._66,._0F38,.W1, 0xBF),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB231SD, ops3(.xmm_kz,.xmm,.xmm_m64_er),            evex(.LIG,._66,._0F38,.W1, 0xBF),   .RVM, .ZO, .{AVX512F} ),
 // VFNMSUB132SS / VFNMSUB213SS / VFNMSUB231SS
+    instr(.VFNMSUB132SS, ops3(.xmml, .xmml, .xmml_m32),              vex(.LIG,._66,._0F38,.W0, 0x9F),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB132SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),            evex(.LIG,._66,._0F38,.W0, 0x9F),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB213SS, ops3(.xmml, .xmml, .xmml_m32),              vex(.LIG,._66,._0F38,.W0, 0xAF),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB213SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),            evex(.LIG,._66,._0F38,.W0, 0xAF),   .RVM, .ZO, .{AVX512F} ),
+    //
+    instr(.VFNMSUB231SS, ops3(.xmml, .xmml, .xmml_m32),              vex(.LIG,._66,._0F38,.W0, 0xBF),   .RVM, .ZO, .{FMA} ),
+    instr(.VFNMSUB231SS, ops3(.xmm_kz,.xmm,.xmm_m32_er),            evex(.LIG,._66,._0F38,.W0, 0xBF),   .RVM, .ZO, .{AVX512F} ),
 // VFPCLASSPD
+    instr(.VFPCLASSPD,   ops3(.reg_k_k,.xmm_m128_m64bcst,.imm8),    evex(.L128,._66,._0F3A,.W1, 0x66),  .vRMI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VFPCLASSPD,   ops3(.reg_k_k,.ymm_m256_m64bcst,.imm8),    evex(.L256,._66,._0F3A,.W1, 0x66),  .vRMI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VFPCLASSPD,   ops3(.reg_k_k,.zmm_m512_m64bcst,.imm8),    evex(.L512,._66,._0F3A,.W1, 0x66),  .vRMI,.ZO, .{AVX512DQ} ),
 // VFPCLASSPS
+    instr(.VFPCLASSPS,   ops3(.reg_k_k,.xmm_m128_m32bcst,.imm8),    evex(.L128,._66,._0F3A,.W0, 0x66),  .vRMI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VFPCLASSPS,   ops3(.reg_k_k,.ymm_m256_m32bcst,.imm8),    evex(.L256,._66,._0F3A,.W0, 0x66),  .vRMI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VFPCLASSPS,   ops3(.reg_k_k,.zmm_m512_m32bcst,.imm8),    evex(.L512,._66,._0F3A,.W0, 0x66),  .vRMI,.ZO, .{AVX512DQ} ),
 // VFPCLASSSD
+    instr(.VFPCLASSSD,   ops3(.reg_k_k,.xmm_m64,.imm8),             evex(.LIG,._66,._0F3A,.W1, 0x67),   .vRMI,.ZO, .{AVX512DQ} ),
 // VFPCLASSSS
+    instr(.VFPCLASSSS,   ops3(.reg_k_k,.xmm_m32,.imm8),             evex(.LIG,._66,._0F3A,.W0, 0x67),   .vRMI,.ZO, .{AVX512DQ} ),
 // VGATHERDPD / VGATHERQPD
+    instr(.VGATHERDPD,   ops3(.xmml, .vm32xl, .xmml),                vex(.L128,._66,._0F38,.W1, 0x92),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERDPD,   ops3(.ymml, .vm32xl, .ymml),                vex(.L256,._66,._0F38,.W1, 0x92),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERDPD,   ops2(.xmm_kz, .vm32x),                     evex(.L128,._66,._0F38,.W1, 0x92),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERDPD,   ops2(.ymm_kz, .vm32x),                     evex(.L256,._66,._0F38,.W1, 0x92),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERDPD,   ops2(.zmm_kz, .vm32y),                     evex(.L512,._66,._0F38,.W1, 0x92),  .RMV, .ZO, .{AVX512F} ),
+    //
+    instr(.VGATHERQPD,   ops3(.xmml, .vm64xl, .xmml),                vex(.L128,._66,._0F38,.W1, 0x93),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERQPD,   ops3(.ymml, .vm64yl, .ymml),                vex(.L256,._66,._0F38,.W1, 0x93),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERQPD,   ops2(.xmm_kz, .vm64x),                     evex(.L128,._66,._0F38,.W1, 0x93),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERQPD,   ops2(.ymm_kz, .vm64y),                     evex(.L256,._66,._0F38,.W1, 0x93),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERQPD,   ops2(.zmm_kz, .vm64z),                     evex(.L512,._66,._0F38,.W1, 0x93),  .RMV, .ZO, .{AVX512F} ),
 // VGATHERDPS / VGATHERQPS
-// VGATHERDPS / VGATHERDPD
-// VGATHERQPS / VGATHERQPD
+    instr(.VGATHERDPS,   ops3(.xmml, .vm32xl, .xmml),                vex(.L128,._66,._0F38,.W0, 0x92),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERDPS,   ops3(.ymml, .vm32yl, .ymml),                vex(.L256,._66,._0F38,.W0, 0x92),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERDPS,   ops2(.xmm_kz, .vm32x),                     evex(.L128,._66,._0F38,.W0, 0x92),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERDPS,   ops2(.ymm_kz, .vm32y),                     evex(.L256,._66,._0F38,.W0, 0x92),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERDPS,   ops2(.zmm_kz, .vm32z),                     evex(.L512,._66,._0F38,.W0, 0x92),  .RMV, .ZO, .{AVX512F} ),
+    //
+    instr(.VGATHERQPS,   ops3(.xmml, .vm64xl, .xmml),                vex(.L128,._66,._0F38,.W0, 0x93),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERQPS,   ops3(.xmml, .vm64yl, .xmml),                vex(.L256,._66,._0F38,.W0, 0x93),  .RMV, .ZO, .{AVX2} ),
+    instr(.VGATHERQPS,   ops2(.xmm_kz, .vm64x),                     evex(.L128,._66,._0F38,.W0, 0x93),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERQPS,   ops2(.xmm_kz, .vm64y),                     evex(.L256,._66,._0F38,.W0, 0x93),  .RMV, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGATHERQPS,   ops2(.ymm_kz, .vm64z),                     evex(.L512,._66,._0F38,.W0, 0x93),  .RMV, .ZO, .{AVX512F} ),
+// VGETEXPPD
+    instr(.VGETEXPPD,    ops2(.xmm_kz, .xmm_m128_m64bcst),          evex(.L128,._66,._0F38,.W1, 0x42),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETEXPPD,    ops2(.ymm_kz, .ymm_m256_m64bcst),          evex(.L256,._66,._0F38,.W1, 0x42),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETEXPPD,    ops2(.zmm_kz, .zmm_m512_m64bcst_sae),      evex(.L512,._66,._0F38,.W1, 0x42),  .vRM, .ZO, .{AVX512F} ),
+// VGETEXPPS
+    instr(.VGETEXPPS,    ops2(.xmm_kz, .xmm_m128_m32bcst),          evex(.L128,._66,._0F38,.W0, 0x42),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETEXPPS,    ops2(.ymm_kz, .ymm_m256_m32bcst),          evex(.L256,._66,._0F38,.W0, 0x42),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETEXPPS,    ops2(.zmm_kz, .zmm_m512_m32bcst_sae),      evex(.L512,._66,._0F38,.W0, 0x42),  .vRM, .ZO, .{AVX512F} ),
+// VGETEXPSD
+    instr(.VGETEXPSD,    ops3(.xmm_kz, .xmm, .xmm_m64_sae),         evex(.LIG,._66,._0F38,.W1,  0x43),  .RVM, .ZO, .{AVX512F} ),
+// VGETEXPSS
+    instr(.VGETEXPSS,    ops3(.xmm_kz, .xmm, .xmm_m32_sae),         evex(.LIG,._66,._0F38,.W0,  0x43),  .RVM, .ZO, .{AVX512F} ),
 // VGETMANTPD
+    instr(.VGETMANTPD,   ops3(.xmm_kz,.xmm_m128_m64bcst,.imm8),     evex(.L128,._66,._0F3A,.W1, 0x26),  .vRMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETMANTPD,   ops3(.ymm_kz,.ymm_m256_m64bcst,.imm8),     evex(.L256,._66,._0F3A,.W1, 0x26),  .vRMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETMANTPD,   ops3(.zmm_kz,.zmm_m512_m64bcst_sae,.imm8), evex(.L512,._66,._0F3A,.W1, 0x26),  .vRMI,.ZO, .{AVX512F} ),
 // VGETMANTPS
+    instr(.VGETMANTPS,   ops3(.xmm_kz,.xmm_m128_m32bcst,.imm8),     evex(.L128,._66,._0F3A,.W0, 0x26),  .vRMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETMANTPS,   ops3(.ymm_kz,.ymm_m256_m32bcst,.imm8),     evex(.L256,._66,._0F3A,.W0, 0x26),  .vRMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VGETMANTPS,   ops3(.zmm_kz,.zmm_m512_m32bcst_sae,.imm8), evex(.L512,._66,._0F3A,.W0, 0x26),  .vRMI,.ZO, .{AVX512F} ),
 // VGETMANTSD
+    instr(.VGETMANTSD,   ops4(.xmm_kz,.xmm,.xmm_m64_sae,.imm8),     evex(.LIG,._66,._0F3A,.W1,  0x27),  .RVMI,.ZO, .{AVX512F} ),
 // VGETMANTSS
+    instr(.VGETMANTSS,   ops4(.xmm_kz,.xmm,.xmm_m32_sae,.imm8),     evex(.LIG,._66,._0F3A,.W0,  0x27),  .RVMI,.ZO, .{AVX512F} ),
 // VINSERTF (128, F32x4, 64x2, 32x8, 64x4)
+    instr(.VINSERTF128,   ops4(.ymml,.ymml,.xmml_m128,.imm8),        vex(.L256,._66,._0F3A,.W0, 0x18),  .RVMI,.ZO, .{AVX} ),
+    // VINSERTF32X4
+    instr(.VINSERTF32X4,  ops4(.ymm_kz,.ymm,.xmm_m128,.imm8),       evex(.L256,._66,._0F3A,.W0, 0x18),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VINSERTF32X4,  ops4(.zmm_kz,.zmm,.xmm_m128,.imm8),       evex(.L512,._66,._0F3A,.W0, 0x18),  .RVMI,.ZO, .{AVX512F} ),
+    // VINSERTF64X2
+    instr(.VINSERTF64X2,  ops4(.ymm_kz,.ymm,.xmm_m128,.imm8),       evex(.L256,._66,._0F3A,.W1, 0x18),  .RVMI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VINSERTF64X2,  ops4(.zmm_kz,.zmm,.xmm_m128,.imm8),       evex(.L512,._66,._0F3A,.W1, 0x18),  .RVMI,.ZO, .{AVX512DQ} ),
+    // VINSERTF32X8
+    instr(.VINSERTF32X8,  ops4(.zmm_kz,.zmm,.ymm_m256,.imm8),       evex(.L512,._66,._0F3A,.W0, 0x1A),  .RVMI,.ZO, .{AVX512DQ} ),
+    // VINSERTF64X4
+    instr(.VINSERTF64X4,  ops4(.zmm_kz,.zmm,.ymm_m256,.imm8),       evex(.L512,._66,._0F3A,.W1, 0x1A),  .RVMI,.ZO, .{AVX512F} ),
 // VINSERTI (128, F32x4, 64x2, 32x8, 64x4)
+    instr(.VINSERTI128,   ops4(.ymml,.ymml,.xmml_m128,.imm8),        vex(.L256,._66,._0F3A,.W0, 0x18),  .RVMI,.ZO, .{AVX} ),
+    // VINSERTI32X4
+    instr(.VINSERTI32X4,  ops4(.ymm_kz,.ymm,.xmm_m128,.imm8),       evex(.L256,._66,._0F3A,.W0, 0x18),  .RVMI,.ZO, .{AVX512VL, AVX512F} ),
+    instr(.VINSERTI32X4,  ops4(.zmm_kz,.zmm,.xmm_m128,.imm8),       evex(.L512,._66,._0F3A,.W0, 0x18),  .RVMI,.ZO, .{AVX512F} ),
+    // VINSERTI64X2
+    instr(.VINSERTI64X2,  ops4(.ymm_kz,.ymm,.xmm_m128,.imm8),       evex(.L256,._66,._0F3A,.W1, 0x18),  .RVMI,.ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VINSERTI64X2,  ops4(.zmm_kz,.zmm,.xmm_m128,.imm8),       evex(.L512,._66,._0F3A,.W1, 0x18),  .RVMI,.ZO, .{AVX512DQ} ),
+    // VINSERTI32X8
+    instr(.VINSERTI32X8,  ops4(.zmm_kz,.zmm,.ymm_m256,.imm8),       evex(.L512,._66,._0F3A,.W0, 0x1A),  .RVMI,.ZO, .{AVX512DQ} ),
+    // VINSERTI64X4
+    instr(.VINSERTI64X4,  ops4(.zmm_kz,.zmm,.ymm_m256,.imm8),       evex(.L512,._66,._0F3A,.W1, 0x1A),  .RVMI,.ZO, .{AVX512F} ),
 // VMASKMOV
-// VBLENDD
+    // VMASKMOVPD
+    instr(.VMASKMOVPD,    ops3(.xmml,.xmml,.rm_mem128),              vex(.L128,._66,._0F38,.W0, 0x2D),  .RVM, .ZO, .{AVX} ),
+    instr(.VMASKMOVPD,    ops3(.ymml,.ymml,.rm_mem256),              vex(.L256,._66,._0F38,.W0, 0x2D),  .RVM, .ZO, .{AVX} ),
+    instr(.VMASKMOVPD,    ops3(.rm_mem128,.xmml,.xmml),              vex(.L128,._66,._0F38,.W0, 0x2F),  .MVR, .ZO, .{AVX} ),
+    instr(.VMASKMOVPD,    ops3(.rm_mem256,.ymml,.ymml),              vex(.L256,._66,._0F38,.W0, 0x2F),  .MVR, .ZO, .{AVX} ),
+    // VMASKMOVPS
+    instr(.VMASKMOVPS,    ops3(.xmml,.xmml,.rm_mem128),              vex(.L128,._66,._0F38,.W0, 0x2C),  .RVM, .ZO, .{AVX} ),
+    instr(.VMASKMOVPS,    ops3(.ymml,.ymml,.rm_mem256),              vex(.L256,._66,._0F38,.W0, 0x2C),  .RVM, .ZO, .{AVX} ),
+    instr(.VMASKMOVPS,    ops3(.rm_mem128,.xmml,.xmml),              vex(.L128,._66,._0F38,.W0, 0x2E),  .MVR, .ZO, .{AVX} ),
+    instr(.VMASKMOVPS,    ops3(.rm_mem256,.ymml,.ymml),              vex(.L256,._66,._0F38,.W0, 0x2E),  .MVR, .ZO, .{AVX} ),
 // VPBLENDD
-// VPBLENMB / VPBLENDMW
-// VPBLENMD / VPBLENDMQ
+    instr(.VPBLENDD,      ops4(.xmml,.xmml,.xmml_m128,.imm8),        vex(.L128,._66,._0F3A,.W0, 0x02),  .RVMI,.ZO, .{AVX2} ),
+    instr(.VPBLENDD,      ops4(.ymml,.ymml,.ymml_m256,.imm8),        vex(.L256,._66,._0F3A,.W0, 0x02),  .RVMI,.ZO, .{AVX2} ),
+// VPBLENDMB / VPBLENDMW
+    // VPBLENDMB
+    instr(.VPBLENDMB,     ops3(.xmm_kz, .xmm, .xmm_m128),           evex(.L128,._66,._0F38,.W0, 0x66),  .RVM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBLENDMB,     ops3(.ymm_kz, .ymm, .ymm_m256),           evex(.L256,._66,._0F38,.W0, 0x66),  .RVM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBLENDMB,     ops3(.zmm_kz, .zmm, .zmm_m512),           evex(.L512,._66,._0F38,.W0, 0x66),  .RVM, .ZO, .{AVX512BW} ),
+    // VPBLENDMW
+    instr(.VPBLENDMW,     ops3(.xmm_kz, .xmm, .xmm_m128),           evex(.L128,._66,._0F38,.W1, 0x66),  .RVM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBLENDMW,     ops3(.ymm_kz, .ymm, .ymm_m256),           evex(.L256,._66,._0F38,.W1, 0x66),  .RVM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBLENDMW,     ops3(.zmm_kz, .zmm, .zmm_m512),           evex(.L512,._66,._0F38,.W1, 0x66),  .RVM, .ZO, .{AVX512BW} ),
+// VPBLENDMD / VPBLENDMQ
+    // VPBLENDMD
+    instr(.VPBLENDMD,     ops3(.xmm_kz,.xmm,.xmm_m128_m32bcst),     evex(.L128,._66,._0F38,.W0, 0x64),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBLENDMD,     ops3(.ymm_kz,.ymm,.ymm_m256_m32bcst),     evex(.L256,._66,._0F38,.W0, 0x64),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBLENDMD,     ops3(.zmm_kz,.zmm,.zmm_m512_m32bcst),     evex(.L512,._66,._0F38,.W0, 0x64),  .RVM, .ZO, .{AVX512F} ),
+    // VPBLENDMQ
+    instr(.VPBLENDMQ,     ops3(.xmm_kz,.xmm,.xmm_m128_m64bcst),     evex(.L128,._66,._0F38,.W1, 0x64),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBLENDMQ,     ops3(.ymm_kz,.ymm,.ymm_m256_m64bcst),     evex(.L256,._66,._0F38,.W1, 0x64),  .RVM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBLENDMQ,     ops3(.zmm_kz,.zmm,.zmm_m512_m64bcst),     evex(.L512,._66,._0F38,.W1, 0x64),  .RVM, .ZO, .{AVX512F} ),
 // VPBROADCASTB / VPBROADCASTW / VPBROADCASTD / VPBROADCASTQ
-// VPBROADCAST
+    // VPBROADCASTB
+    instr(.VPBROADCASTB,     ops2(.xmml, .xmml_m8),                  vex(.L128,._66,._0F38,.W0, 0x78),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTB,     ops2(.ymml, .xmml_m8),                  vex(.L256,._66,._0F38,.W0, 0x78),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTB,     ops2(.xmm_kz, .xmm_m8),                evex(.L128,._66,._0F38,.W0, 0x78),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.ymm_kz, .xmm_m8),                evex(.L256,._66,._0F38,.W0, 0x78),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.zmm_kz, .xmm_m8),                evex(.L512,._66,._0F38,.W0, 0x78),  .vRM, .ZO, .{AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.xmm_kz, .rm_reg8),               evex(.L128,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.ymm_kz, .rm_reg8),               evex(.L256,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.zmm_kz, .rm_reg8),               evex(.L512,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.xmm_kz, .rm_reg32),              evex(.L128,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.ymm_kz, .rm_reg32),              evex(.L256,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.zmm_kz, .rm_reg32),              evex(.L512,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.xmm_kz, .rm_reg64),              evex(.L128,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.ymm_kz, .rm_reg64),              evex(.L256,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTB,     ops2(.zmm_kz, .rm_reg64),              evex(.L512,._66,._0F38,.W0, 0x7A),  .vRM, .ZO, .{AVX512BW} ),
+    // VPBROADCASTW
+    instr(.VPBROADCASTW,     ops2(.xmml, .xmml_m16),                 vex(.L128,._66,._0F38,.W0, 0x79),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTW,     ops2(.ymml, .xmml_m16),                 vex(.L256,._66,._0F38,.W0, 0x79),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTW,     ops2(.xmm_kz, .xmm_m16),               evex(.L128,._66,._0F38,.W0, 0x79),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.ymm_kz, .xmm_m16),               evex(.L256,._66,._0F38,.W0, 0x79),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.zmm_kz, .xmm_m16),               evex(.L512,._66,._0F38,.W0, 0x79),  .vRM, .ZO, .{AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.xmm_kz, .rm_reg16),              evex(.L128,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.ymm_kz, .rm_reg16),              evex(.L256,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.zmm_kz, .rm_reg16),              evex(.L512,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.xmm_kz, .rm_reg32),              evex(.L128,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.ymm_kz, .rm_reg32),              evex(.L256,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.zmm_kz, .rm_reg32),              evex(.L512,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.xmm_kz, .rm_reg64),              evex(.L128,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.ymm_kz, .rm_reg64),              evex(.L256,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512VL, AVX512BW} ),
+    instr(.VPBROADCASTW,     ops2(.zmm_kz, .rm_reg64),              evex(.L512,._66,._0F38,.W0, 0x7B),  .vRM, .ZO, .{AVX512BW} ),
+    // VPBROADCASTD
+    instr(.VPBROADCASTD,     ops2(.xmml, .xmml_m32),                 vex(.L128,._66,._0F38,.W0, 0x58),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTD,     ops2(.ymml, .xmml_m32),                 vex(.L256,._66,._0F38,.W0, 0x58),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTD,     ops2(.xmm_kz, .xmm_m32),               evex(.L128,._66,._0F38,.W0, 0x58),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTD,     ops2(.ymm_kz, .xmm_m32),               evex(.L256,._66,._0F38,.W0, 0x58),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTD,     ops2(.zmm_kz, .xmm_m32),               evex(.L512,._66,._0F38,.W0, 0x58),  .vRM, .ZO, .{AVX512F} ),
+    instr(.VPBROADCASTD,     ops2(.xmm_kz, .rm_reg32),              evex(.L128,._66,._0F38,.W0, 0x7C),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTD,     ops2(.ymm_kz, .rm_reg32),              evex(.L256,._66,._0F38,.W0, 0x7C),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTD,     ops2(.zmm_kz, .rm_reg32),              evex(.L512,._66,._0F38,.W0, 0x7C),  .vRM, .ZO, .{AVX512F} ),
+    // VPBROADCASTQ
+    instr(.VPBROADCASTQ,     ops2(.xmml, .xmml_m64),                 vex(.L128,._66,._0F38,.W0, 0x59),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTQ,     ops2(.ymml, .xmml_m64),                 vex(.L256,._66,._0F38,.W0, 0x59),  .vRM, .ZO, .{AVX2} ),
+    instr(.VPBROADCASTQ,     ops2(.xmm_kz, .xmm_m64),               evex(.L128,._66,._0F38,.W1, 0x59),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTQ,     ops2(.ymm_kz, .xmm_m64),               evex(.L256,._66,._0F38,.W1, 0x59),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTQ,     ops2(.zmm_kz, .xmm_m64),               evex(.L512,._66,._0F38,.W1, 0x59),  .vRM, .ZO, .{AVX512F} ),
+    instr(.VPBROADCASTQ,     ops2(.xmm_kz, .rm_reg64),              evex(.L128,._66,._0F38,.W1, 0x7C),  .vRM, .ZO, .{AVX512VL, AVX512F, No32} ),
+    instr(.VPBROADCASTQ,     ops2(.ymm_kz, .rm_reg64),              evex(.L256,._66,._0F38,.W1, 0x7C),  .vRM, .ZO, .{AVX512VL, AVX512F, No32} ),
+    instr(.VPBROADCASTQ,     ops2(.zmm_kz, .rm_reg64),              evex(.L512,._66,._0F38,.W1, 0x7C),  .vRM, .ZO, .{AVX512F, No32} ),
+    // VPBROADCASTI32X2
+    instr(.VPBROADCASTI32X2, ops2(.xmm_kz, .xmm_m64),               evex(.L128,._66,._0F38,.W0, 0x59),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VPBROADCASTI32X2, ops2(.ymm_kz, .xmm_m64),               evex(.L256,._66,._0F38,.W0, 0x59),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VPBROADCASTI32X2, ops2(.zmm_kz, .xmm_m64),               evex(.L512,._66,._0F38,.W0, 0x59),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    // VPBROADCASTI128
+    instr(.VPBROADCASTI128,  ops2(.ymml, .rm_mem128),                vex(.L256,._66,._0F38,.W0, 0x5A),  .vRM, .ZO, .{AVX2} ),
+    // VPBROADCASTI32X4
+    instr(.VPBROADCASTI32X4, ops2(.ymm_kz, .rm_mem128),             evex(.L256,._66,._0F38,.W0, 0x5A),  .vRM, .ZO, .{AVX512VL, AVX512F} ),
+    instr(.VPBROADCASTI32X4, ops2(.zmm_kz, .rm_mem128),             evex(.L512,._66,._0F38,.W0, 0x5A),  .vRM, .ZO, .{AVX512F} ),
+    // VPBROADCASTI64X2
+    instr(.VPBROADCASTI64X2, ops2(.ymm_kz, .rm_mem128),             evex(.L256,._66,._0F38,.W1, 0x5A),  .vRM, .ZO, .{AVX512VL, AVX512DQ} ),
+    instr(.VPBROADCASTI64X2, ops2(.zmm_kz, .rm_mem128),             evex(.L512,._66,._0F38,.W1, 0x5A),  .vRM, .ZO, .{AVX512DQ} ),
+    // VPBROADCASTI32X8
+    instr(.VPBROADCASTI32X8, ops2(.zmm_kz, .rm_mem256),             evex(.L512,._66,._0F38,.W0, 0x5B),  .vRM, .ZO, .{AVX512DQ} ),
+    // VPBROADCASTI64X4
+    instr(.VPBROADCASTI64X4, ops2(.zmm_kz, .rm_mem256),             evex(.L512,._66,._0F38,.W1, 0x5B),  .vRM, .ZO, .{AVX512F} ),
 // VPBROADCASTM
+    // VPBROADCASTMB2Q
+    instr(.VPBROADCASTMB2Q,  ops2(.xmm_kz, .rm_k),                  evex(.L128,._F3,._0F38,.W1, 0x2A),  .vRM, .ZO, .{AVX512VL, AVX512CD} ),
+    instr(.VPBROADCASTMB2Q,  ops2(.ymm_kz, .rm_k),                  evex(.L256,._F3,._0F38,.W1, 0x2A),  .vRM, .ZO, .{AVX512VL, AVX512CD} ),
+    instr(.VPBROADCASTMB2Q,  ops2(.zmm_kz, .rm_k),                  evex(.L512,._F3,._0F38,.W1, 0x2A),  .vRM, .ZO, .{AVX512CD} ),
+    // VPBROADCASTMW2D
+    instr(.VPBROADCASTMW2D,  ops2(.xmm_kz, .rm_k),                  evex(.L128,._F3,._0F38,.W0, 0x3A),  .vRM, .ZO, .{AVX512VL, AVX512CD} ),
+    instr(.VPBROADCASTMW2D,  ops2(.ymm_kz, .rm_k),                  evex(.L256,._F3,._0F38,.W0, 0x3A),  .vRM, .ZO, .{AVX512VL, AVX512CD} ),
+    instr(.VPBROADCASTMW2D,  ops2(.zmm_kz, .rm_k),                  evex(.L512,._F3,._0F38,.W0, 0x3A),  .vRM, .ZO, .{AVX512CD} ),
 // VPCMPB / VPCMPUB
 // VPCMPD / VPCMPUD
 // VPCMPQ / VPCMPUQ
@@ -4873,29 +5432,40 @@ pub const instruction_database = [_]InstructionItem {
 // VPDPWSSD
 // VPDPWSSDS
 // VPERM2F128
+    // AVX
 // VPERM2I128
+    // AVX
 // VPERMB
 // VPERMD / VPERMW
+    // AVX
 // VPERMI2B
 // VPERMI2W / VPERMI2D / VPERMI2Q / VPERMI2PS / VPERMI2PD
 // VPERMILPD
+    // AVX
 // VPERMILPS
+    // AVX
 // VPERMPD
+    // AVX
 // VPERMPS
+    // AVX
 // VPERMQ
+    // AVX
 // VPERMT2B
 // VPERMT2W / VPERMT2D / VPERMT2Q / VPERMT2PS / VPERMT2PD
 // VPEXPANDB / VPEXPANDW
 // VPEXPANDD
 // VPEXPANDQ
 // VPGATHERDD / VPGATHERQD
+    // AVX
 // VPGATHERDD / VPGATHERDQ
 // VPGATHERDQ / VPGATHERQQ
+    // AVX
 // VPGATHERQD / VPGATHERQQ
 // VPLZCNTD / VPLZCNTQ
 // VPMADD52HUQ
 // VPMADD52LUQ
 // VPMASKMOV
+    // AVX
 // VPMOVB2M / VPMOVW2M / VPMOVD2M / VPMOVQ2M
 // VPMOVDB / VPMOVSDB / VPMOVUSDB
 // VPMOVDW / VPMOVSDB / VPMOVUSDB
@@ -4915,8 +5485,11 @@ pub const instruction_database = [_]InstructionItem {
 // VPSHRDV
 // VPSHUFBITQMB
 // VPSLLVW / VPSLLVD / VPSLLVQ
+    // AVX
 // VPSRAVW / VPSRAVD / VPSRAVQ
+    // AVX
 // VPSRLVW / VPSRLVD / VPSRLVQ
+    // AVX
 // VPTERNLOGD / VPTERNLOGQ
 // VPTESTMB / VPTESTMW / VPTESTMD / VPTESTMQ
 // VPTESTNMB / VPTESTNMW / VPTESTNMD / VPTESTNMQ
@@ -4929,6 +5502,7 @@ pub const instruction_database = [_]InstructionItem {
 // VSCATTERDPS / VSCATTERDPD / VSCATTERQPS / VSCATTERQPD
 // VSHUFF32x4 / VSHUFF64x2 / VSHUFI32x4 / VSHUFI64x2
 // VTESTPD / VTESTPS
+    // AVX
 // VXORPD
     instr(.VXORPD,     ops3(.xmml, .xmml, .xmml_m128),              vex(.L128,._66,._0F,.WIG, 0x57),   .RVM, .ZO, .{AVX} ),
     instr(.VXORPD,     ops3(.ymml, .ymml, .ymml_m256),              vex(.L256,._66,._0F,.WIG, 0x57),   .RVM, .ZO, .{AVX} ),

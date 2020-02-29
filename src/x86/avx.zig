@@ -304,6 +304,20 @@ pub const AvxOpcode = struct {
                     res.aaa = @enumToInt(reg_pred.mask);
                     res.z = @enumToInt(reg_pred.z);
                 },
+                .RegSae => |reg_sae| {
+                    switch (reg_sae.sae) {
+                        .AE => {},
+                        .SAE => {
+                            res.b = 1;
+                        },
+                        else => {
+                            res.b = 1;
+                            const LL_ = @enumToInt(reg_sae.sae);
+                            res.L = @intCast(u1, (LL_ >> 0) & 0x01);
+                            res.L_ = @intCast(u1, (LL_ >> 1) & 0x01);
+                        },
+                    }
+                },
 
                 else => {},
             }
@@ -324,6 +338,7 @@ pub const AvxOpcode = struct {
             break :x switch (v.*) {
                 .Reg => v.Reg.number(),
                 .RegPred => v.RegPred.reg.number(),
+                .RegSae => v.RegSae.reg.number(),
                 else => unreachable,
             };
         } else if (self.reg_bits) |reg_bits| x: {
@@ -366,6 +381,7 @@ pub const AvxOpcode = struct {
                         const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
                         res.X = modrm.rex_x;
                         res.B = modrm.rex_b;
+                        res.V_ |= modrm.evex_v;
 
                         switch (rm.operandDataSize()) {
                             .DWORD_BCST, .QWORD_BCST => res.b = 1,
@@ -445,6 +461,7 @@ pub const AvxOpcode = struct {
                     and (res.b == 0)
                     and (res.z == 0)
                 );
+
                 if (res.X == 0 and res.B == 0 and res.W == 0 and res.mm == 0b01) {
                     res.encoding = .Vex2;
                 } else {
@@ -455,6 +472,8 @@ pub const AvxOpcode = struct {
             .EVEX => res.encoding = .Evex,
             .XOP => res.encoding = .Xop,
         }
+
+
 
         return res;
     }

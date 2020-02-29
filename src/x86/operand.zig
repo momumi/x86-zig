@@ -42,6 +42,14 @@ pub const OperandType = enum(u32) {
         ptr16_16,
         ptr16_32,
         _void,
+        vsib,
+
+        vm32x,
+        vm32y,
+        vm32z,
+        vm64x,
+        vm64y,
+        vm64z,
 
         invalid = 0xfe,
         none = 0xff,
@@ -498,8 +506,25 @@ pub const OperandType = enum(u32) {
     k_m32    = create(0, .reg_k, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
     k_m64    = create(0, .reg_k, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
 
+    // TODO: probably should support .low16 variants
+    // VSIB memory addressing
+    vm32xl = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm32yl = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    //
+    vm64xl = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm64yl = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    //
+    vm32x = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32y = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32z = create(0, .vm32z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    //
+    vm64x = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64y = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64z = create(0, .vm64z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+
     /// Only matches xmm[0..15]
     xmml      = create(0, .xmm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
+    xmml_m8   = create(0, .xmm, .mem8,   .rm,    .no_mod, .no_bcst, .low16),
     xmml_m16  = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .low16),
     xmml_m32  = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .low16),
     xmml_m64  = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .low16),
@@ -514,11 +539,13 @@ pub const OperandType = enum(u32) {
     xmm_kz               = create(0, .xmm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
     xmm_sae              = create(0, .xmm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
     xmm_er               = create(0, .xmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
+    xmm_m8               = create(0, .xmm, .mem8,   .rm,    .no_mod, .no_bcst, .no_special),
     xmm_m16              = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .no_special),
     xmm_m32              = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
     xmm_m32_er           = create(0, .xmm, .mem32,  .rm,    .er,     .no_bcst, .no_special),
     xmm_m32_sae          = create(0, .xmm, .mem32,  .rm,    .sae,    .no_bcst, .no_special),
     xmm_m64              = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
+    xmm_m64_kz           = create(0, .xmm, .mem64,  .rm,    .kz,     .no_bcst, .no_special),
     xmm_m64_er           = create(0, .xmm, .mem64,  .rm,    .er,     .no_bcst, .no_special),
     xmm_m64_sae          = create(0, .xmm, .mem64,  .rm,    .sae,    .no_bcst, .no_special),
     xmm_m64_m32bcst      = create(0, .xmm, .mem64,  .rm,    .no_mod, .m32bcst, .no_special),
@@ -613,8 +640,8 @@ pub const OperandType = enum(u32) {
         }
     }
 
-    pub fn fromAddress(self: Address) OperandType {
-        return switch (self) {
+    pub fn fromAddress(addr: Address) OperandType {
+        return switch (addr) {
             .MOffset => |moff| switch (moff.operand_size.bitSize()) {
                 .Bit8 => OperandType.moffs8,
                 .Bit16 => OperandType.moffs16,
@@ -622,7 +649,7 @@ pub const OperandType = enum(u32) {
                 .Bit64 => OperandType.moffs64,
                 else => unreachable,
             },
-            .FarJmp => switch(self.getDisp().bitSize()) {
+            .FarJmp => switch(addr.getDisp().bitSize()) {
                 .Bit16 => OperandType.ptr16_16,
                 .Bit32 => OperandType.ptr16_32,
                 else => unreachable,
@@ -649,8 +676,8 @@ pub const OperandType = enum(u32) {
         };
     }
 
-    pub fn fromModRm(self: ModRm) OperandType {
-        return switch (self) {
+    pub fn fromModRm(modrm: ModRm) OperandType {
+        return switch (modrm) {
             .Reg => |reg| switch (reg.registerType()) {
                 .General => switch (reg.bitSize()) {
                     .Bit8 => OperandType.rm_reg8,
@@ -676,7 +703,7 @@ pub const OperandType = enum(u32) {
             .Mem,
             .Mem16,
             .Sib,
-            .Rel => switch (self.operandDataSize()) {
+            .Rel => switch (modrm.operandDataSize()) {
                 .Void => OperandType.rm_mem,
                 .BYTE => OperandType.rm_mem8,
                 .WORD => OperandType.rm_mem16,
@@ -694,6 +721,22 @@ pub const OperandType = enum(u32) {
 
                 // TODO:
                 else => unreachable,
+            },
+
+            .VecSib => |vsib| switch (modrm.operandDataSize()) {
+                .DWORD => switch (vsib.index.registerType()) {
+                    .XMM => if (vsib.index.number() <= 15) OperandType.vm32xl else OperandType.vm32x,
+                    .YMM => if (vsib.index.number() <= 15) OperandType.vm32yl else OperandType.vm32y,
+                    .ZMM => OperandType.vm32z,
+                    else => OperandType.invalid,
+                },
+                .QWORD => switch (vsib.index.registerType()) {
+                    .XMM => if (vsib.index.number() <= 15) OperandType.vm64xl else OperandType.vm64x,
+                    .YMM => if (vsib.index.number() <= 15) OperandType.vm64yl else OperandType.vm64y,
+                    .ZMM => OperandType.vm64z,
+                    else => OperandType.invalid,
+                },
+                else => OperandType.invalid,
             },
         };
     }
@@ -749,7 +792,7 @@ pub const OperandType = enum(u32) {
         const num_match = (num == 0) or (num == other.getNum());
 
         // if template is rm type, then it can match other OperandType with or without rm
-        // if template is no_rm type, 
+        // if template is no_rm type,
         // eg: rm8 matches either .rm_reg8 or .reg8
         // eg: reg8 matches only .reg8 but not .rm_reg8
         const rm_match = matchRmClass(template, other);
@@ -869,10 +912,6 @@ const SibScale = enum(u2) {
         return @as(u8, 1) << @enumToInt(self);
     }
 
-    pub fn toInt(self: @This()) u8 {
-        return @enumToInt(self);
-    }
-
     pub fn scale(s: u8) SibScale {
         return switch (s) {
             1 => .Scale1,
@@ -933,6 +972,16 @@ const MemorySib = struct {
     segment: Segment,
 };
 
+/// Encodes VSIB memory addresing: [(s * vec_index) + base + disp]
+const MemoryVecSib = struct {
+    scale: SibScale,
+    base: ?Register,
+    index: Register,
+    disp: MemDisp,
+    data_size: DataSize,
+    segment: Segment,
+};
+
 const RelRegister = enum {
     EIP,
     RIP,
@@ -974,6 +1023,7 @@ pub const ModRmResult = struct {
     rex_r: u1 = 0,
     rex_x: u1 = 0,
     rex_b: u1 = 0,
+    evex_v: u1 = 0,
     mod: u2 = 0,
     reg: u3 = 0,
     rm: u3 = 0,
@@ -1021,6 +1071,7 @@ pub const ModRm = union(enum) {
     Mem: Memory,
     Sib: MemorySib,
     Rel: RelMemory,
+    VecSib: MemoryVecSib,
 
     pub fn operandSize(self: @This()) BitSize {
         return switch (self) {
@@ -1029,6 +1080,7 @@ pub const ModRm = union(enum) {
             .Mem => |mem| mem.data_size.bitSize(),
             .Sib => |sib| sib.data_size.bitSize(),
             .Rel => |reg| reg.data_size.bitSize(),
+            .VecSib => |vsib| vsib.data_size.bitSize(),
         };
     }
 
@@ -1039,6 +1091,7 @@ pub const ModRm = union(enum) {
             .Mem => |mem| mem.data_size,
             .Sib => |sib| sib.data_size,
             .Rel => |reg| reg.data_size,
+            .VecSib => |vsib| vsib.data_size,
         };
     }
 
@@ -1049,6 +1102,7 @@ pub const ModRm = union(enum) {
             .Mem => |mem| mem.data_size.dataType(),
             .Sib => |sib| sib.data_size.dataType(),
             .Rel => |reg| reg.data_size.dataType(),
+            .VecSib => |vsib| vsib.data_size.dataType(),
         };
     }
 
@@ -1291,7 +1345,7 @@ pub const ModRm = union(enum) {
                 }
 
                 res.sib = (
-                    (@as(u8, sib.scale.toInt()) << 6)
+                    (@as(u8, @enumToInt(sib.scale)) << 6)
                     | (@as(u8, index) << 3)
                     | (@as(u8, base)  << 0)
                 );
@@ -1318,6 +1372,64 @@ pub const ModRm = union(enum) {
                     .EIP => .Bit32,
                     .RIP => .Bit64,
                 };
+            },
+            .VecSib => |vsib| {
+                var base: u3 = undefined;
+                const disp_size = vsib.disp.dispSize();
+                res.rm = Register.SP.numberRm(); // 0b100, magic value for SIB addressing
+
+                if (vsib.base == null) {
+                    // [scale*index + disp32] (no base register)
+                    if (disp_size == .None) {
+                        return AsmError.InvalidMemoryAddressing;
+                    }
+                    // Magic register value for [s*index + disp32] addressing
+                    const tmp_reg = switch (0) {
+                        0 => Register.EBP,
+                        1 => Register.R13D,
+                        else => unreachable,
+                    };
+                    res.mod = 0b00;
+
+                    res.disp_bit_size = .Bit32;
+                    res.disp = vsib.disp.value();
+
+                    base = tmp_reg.numberRm();
+                    res.rex_b = tmp_reg.numberRex();
+                    res.addressing_size = if (mode == .x64) .Bit64 else .Bit32;
+                } else {
+                    if (
+                        disp_size == .None
+                        and vsib.base.?.numberRm() == Register.BP.numberRm()
+                    ) {
+                        return AsmError.InvalidMemoryAddressing;
+                    }
+                    switch (disp_size) {
+                        .None => res.mod = 0b00,
+                        .Disp8 => res.mod = 0b01,
+                        .Disp32 => res.mod = 0b10,
+                    }
+                    base = vsib.base.?.numberRm();
+                    res.rex_b = vsib.base.?.numberRex();
+                    res.addMemDisp(vsib.disp);
+                    res.addressing_size = vsib.base.?.bitSize();
+                }
+
+                if (!vsib.index.isVector()) {
+                    return AsmError.InvalidMemoryAddressing;
+                }
+                const index = vsib.index.numberRm();
+                res.rex_x = vsib.index.numberRex();
+                res.evex_v = vsib.index.numberEvex();
+
+                res.operand_size = vsib.data_size.bitSize();
+                res.segment = vsib.segment;
+
+                res.sib = (
+                    (@as(u8, @enumToInt(vsib.scale)) << 6)
+                    | (@as(u8, index) << 3)
+                    | (@as(u8, base)  << 0)
+                );
             },
         }
 
@@ -1460,6 +1572,40 @@ pub const ModRm = union(enum) {
         };
     }
 
+    /// data_size [seg: (scale*vec_index) + base + disp]
+    pub fn memoryVecSib(
+        seg: Segment,
+        data_size: DataSize,
+        scale: u8,
+        index: Register,
+        base: ?Register,
+        disp: i32
+    ) ModRm {
+        // If base register is RBP/R13 (or EBP/R13D), then must use disp8 or disp32
+        const mem_disp = if (
+            base != null
+            and (base.?.numberRm() == Register.BP.numberRm())
+            and (disp == 0)
+        ) x: {
+            break :x MemDisp.create(.Disp8, 0);
+        } else if (base == null) x: {
+            break :x MemDisp.create(.Disp32, disp);
+        } else x: {
+            break :x MemDisp.disp(disp);
+        };
+
+        return ModRm {
+            .VecSib = MemoryVecSib {
+                .scale = SibScale.scale(scale),
+                .index = index,
+                .base = base,
+                .disp = mem_disp,
+                .data_size = data_size,
+                .segment = seg,
+            }
+        };
+    }
+
     pub fn format(
         self: ModRm,
         comptime fmt: []const u8,
@@ -1545,6 +1691,34 @@ pub const ModRm = union(enum) {
                 }
                 if (sib.disp.dispSize() != .None) {
                     const disp = sib.disp.value();
+                    if (disp < 0) {
+                        try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
+                    } else {
+                        try std.fmt.format(context, FmtError, output, "0x{x}", .{disp});
+                    }
+                }
+                try output(context, "]");
+            },
+            .VecSib => |vsib| {
+                try output(context, @tagName(vsib.data_size));
+                try output(context, " ");
+                if (vsib.segment != .DefaultSeg) {
+                    try output(context, @tagName(vsib.segment));
+                    try output(context, ":");
+                }
+                try output(context, "[");
+                try std.fmt.format(context, FmtError, output, "{}*{}", .{vsib.scale.value(), @tagName(vsib.index)});
+                if (vsib.base != null or vsib.disp.dispSize() != .None) {
+                    try output(context, " + ");
+                }
+                if (vsib.base) |base| {
+                    try output(context, @tagName(base));
+                    if (vsib.disp.dispSize() != .None ) {
+                        try output(context, " + ");
+                    }
+                }
+                if (vsib.disp.dispSize() != .None) {
+                    const disp = vsib.disp.value();
                     if (disp < 0) {
                         try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
                     } else {
@@ -1988,6 +2162,10 @@ pub const Operand = union(OperandTag) {
     /// Same as memorySib, except it may choose to encode it as memoryRm if the encoding is shorter
     pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         var modrm: ModRm = undefined;
+        if (index != null and index.?.isVector()) {
+            return Operand { .Rm = ModRm.memoryVecSib(seg, data_size, scale, index.?, base, disp) };
+        }
+
         if (index == null and base != null) edge_case: {
             const reg_name = base.?.name();
             // Can encode these, but need to choose 32 bit displacement and SIB byte
@@ -2044,6 +2222,11 @@ pub const Operand = union(OperandTag) {
     /// data_size [DefaultSeg: (scale*index) + base + disp]
     pub fn memorySibDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         return Operand { .Rm = ModRm.memorySib(.DefaultSeg, data_size, scale, index, base, disp) };
+    }
+
+    /// data_size [seg: (scale*vec_index) + base + disp0/8/32]
+    pub fn memoryVecSib(seg: Segment, data_size: DataSize, scale: u8, index: Register, base: ?Register, disp: i32) Operand {
+        return Operand { .Rm = ModRm.memoryVecSib(seg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [Seg: EIP/RIP + disp]
@@ -2327,5 +2510,53 @@ test "ModRm Encoding" {
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10100111);
         expect(result.disp_bit_size == .Bit0);
+    }
+
+    // DWORD [1*xmm0 + RAX + 0x00]
+    {
+        const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 1, .XMM0, .RAX, 0x00);
+        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        expect(result.modrm() == 0b00000100);
+        expect(result.sib.? == 0b00000000);
+        expect(result.disp_bit_size == .Bit0);
+    }
+
+    // DWORD [4*xmm31 + R8 + 0x33221100]
+    {
+        const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 4, .XMM31, .R9, 0x33221100);
+        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        expect(result.modrm() == 0b10000100);
+        expect(result.sib.? == 0b10111001);
+        expect(result.rex_b == 1);
+        expect(result.rex_x == 1);
+        expect(result.evex_v == 1);
+        expect(result.disp_bit_size == .Bit32);
+        expect(result.disp == 0x33221100);
+    }
+
+    // DWORD [8*xmm17 + RBP]
+    {
+        const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 8, .XMM17, .RBP, 0);
+        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        expect(result.modrm() == 0b01000100);
+        expect(result.sib.? == 0b11001101);
+        expect(result.rex_b == 0);
+        expect(result.rex_x == 0);
+        expect(result.evex_v == 1);
+        expect(result.disp_bit_size == .Bit8);
+        expect(result.disp == 0x00);
+    }
+
+    // DWORD [8*xmm17 + 0x77]
+    {
+        const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 8, .XMM17, null, 0x77);
+        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        expect(result.modrm() == 0b00000100);
+        expect(result.sib.? == 0b11001101);
+        expect(result.rex_b == 0);
+        expect(result.rex_x == 0);
+        expect(result.evex_v == 1);
+        expect(result.disp_bit_size == .Bit32);
+        expect(result.disp == 0x77);
     }
 }

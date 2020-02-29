@@ -87,4 +87,33 @@ test "AVX-512" {
         testOp4(m64, .VCMPPD, pred(.K0,  .K7, .Merge), reg(.ZMM0), sae(.ZMM0, .RZ_SAE), imm(0), AsmError.InvalidOperand);
     }
 
+    // test vsib addressing
+    {
+        const vm32xl = Operand.memoryVecSib(.DefaultSeg, .DWORD, 8, .XMM7, .EAX, 0);
+        const vm32yl = Operand.memoryVecSib(.DefaultSeg, .DWORD, 8, .YMM7, .EAX, 0);
+
+        const vm64xl = Operand.memoryVecSib(.DefaultSeg, .QWORD, 8, .XMM7, .EAX, 0);
+        const vm64yl = Operand.memoryVecSib(.DefaultSeg, .QWORD, 8, .YMM7, .EAX, 0);
+
+        const vm32x = Operand.memoryVecSib(.DefaultSeg, .DWORD, 8, .XMM30, .EAX, 0);
+        const vm32y = Operand.memoryVecSib(.DefaultSeg, .DWORD, 8, .YMM30, .EAX, 0);
+        const vm32z = Operand.memoryVecSib(.DefaultSeg, .DWORD, 8, .ZMM30, .EAX, 0);
+
+        const vm64x = Operand.memoryVecSib(.DefaultSeg, .QWORD, 8, .XMM30, .EAX, 0);
+        const vm64y = Operand.memoryVecSib(.DefaultSeg, .QWORD, 8, .YMM30, .EAX, 0);
+        const vm64z = Operand.memoryVecSib(.DefaultSeg, .QWORD, 8, .ZMM30, .EAX, 0);
+
+        testOp3(m64, .VGATHERDPD,   reg(.XMM1), vm32xl, reg(.XMM2), "67 c4 e2 e9 92 0c f8");
+        testOp3(m64, .VGATHERDPD,   reg(.YMM1), vm32xl, reg(.YMM2), "67 c4 e2 ed 92 0c f8");
+        testOp3(m64, .VGATHERDPD,   reg(.XMM1), vm32x, reg(.XMM2), AsmError.InvalidOperand);
+        testOp3(m64, .VGATHERDPD,   reg(.YMM1), vm32x, reg(.YMM2), AsmError.InvalidOperand);
+        testOp3(m64, .VGATHERDPD,   reg(.XMM1), vm32yl, reg(.XMM2), AsmError.InvalidOperand);
+        testOp3(m64, .VGATHERDPD,   reg(.YMM1), vm32yl, reg(.YMM2), AsmError.InvalidOperand);
+        testOp3(m64, .VGATHERDPD,   reg(.YMM1), vm32z, reg(.YMM2), AsmError.InvalidOperand);
+        testOp3(m64, .VGATHERDPD,   reg(.XMM1), vm64xl, reg(.XMM2), AsmError.InvalidOperand);
+        testOp2(m64, .VGATHERDPD,   pred(.XMM31, .K7, .Zero), vm32x, "67 62 22 fd 87 92 3c f0");
+        testOp2(m64, .VGATHERDPD,   pred(.YMM31, .K7, .Zero), vm32x, "67 62 22 fd a7 92 3c f0");
+        testOp2(m64, .VGATHERDPD,   pred(.ZMM31, .K7, .Zero), vm32y, "67 62 22 fd c7 92 3c f0");
+    }
+
 }

@@ -393,8 +393,19 @@ pub const Register = enum (u16) {
         return @intCast(u1, (@enumToInt(self) >> 3) & 0x01);
     }
 
+    pub fn numberEvex(self: Register) u1 {
+        return @intCast(u1, (@enumToInt(self) >> 4) & 0x01);
+    }
+
     pub fn registerType(self: Register) RegisterType {
         return @intToEnum(RegisterType, tag_mask & @enumToInt(self));
+    }
+
+    pub fn isVector(self: Register) bool {
+        return switch (self.registerType()) {
+            .XMM, .YMM, .ZMM => true,
+            else => false,
+        };
     }
 
     pub fn dataSize(self: Register) DataSize {

@@ -2,6 +2,7 @@ const std = @import("std");
 
 const minInt = std.math.minInt;
 const maxInt = std.math.maxInt;
+const assert = std.debug.assert;
 
 pub const register = @import("register.zig");
 pub const machine = @import("machine.zig");
@@ -495,6 +496,9 @@ pub const OperandType = enum(u32) {
     rm32_er      = create(0, .reg32, .mem32,  .rm, .er, .no_bcst, .no_special),
     rm64_er      = create(0, .reg64, .mem64,  .rm, .er, .no_bcst, .no_special),
     rm_mem64_kz  = create(0, .mem,   .mem64,  .rm, .kz, .no_bcst, .no_special),
+    rm_mem128_k  = create(0, .mem,   .mem128, .rm, .k,  .no_bcst, .no_special),
+    rm_mem256_k  = create(0, .mem,   .mem256, .rm, .k,  .no_bcst, .no_special),
+    rm_mem512_k  = create(0, .mem,   .mem512, .rm, .k,  .no_bcst, .no_special),
     rm_mem128_kz = create(0, .mem,   .mem128, .rm, .kz, .no_bcst, .no_special),
     rm_mem256_kz = create(0, .mem,   .mem256, .rm, .kz, .no_bcst, .no_special),
     rm_mem512_kz = create(0, .mem,   .mem512, .rm, .kz, .no_bcst, .no_special),
@@ -508,19 +512,25 @@ pub const OperandType = enum(u32) {
 
     // TODO: probably should support .low16 variants
     // VSIB memory addressing
-    vm32xl = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
-    vm32yl = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm32xl  = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm32yl  = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
     //
-    vm64xl = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
-    vm64yl = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm64xl  = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm64yl  = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
     //
-    vm32x = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm32y = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm32z = create(0, .vm32z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32x   = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32y   = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32z   = create(0, .vm32z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32x_k = create(0, .vm32x, .no_mem, .rm, .k,      .no_bcst, .no_special),
+    vm32y_k = create(0, .vm32y, .no_mem, .rm, .k,      .no_bcst, .no_special),
+    vm32z_k = create(0, .vm32z, .no_mem, .rm, .k,      .no_bcst, .no_special),
     //
-    vm64x = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm64y = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm64z = create(0, .vm64z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64x   = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64y   = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64z   = create(0, .vm64z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64x_k = create(0, .vm64x, .no_mem, .rm, .k,      .no_bcst, .no_special),
+    vm64y_k = create(0, .vm64y, .no_mem, .rm, .k,      .no_bcst, .no_special),
+    vm64z_k = create(0, .vm64z, .no_mem, .rm, .k,      .no_bcst, .no_special),
 
     /// Only matches xmm[0..15]
     xmml      = create(0, .xmm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
@@ -541,7 +551,9 @@ pub const OperandType = enum(u32) {
     xmm_er               = create(0, .xmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
     xmm_m8               = create(0, .xmm, .mem8,   .rm,    .no_mod, .no_bcst, .no_special),
     xmm_m16              = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .no_special),
+    xmm_m16_kz           = create(0, .xmm, .mem16,  .rm,    .kz,     .no_bcst, .no_special),
     xmm_m32              = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
+    xmm_m32_kz           = create(0, .xmm, .mem32,  .rm,    .kz,     .no_bcst, .no_special),
     xmm_m32_er           = create(0, .xmm, .mem32,  .rm,    .er,     .no_bcst, .no_special),
     xmm_m32_sae          = create(0, .xmm, .mem32,  .rm,    .sae,    .no_bcst, .no_special),
     xmm_m64              = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
@@ -845,62 +857,53 @@ pub const OperandType = enum(u32) {
     }
 };
 
-/// Possible displacement sizes for 16 bit addressing
-const MemDisp16Size = enum(u8) {
+/// Possible displacement sizes for 32 and 64 bit addressing
+const DispSize = enum(u8) {
     None = 0,
     Disp8 = 1,
     Disp16 = 2,
-};
-
-/// Possible displacement sizes for 32 and 64 bit addressing
-const MemDispSize = enum(u8) {
-    None = 0,
-    Disp8 = 1,
     Disp32 = 4,
 };
 
-/// Generic struct representing a memory displacement
-fn memDispCommon(comptime DispSize: type, comptime IntType: type, comptime disp_max: DispSize) type {
-    return struct {
-        displacement: IntType = 0,
-        size: DispSize = .None,
+const MemDisp = struct {
+    displacement: i32 = 0,
+    size: DispSize = .None,
 
-        pub fn create(dis_size: DispSize, dis: IntType) @This() {
-            return @This() {
-                .displacement = dis,
-                .size = dis_size,
-            };
+    pub fn create(dis_size: DispSize, dis: i32) @This() {
+        return @This() {
+            .displacement = dis,
+            .size = dis_size,
+        };
+    }
+
+    pub fn disp(max_size: DispSize, dis: i32) @This() {
+        if (dis == 0) {
+            return @This().create(.None, 0);
+        } else if (minInt(i8) <= dis and dis <= maxInt(i8)) {
+            return @This().create(.Disp8, dis);
+        } else if (max_size == .Disp16) {
+            assert(minInt(i16) <= dis and dis <= maxInt(i16));
+            return @This().create(.Disp16, dis);
+        } else if (max_size == .Disp32) {
+            assert(minInt(i32) <= dis and dis <= maxInt(i32));
+            return @This().create(.Disp32, dis);
+        } else {
+            unreachable;
         }
+    }
 
-        pub fn disp(dis: IntType) @This() {
-            if (dis == 0) {
-                return @This().create(.None, 0);
-            } else if (minInt(i8) <= dis and dis <= maxInt(i8)) {
-                return @This().create(.Disp8, dis);
-            } else {
-                return @This().create(disp_max, dis);
-            }
-        }
+    pub fn value(self: @This()) i32 {
+        return self.displacement;
+    }
 
-        pub fn value(self: @This()) IntType {
-            return self.displacement;
-        }
+    pub fn dispSize(self: @This()) DispSize {
+        return self.size;
+    }
 
-        pub fn dispSize(self: @This()) DispSize {
-            return self.size;
-        }
-
-        pub fn bitSize(self: @This()) BitSize {
-            return @intToEnum(BitSize, @enumToInt(self.size));
-        }
-    };
-}
-
-/// Encodes a displacement for 16 bit addressing
-const MemDisp16 = memDispCommon(MemDisp16Size, i16, .Disp16);
-
-/// Encodes a displacement for 32 and 64 bit addressing
-const MemDisp = memDispCommon(MemDispSize, i32, .Disp32);
+    pub fn bitSize(self: @This()) BitSize {
+        return @intToEnum(BitSize, @enumToInt(self.size));
+    }
+};
 
 const SibScale = enum(u2) {
     Scale1 = 0b00,
@@ -930,7 +933,7 @@ const Memory16Bit = struct {
     /// Index register either DI or SI
     index: ?Register,
     /// 0, 8 or 16 bit memory displacement
-    disp: MemDisp16,
+    disp: MemDisp,
     /// Size of the data this memory address points to
     data_size: DataSize,
     /// Segment register to offset the memory address
@@ -1019,6 +1022,7 @@ pub const ModRmResult = struct {
     reg_size: BitSize = .None,
     operand_size: BitSize = .None,
     addressing_size: BitSize = .None,
+    data_size: DataSize = .Void,
     rex_w: u1 = 0,
     rex_r: u1 = 0,
     rex_x: u1 = 0,
@@ -1064,8 +1068,17 @@ pub const ModRmResult = struct {
     }
 };
 
+pub const ModRmTag = enum {
+    Reg,
+    Mem16,
+    Mem,
+    Sib,
+    Rel,
+    VecSib,
+};
+
 /// Encodes an R/M operand
-pub const ModRm = union(enum) {
+pub const ModRm = union(ModRmTag) {
     Reg: Register,
     Mem16: Memory16Bit,
     Mem: Memory,
@@ -1113,6 +1126,73 @@ pub const ModRm = union(enum) {
         return res;
     }
 
+    pub fn getDisplacement(self: @This()) MemDisp {
+        return switch (self) {
+            .Reg => |reg| MemDisp.create(.None, 0),
+            .Mem16 => |mem| mem.disp,
+            .Mem => |mem| mem.disp,
+            .Sib => |sib| sib.disp,
+            .Rel => |rel| MemDisp.create(.Disp32, rel.disp),
+            .VecSib => |vsib| vsib.disp,
+        };
+    }
+
+    pub fn setDisplacement(self: *@This(), disp: MemDisp) void {
+        switch (self.*) {
+            .Reg => unreachable,
+            .Mem16 => self.Mem16.disp = disp,
+            .Mem => self.Mem.disp = disp,
+            .Sib => self.Sib.disp = disp,
+            .Rel => self.Rel.disp = disp.displacement,
+            .VecSib => self.VecSib.disp = disp,
+        }
+    }
+
+    /// Compress or Expand displacement for disp8*N feature in AVX512
+    ///
+    /// In AVX512 8 bit displacements are multiplied by some factor N which
+    /// is dependend on the instruction. So if
+    ///     disp % N == 0 -> use 8 bit displacement (if the value fits)
+    ///     disp % N != 0 -> we have to use a 16/32 bit displacement
+    pub fn scaleAvx512Displacement(self: *@This(), disp_mult: u8) void {
+        const mem_disp = self.getDisplacement();
+
+        if (
+            mem_disp.size == .None
+            or (disp_mult <= 1)
+            // rel memory can only use 32 bit displacement, so can't compress it
+            or (@as(ModRmTag, self.*) == .Rel)
+        ) {
+            return;
+        }
+
+        // Broadcast overides the value of disp_mult
+        const disp_n = switch (self.operandDataSize()) {
+            .DWORD_BCST => 4,
+            .QWORD_BCST => 8,
+            else => disp_mult,
+        };
+
+        if (@rem(mem_disp.displacement, @intCast(i32, disp_n)) != 0) {
+            if (minInt(i8) <= mem_disp.displacement and mem_disp.displacement <= maxInt(i8)) {
+                // We have to use a larger displacement
+                const new_disp = switch (self.*) {
+                    .Rel => unreachable,
+                    .Mem16 => MemDisp.create(.Disp16, mem_disp.displacement),
+                    else => MemDisp.create(.Disp32, mem_disp.displacement),
+                };
+                self.setDisplacement(new_disp);
+            }
+        } else {
+            const scaled = @divExact(mem_disp.displacement, @intCast(i32, disp_n));
+            if (std.math.minInt(i8) <= scaled and scaled <= std.math.maxInt(i8)) {
+                // can use a smaller displacement
+                const new_disp = MemDisp.create(.Disp8, scaled);
+                self.setDisplacement(new_disp);
+            }
+        }
+    }
+
     pub fn encodeMem16(mem: Memory16Bit, mode:Mode86, modrm_reg: Register) AsmError!ModRmResult {
         var res = ModRmResult{};
 
@@ -1130,10 +1210,12 @@ pub const ModRm = union(enum) {
             .None => 0b00,
             .Disp8 => 0b01,
             .Disp16 => 0b10,
+            .Disp32 => unreachable,
         };
         res.addMemDisp(mem.disp);
 
         res.operand_size = mem.data_size.bitSize();
+        res.data_size = mem.data_size;
         res.addressing_size = .Bit16;
         res.segment = mem.segment;
 
@@ -1191,6 +1273,7 @@ pub const ModRm = union(enum) {
                 res.rm = reg.numberRm();
                 res.rex_b = reg.numberRex();
                 res.operand_size = reg.bitSize();
+                res.data_size = reg.dataSize();
             },
             .Mem16 => |mem| res = try encodeMem16(mem, mode, modrm_reg),
             .Mem => |mem| {
@@ -1200,15 +1283,16 @@ pub const ModRm = union(enum) {
                 }
 
                 res.operand_size = mem.data_size.bitSize();
+                res.data_size = mem.data_size;
                 res.addressing_size = mem.reg.bitSize();
                 res.segment = mem.segment;
 
                 if (mem.disp.dispSize() != .None)  {
-                    // ModRM addressing: [r/m + ]
+                    // ModRM addressing: [r/m + disp8/32]
                     switch (mem.disp.dispSize()) {
                         .Disp8 => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
-                        .None => unreachable,
+                        else => unreachable,
                     }
                     res.rm = mem.reg.numberRm();
                     res.rex_b = mem.reg.numberRex();
@@ -1234,6 +1318,7 @@ pub const ModRm = union(enum) {
                 const disp_size = sib.disp.dispSize();
 
                 res.operand_size = sib.data_size.bitSize();
+                res.data_size = sib.data_size;
                 res.segment = sib.segment;
 
                 // Check that the base and index registers are valid (if present)
@@ -1368,6 +1453,7 @@ pub const ModRm = union(enum) {
                 res.disp_bit_size = .Bit32;
                 res.disp = rel.disp;
                 res.operand_size = rel.data_size.bitSize();
+                res.data_size = rel.data_size;
                 res.addressing_size = switch (rel.reg) {
                     .EIP => .Bit32,
                     .RIP => .Bit64,
@@ -1408,6 +1494,7 @@ pub const ModRm = union(enum) {
                         .None => res.mod = 0b00,
                         .Disp8 => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
+                        .Disp16 => unreachable,
                     }
                     base = vsib.base.?.numberRm();
                     res.rex_b = vsib.base.?.numberRex();
@@ -1423,6 +1510,7 @@ pub const ModRm = union(enum) {
                 res.evex_v = vsib.index.numberEvex();
 
                 res.operand_size = vsib.data_size.bitSize();
+                res.data_size = vsib.data_size;
                 res.segment = vsib.segment;
 
                 res.sib = (
@@ -1463,12 +1551,12 @@ pub const ModRm = union(enum) {
         index: ?Register,
         disp: i16
     ) ModRm {
-        var displacement: MemDisp16 = undefined;
+        var displacement: MemDisp = undefined;
         if (base == null and index == null) {
             // need to use 16 bit displacement
-            displacement = MemDisp16.create(.Disp16, disp);
+            displacement = MemDisp.create(.Disp16, disp);
         } else {
-            displacement = MemDisp16.disp(disp);
+            displacement = MemDisp.disp(.Disp16, disp);
         }
         return ModRm {
             .Mem16 = Memory16Bit {
@@ -1488,7 +1576,7 @@ pub const ModRm = union(enum) {
         if ((reg.name() == .BP or reg.name() == .R13) and disp == 0) {
             displacement = MemDisp.create(.Disp8, 0);
         } else {
-            displacement = MemDisp.disp(disp);
+            displacement = MemDisp.disp(.Disp32, disp);
         }
         return ModRm {
             .Mem = Memory {
@@ -1558,7 +1646,7 @@ pub const ModRm = union(enum) {
         const mem_disp = if (base == null) x: {
             break :x MemDisp.create(.Disp32, disp);
         } else x: {
-            break :x MemDisp.disp(disp);
+            break :x MemDisp.disp(.Disp32, disp);
         };
         return ModRm {
             .Sib = MemorySib {
@@ -1591,7 +1679,7 @@ pub const ModRm = union(enum) {
         } else if (base == null) x: {
             break :x MemDisp.create(.Disp32, disp);
         } else x: {
-            break :x MemDisp.disp(disp);
+            break :x MemDisp.disp(.Disp32, disp);
         };
 
         return ModRm {
@@ -2313,6 +2401,19 @@ pub const Operand = union(OperandTag) {
                     .RD_SAE => try output(context, " {rd-sae}"),
                     .RU_SAE => try output(context, " {ru-sae}"),
                     .RZ_SAE => try output(context, " {rz-sae}"),
+                }
+            },
+
+            .RmPred => |rm_pred| {
+                try std.fmt.format(context, FmtError, output, "{}", .{rm_pred.rm});
+                if (rm_pred.mask != .NoMask) {
+                    try output(context, " {");
+                    try output(context, @tagName(rm_pred.mask));
+                    try output(context, "}");
+                }
+
+                if (rm_pred.z == .Zero) {
+                    try output(context, " {z}");
                 }
             },
 

@@ -352,11 +352,11 @@ pub const Machine = struct {
         rm_op: ?*const Operand,
         vec4_is: ?*const Operand,
         imm_op: ?*const Operand,
+        /// 8 bit displacement multiplier
+        disp_n: u8,
         default_size: DefaultSize
     ) AsmError!Instruction {
         var res = Instruction{};
-
-        const avx_res = try avx_opcode.encode(self, vec1_r, vec2_v, rm_op);
 
         var modrm: operand.ModRmResult = undefined;
         var has_modrm: bool = undefined;
@@ -364,7 +364,8 @@ pub const Machine = struct {
         if (vec1_r == null and rm_op == null) {
             has_modrm = false;
         } else if (vec1_r) |v| {
-            const rm = self.coerceRm(rm_op.?.*).Rm;
+            var rm = self.coerceRm(rm_op.?.*).Rm;
+            rm.scaleAvx512Displacement(disp_n);
             const reg = switch (v.*) {
                 .Reg => v.Reg,
                 .RegPred => v.RegPred.reg,
@@ -374,7 +375,8 @@ pub const Machine = struct {
             modrm = try rm.encodeReg(self.mode, reg, default_size);
             has_modrm = true;
         } else {
-            const rm = self.coerceRm(rm_op.?.*).Rm;
+            var rm = self.coerceRm(rm_op.?.*).Rm;
+            rm.scaleAvx512Displacement(disp_n);
             const fake_reg = Register.create(.Bit32, avx_opcode.reg_bits.?);
             modrm = try rm.encodeReg(self.mode, fake_reg, default_size);
             has_modrm = true;
@@ -384,6 +386,8 @@ pub const Machine = struct {
             res.addPrefixes(modrm.prefixes, Opcode{});
         }
 
+        const modrm_ptr: ?*const operand.ModRmResult = if (has_modrm) &modrm else null;
+        const avx_res = try avx_opcode.encode(self, vec1_r, vec2_v, rm_op, modrm_ptr);
         try res.addAvx(self.mode, avx_res);
         res.addOpcodeByte(avx_opcode.opcode);
 
@@ -436,7 +440,14 @@ pub const Machine = struct {
         return self.build(mnem, &ops1, &ops2, &ops3, &ops4);
     }
 
-    pub fn build(self: Machine, mnem: Mnemonic, ops1: ?*const Operand, ops2: ?*const Operand, ops3: ?*const Operand, ops4: ?*const Operand) AsmError!Instruction {
+    pub fn build(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: ?*const Operand,
+        ops2: ?*const Operand,
+        ops3: ?*const Operand,
+        ops4: ?*const Operand
+    ) AsmError!Instruction {
         const sig = database.Signature.fromOperands(ops1, ops2, ops3, ops4);
 
         // sig.debugPrint();

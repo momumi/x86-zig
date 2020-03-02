@@ -148,6 +148,15 @@ P1: | W | v | v | v | v | 1 | p | p |
 P2: | z | L'| L | b | V'| a | a | a |
 ```
 
+* EVEX disp8*N: Compressed displacement
+    * For EVEX encoded instructions 8 bit displacements are multiplied by some factor N
+    * The value of N is dependent on several factors:
+        * vector length (128, 256, 512)
+        * EVEX.b broadcast bit
+        * input element size
+        * instruction tuple type
+    * Applies to all addressing modes: 16, 32 and 64 bit
+    * See datasheet (Volume 2: Chapter 2: 2.6.5) "Compressed Displacement" for more info
 * EVEX.mm
     * 0b00001 -> 0F
     * 0b00010 -> 0F 38

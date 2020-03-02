@@ -182,7 +182,7 @@ pub const Instruction = struct {
                 self.addBytes(&info.makeEvex());
             },
 
-            // TODO: 
+            // TODO:
             .Xop => unreachable,
         }
     }

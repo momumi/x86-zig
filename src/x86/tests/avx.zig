@@ -87,8 +87,8 @@ test "AVX" {
         {
             testOp2(m32, .VMOVD, reg(.XMM0), rm64, AsmError.InvalidOperand);
             testOp2(m32, .VMOVD, reg(.XMM7), rm64, AsmError.InvalidOperand);
-            testOp2(m32, .VMOVD, reg(.XMM15), rm64, AsmError.InvalidMode);
-            testOp2(m32, .VMOVD, reg(.XMM31), rm64, AsmError.InvalidMode);
+            testOp2(m32, .VMOVD, reg(.XMM15), rm64, AsmError.InvalidOperand);
+            testOp2(m32, .VMOVD, reg(.XMM31), rm64, AsmError.InvalidOperand);
             //
             testOp2(m64, .VMOVD, reg(.XMM0), rm64,  "67 c4 e1 f9 6e 00");
             testOp2(m64, .VMOVD, reg(.XMM7), rm64,  "67 c4 e1 f9 6e 38");
@@ -98,7 +98,7 @@ test "AVX" {
 
         {
             testOp2(m32, .VMOVQ, reg(.XMM0), reg(.RAX), AsmError.InvalidOperand);
-            testOp2(m32, .VMOVQ, reg(.XMM15), reg(.RAX), AsmError.InvalidMode);
+            testOp2(m32, .VMOVQ, reg(.XMM15), reg(.RAX), AsmError.InvalidOperand);
             //
             testOp2(m64, .VMOVQ, reg(.XMM0), reg(.RAX),  "c4 e1 f9 6e C0");
             testOp2(m64, .VMOVQ, reg(.XMM15), reg(.RAX), "c4 61 f9 6e F8");
@@ -107,7 +107,7 @@ test "AVX" {
 
         {
             testOp2(m32, .VMOVQ, reg(.RAX), reg(.XMM0),  AsmError.InvalidOperand);
-            testOp2(m32, .VMOVQ, reg(.RAX), reg(.XMM15), AsmError.InvalidMode);
+            testOp2(m32, .VMOVQ, reg(.RAX), reg(.XMM15), AsmError.InvalidOperand);
             //
             testOp2(m64, .VMOVQ, reg(.RAX), reg(.XMM0),  "c4 e1 f9 7e C0");
             testOp2(m64, .VMOVQ, reg(.RAX), reg(.XMM15), "c4 61 f9 7e F8");
@@ -2375,6 +2375,856 @@ test "AVX" {
         testOp2(m64, .VPBROADCASTMW2D,  pred(.XMM31, .K7, .Zero), regRm(.K0), "62 62 7e 8f 3a f8");
         testOp2(m64, .VPBROADCASTMW2D,  pred(.YMM31, .K7, .Zero), regRm(.K0), "62 62 7e af 3a f8");
         testOp2(m64, .VPBROADCASTMW2D,  pred(.ZMM31, .K7, .Zero), regRm(.K0), "62 62 7e cf 3a f8");
+    }
+
+    {
+        // VPCMPB / VPCMPUB
+        // VPCMPB
+        testOp4(m64, .VPCMPB,   pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 55 07 3f c4 00");
+        testOp4(m64, .VPCMPB,   pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 55 27 3f c4 00");
+        testOp4(m64, .VPCMPB,   pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 55 47 3f c4 00");
+        // VPCMPUB
+        testOp4(m64, .VPCMPUB,  pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 55 07 3e c4 00");
+        testOp4(m64, .VPCMPUB,  pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 55 27 3e c4 00");
+        testOp4(m64, .VPCMPUB,  pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 55 47 3e c4 00");
+        // VPCMPD / VPCMPUD
+        // VPCMPD
+        testOp4(m64, .VPCMPD,   pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 55 07 1f c4 00");
+        testOp4(m64, .VPCMPD,   pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 55 27 1f c4 00");
+        testOp4(m64, .VPCMPD,   pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 55 47 1f c4 00");
+        // VPCMPUD
+        testOp4(m64, .VPCMPUD,  pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 55 07 1e c4 00");
+        testOp4(m64, .VPCMPUD,  pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 55 27 1e c4 00");
+        testOp4(m64, .VPCMPUD,  pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 55 47 1e c4 00");
+        // VPCMPQ / VPCMPUQ
+        // VPCMPQ
+        testOp4(m64, .VPCMPQ,   pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 d5 07 1f c4 00");
+        testOp4(m64, .VPCMPQ,   pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 d5 27 1f c4 00");
+        testOp4(m64, .VPCMPQ,   pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 d5 47 1f c4 00");
+        // VPCMPUQ
+        testOp4(m64, .VPCMPUQ,  pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 d5 07 1e c4 00");
+        testOp4(m64, .VPCMPUQ,  pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 d5 27 1e c4 00");
+        testOp4(m64, .VPCMPUQ,  pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 d5 47 1e c4 00");
+        // VPCMPW / VPCMPUW
+        // VPCMPW
+        testOp4(m64, .VPCMPW,   pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 d5 07 3f c4 00");
+        testOp4(m64, .VPCMPW,   pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 d5 27 3f c4 00");
+        testOp4(m64, .VPCMPW,   pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 d5 47 3f c4 00");
+        // VPCMPUW
+        testOp4(m64, .VPCMPUW,  pred(.K0, .K7, .Merge),reg(.XMM21),regRm(.XMM20),imm(0), "62 b3 d5 07 3e c4 00");
+        testOp4(m64, .VPCMPUW,  pred(.K0, .K7, .Merge),reg(.YMM21),regRm(.YMM20),imm(0), "62 b3 d5 27 3e c4 00");
+        testOp4(m64, .VPCMPUW,  pred(.K0, .K7, .Merge),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 b3 d5 47 3e c4 00");
+    }
+
+    {
+        // VPCOMPRESSB / VPCOMPRESSW
+        // VPCOMPRESSB
+        testOp2(m64, .VPCOMPRESSB,      predRm(rm_mem128, .K7, .Merge), reg(.XMM21), "67 62 e2 7d 0f 63 28");
+        testOp2(m64, .VPCOMPRESSB,      predRm(reg(.XMM20), .K7, .Zero), reg(.XMM21), "62 a2 7d 8f 63 ec");
+        testOp2(m64, .VPCOMPRESSB,      predRm(rm_mem256, .K7, .Merge), reg(.YMM21), "67 62 e2 7d 2f 63 28");
+        testOp2(m64, .VPCOMPRESSB,      predRm(reg(.YMM20), .K7, .Zero), reg(.YMM21), "62 a2 7d af 63 ec");
+        testOp2(m64, .VPCOMPRESSB,      predRm(rm_mem512, .K7, .Merge), reg(.ZMM21), "67 62 e2 7d 4f 63 28");
+        testOp2(m64, .VPCOMPRESSB,      predRm(reg(.ZMM20), .K7, .Zero), reg(.ZMM21), "62 a2 7d cf 63 ec");
+        // VPCOMPRESSW
+        testOp2(m64, .VPCOMPRESSW,      predRm(rm_mem128, .K7, .Merge), reg(.XMM21), "67 62 e2 fd 0f 63 28");
+        testOp2(m64, .VPCOMPRESSW,      predRm(reg(.XMM20), .K7, .Zero), reg(.XMM21), "62 a2 fd 8f 63 ec");
+        testOp2(m64, .VPCOMPRESSW,      predRm(rm_mem256, .K7, .Merge), reg(.YMM21), "67 62 e2 fd 2f 63 28");
+        testOp2(m64, .VPCOMPRESSW,      predRm(reg(.YMM20), .K7, .Zero), reg(.YMM21), "62 a2 fd af 63 ec");
+        testOp2(m64, .VPCOMPRESSW,      predRm(rm_mem512, .K7, .Merge), reg(.ZMM21), "67 62 e2 fd 4f 63 28");
+        testOp2(m64, .VPCOMPRESSW,      predRm(reg(.ZMM20), .K7, .Zero), reg(.ZMM21), "62 a2 fd cf 63 ec");
+        // VPCOMPRESSD
+        testOp2(m64, .VPCOMPRESSD,      regRm(.XMM20), reg(.XMM21), "62 a2 7d 08 8b ec");
+        testOp2(m64, .VPCOMPRESSD,      regRm(.YMM20), reg(.YMM21), "62 a2 7d 28 8b ec");
+        testOp2(m64, .VPCOMPRESSD,      regRm(.ZMM20), reg(.ZMM21), "62 a2 7d 48 8b ec");
+        // VPCOMPRESSQ
+        testOp2(m64, .VPCOMPRESSQ,      regRm(.XMM20), reg(.XMM21), "62 a2 fd 08 8b ec");
+        testOp2(m64, .VPCOMPRESSQ,      regRm(.YMM20), reg(.YMM21), "62 a2 fd 28 8b ec");
+        testOp2(m64, .VPCOMPRESSQ,      regRm(.ZMM20), reg(.ZMM21), "62 a2 fd 48 8b ec");
+    }
+
+    {
+        // VPCONFLICTD / VPCONFLICTQ
+        // VPCONFLICTD
+        testOp2(m64, .VPCONFLICTD,      pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 7d 8f c4 fc");
+        testOp2(m64, .VPCONFLICTD,      pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 7d af c4 fc");
+        testOp2(m64, .VPCONFLICTD,      pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 7d cf c4 fc");
+        // VPCONFLICTQ
+        testOp2(m64, .VPCONFLICTQ,      pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 fd 8f c4 fc");
+        testOp2(m64, .VPCONFLICTQ,      pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 fd af c4 fc");
+        testOp2(m64, .VPCONFLICTQ,      pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 fd cf c4 fc");
+    }
+
+    {
+        // VPDPBUSD
+        testOp3(m64, .VPDPBUSD,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 50 fc");
+        testOp3(m64, .VPDPBUSD,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 50 fc");
+        testOp3(m64, .VPDPBUSD,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 50 fc");
+        // VPDPBUSDS
+        testOp3(m64, .VPDPBUSDS,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 51 fc");
+        testOp3(m64, .VPDPBUSDS,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 51 fc");
+        testOp3(m64, .VPDPBUSDS,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 51 fc");
+        // VPDPWSSD
+        testOp3(m64, .VPDPWSSD,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 52 fc");
+        testOp3(m64, .VPDPWSSD,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 52 fc");
+        testOp3(m64, .VPDPWSSD,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 52 fc");
+        // VPDPWSSDS
+        testOp3(m64, .VPDPWSSDS,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 53 fc");
+        testOp3(m64, .VPDPWSSDS,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 53 fc");
+        testOp3(m64, .VPDPWSSDS,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 53 fc");
+    }
+
+    {
+        // VPERM2F128
+        testOp4(m64, .VPERM2F128,       reg(.YMM1),reg(.YMM2),regRm(.YMM0),imm(0), "c4 e3 6d 06 c8 00");
+        // VPERM2I128
+        testOp4(m64, .VPERM2I128,       reg(.YMM1),reg(.YMM2),regRm(.YMM0),imm(0), "c4 e3 6d 46 c8 00");
+        // VPERMB
+        testOp3(m64, .VPERMB,           pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 8d fc");
+        testOp3(m64, .VPERMB,           pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 8d fc");
+        testOp3(m64, .VPERMB,           pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 8d fc");
+        // VPERMD / VPERMW
+        // VPERMD
+        testOp3(m64, .VPERMD,           reg(.YMM1),reg(.YMM2),regRm(.YMM0), "c4 e2 6d 36 c8");
+        testOp3(m64, .VPERMD,           pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 36 fc");
+        testOp3(m64, .VPERMD,           pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 36 fc");
+        // VPERMW
+        testOp3(m64, .VPERMW,           pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 8d fc");
+        testOp3(m64, .VPERMW,           pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 8d fc");
+        testOp3(m64, .VPERMW,           pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 8d fc");
+    }
+
+    {
+        // VPERMI2B
+        testOp3(m64, .VPERMI2B,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 75 fc");
+        testOp3(m64, .VPERMI2B,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 75 fc");
+        testOp3(m64, .VPERMI2B,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 75 fc");
+        // VPERMI2W / VPERMI2D / VPERMI2Q / VPERMI2PS / VPERMI2PD
+        // VPERMI2W
+        testOp3(m64, .VPERMI2W,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 75 fc");
+        testOp3(m64, .VPERMI2W,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 75 fc");
+        testOp3(m64, .VPERMI2W,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 75 fc");
+        // VPERMI2D
+        testOp3(m64, .VPERMI2D,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 76 fc");
+        testOp3(m64, .VPERMI2D,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 76 fc");
+        testOp3(m64, .VPERMI2D,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 76 fc");
+        // VPERMI2Q
+        testOp3(m64, .VPERMI2Q,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 76 fc");
+        testOp3(m64, .VPERMI2Q,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 76 fc");
+        testOp3(m64, .VPERMI2Q,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 76 fc");
+        // VPERMI2PS
+        testOp3(m64, .VPERMI2PS,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 77 fc");
+        testOp3(m64, .VPERMI2PS,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 77 fc");
+        testOp3(m64, .VPERMI2PS,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 77 fc");
+        // VPERMI2PD
+        testOp3(m64, .VPERMI2PD,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 77 fc");
+        testOp3(m64, .VPERMI2PD,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 77 fc");
+        testOp3(m64, .VPERMI2PD,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 77 fc");
+    }
+
+    {
+        // VPERMILPD
+        testOp3(m64, .VPERMILPD,        reg(.XMM1),reg(.XMM2),regRm(.XMM0), "c4 e2 69 0d c8");
+        testOp3(m64, .VPERMILPD,        reg(.YMM1),reg(.YMM2),regRm(.YMM0), "c4 e2 6d 0d c8");
+        testOp3(m64, .VPERMILPD,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 0d fc");
+        testOp3(m64, .VPERMILPD,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 0d fc");
+        testOp3(m64, .VPERMILPD,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 0d fc");
+        testOp3(m64, .VPERMILPD,        reg(.XMM1),regRm(.XMM0),imm(0), "c4 e3 79 05 c8 00");
+        testOp3(m64, .VPERMILPD,        reg(.YMM1),regRm(.YMM0),imm(0), "c4 e3 7d 05 c8 00");
+        testOp3(m64, .VPERMILPD,        pred(.XMM31, .K7, .Zero),regRm(.XMM20),imm(0), "62 23 fd 8f 05 fc 00");
+        testOp3(m64, .VPERMILPD,        pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 fd af 05 fc 00");
+        testOp3(m64, .VPERMILPD,        pred(.ZMM31, .K7, .Zero),regRm(.ZMM20),imm(0), "62 23 fd cf 05 fc 00");
+        // VPERMILPS
+        testOp3(m64, .VPERMILPS,        reg(.XMM1),reg(.XMM2),regRm(.XMM0), "c4 e2 69 0c c8");
+        testOp3(m64, .VPERMILPS,        reg(.YMM1),reg(.YMM2),regRm(.YMM0), "c4 e2 6d 0c c8");
+        testOp3(m64, .VPERMILPS,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 0c fc");
+        testOp3(m64, .VPERMILPS,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 0c fc");
+        testOp3(m64, .VPERMILPS,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 0c fc");
+        testOp3(m64, .VPERMILPS,        reg(.XMM1),regRm(.XMM0),imm(0), "c4 e3 79 04 c8 00");
+        testOp3(m64, .VPERMILPS,        reg(.YMM1),regRm(.YMM0),imm(0), "c4 e3 7d 04 c8 00");
+        testOp3(m64, .VPERMILPS,        pred(.XMM31, .K7, .Zero),regRm(.XMM20),imm(0), "62 23 7d 8f 04 fc 00");
+        testOp3(m64, .VPERMILPS,        pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 7d af 04 fc 00");
+        testOp3(m64, .VPERMILPS,        pred(.ZMM31, .K7, .Zero),regRm(.ZMM20),imm(0), "62 23 7d cf 04 fc 00");
+        // VPERMPD
+        testOp3(m64, .VPERMPD,          pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 16 fc");
+        testOp3(m64, .VPERMPD,          pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 16 fc");
+        testOp3(m64, .VPERMPD,          reg(.YMM1),regRm(.YMM0),imm(0), "c4 e3 fd 01 c8 00");
+        testOp3(m64, .VPERMPD,          pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 fd af 01 fc 00");
+        testOp3(m64, .VPERMPD,          pred(.ZMM31, .K7, .Zero),regRm(.ZMM20),imm(0), "62 23 fd cf 01 fc 00");
+        // VPERMPS
+        testOp3(m64, .VPERMPS,          reg(.YMM1),reg(.YMM2),regRm(.YMM0), "c4 e2 6d 16 c8");
+        testOp3(m64, .VPERMPS,          pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 16 fc");
+        testOp3(m64, .VPERMPS,          pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 16 fc");
+        // VPERMQ
+        testOp3(m64, .VPERMQ,           pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 36 fc");
+        testOp3(m64, .VPERMQ,           pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 36 fc");
+        testOp3(m64, .VPERMQ,           reg(.YMM1),regRm(.YMM0),imm(0), "c4 e3 fd 00 c8 00");
+        testOp3(m64, .VPERMQ,           pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 fd af 00 fc 00");
+        testOp3(m64, .VPERMQ,           pred(.ZMM31, .K7, .Zero),regRm(.ZMM20),imm(0), "62 23 fd cf 00 fc 00");
+    }
+
+    {
+        // VPERMT2B
+        testOp3(m64, .VPERMT2B,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 7d fc");
+        testOp3(m64, .VPERMT2B,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 7d fc");
+        testOp3(m64, .VPERMT2B,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 7d fc");
+        // VPERMT2W / VPERMT2D / VPERMT2Q / VPERMT2PS / VPERMT2PD
+        // VPERMT2W
+        testOp3(m64, .VPERMT2W,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 7d fc");
+        testOp3(m64, .VPERMT2W,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 7d fc");
+        testOp3(m64, .VPERMT2W,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 7d fc");
+        // VPERMT2D
+        testOp3(m64, .VPERMT2D,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 7e fc");
+        testOp3(m64, .VPERMT2D,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 7e fc");
+        testOp3(m64, .VPERMT2D,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 7e fc");
+        // VPERMT2Q
+        testOp3(m64, .VPERMT2Q,         pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 7e fc");
+        testOp3(m64, .VPERMT2Q,         pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 7e fc");
+        testOp3(m64, .VPERMT2Q,         pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 7e fc");
+        // VPERMT2PS
+        testOp3(m64, .VPERMT2PS,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 7f fc");
+        testOp3(m64, .VPERMT2PS,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 7f fc");
+        testOp3(m64, .VPERMT2PS,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 7f fc");
+        // VPERMT2PD
+        testOp3(m64, .VPERMT2PD,        pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 7f fc");
+        testOp3(m64, .VPERMT2PD,        pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 7f fc");
+        testOp3(m64, .VPERMT2PD,        pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 7f fc");
+    }
+
+    {
+        // VPEXPANDB / VPEXPANDW
+        // VPEXPANDB
+        testOp2(m64, .VPEXPANDB,      pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62227d8f62fc");
+        testOp2(m64, .VPEXPANDB,      pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62227daf62fc");
+        testOp2(m64, .VPEXPANDB,      pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62227dcf62fc");
+        // VPEXPANDW
+        testOp2(m64, .VPEXPANDW,      pred(.XMM31, .K7, .Zero), regRm(.XMM20), "6222fd8f62fc");
+        testOp2(m64, .VPEXPANDW,      pred(.YMM31, .K7, .Zero), regRm(.YMM20), "6222fdaf62fc");
+        testOp2(m64, .VPEXPANDW,      pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "6222fdcf62fc");
+        // VPEXPANDD
+        testOp2(m64, .VPEXPANDD,      pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62227d8f89fc");
+        testOp2(m64, .VPEXPANDD,      pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62227daf89fc");
+        testOp2(m64, .VPEXPANDD,      pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62227dcf89fc");
+        // VPEXPANDQ
+        testOp2(m64, .VPEXPANDQ,      pred(.XMM31, .K7, .Zero), regRm(.XMM20), "6222fd8f89fc");
+        testOp2(m64, .VPEXPANDQ,      pred(.YMM31, .K7, .Zero), regRm(.YMM20), "6222fdaf89fc");
+        testOp2(m64, .VPEXPANDQ,      pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "6222fdcf89fc");
+    }
+
+    {
+        // VPGATHERDD / VPGATHERQD / VPGATHERDQ / VPGATHERQQ
+        // VPGATHERDD
+        testOp3(m64, .VPGATHERDD,   reg(.XMM1), vm32xl, reg(.XMM2), "67 c4 e2 69 90 0c f8");
+        testOp3(m64, .VPGATHERDD,   reg(.YMM1), vm32yl, reg(.YMM2), "67 c4 e2 6d 90 0c f8");
+        testOp2(m64, .VPGATHERDD,   pred(.XMM31, .K7, .Merge), vm32x, "67 62 22 7d 07 90 3c f0");
+        testOp2(m64, .VPGATHERDD,   pred(.YMM31, .K7, .Merge), vm32y, "67 62 22 7d 27 90 3c f0");
+        testOp2(m64, .VPGATHERDD,   pred(.ZMM31, .K7, .Merge), vm32z, "67 62 22 7d 47 90 3c f0");
+        // VPGATHERDQ
+        testOp3(m64, .VPGATHERDQ,   reg(.XMM1), vm32xl, reg(.XMM2), "67 c4 e2 e9 90 0c f8");
+        testOp3(m64, .VPGATHERDQ,   reg(.YMM1), vm32xl, reg(.YMM2), "67 c4 e2 ed 90 0c f8");
+        testOp2(m64, .VPGATHERDQ,   pred(.XMM31, .K7, .Merge), vm32x, "67 62 22 fd 07 90 3c f0");
+        testOp2(m64, .VPGATHERDQ,   pred(.YMM31, .K7, .Merge), vm32x, "67 62 22 fd 27 90 3c f0");
+        testOp2(m64, .VPGATHERDQ,   pred(.ZMM31, .K7, .Merge), vm32y, "67 62 22 fd 47 90 3c f0");
+        // VPGATHERQD
+        testOp3(m64, .VPGATHERQD,   reg(.XMM1), vm64xl, reg(.XMM2), "67 c4 e2 69 91 0c f8");
+        testOp3(m64, .VPGATHERQD,   reg(.XMM1), vm64yl, reg(.XMM2), "67 c4 e2 6d 91 0c f8");
+        testOp2(m64, .VPGATHERQD,   pred(.XMM31, .K7, .Merge), vm64x, "67 62 22 7d 07 91 3c f0");
+        testOp2(m64, .VPGATHERQD,   pred(.XMM31, .K7, .Merge), vm64y, "67 62 22 7d 27 91 3c f0");
+        testOp2(m64, .VPGATHERQD,   pred(.YMM31, .K7, .Merge), vm64z, "67 62 22 7d 47 91 3c f0");
+        // VPGATHERQQ
+        testOp3(m64, .VPGATHERQQ,   reg(.XMM1), vm64xl, reg(.XMM2), "67 c4 e2 e9 91 0c f8");
+        testOp3(m64, .VPGATHERQQ,   reg(.YMM1), vm64yl, reg(.YMM2), "67 c4 e2 ed 91 0c f8");
+        testOp2(m64, .VPGATHERQQ,   pred(.XMM31, .K7, .Merge), vm64x, "67 62 22 fd 07 91 3c f0");
+        testOp2(m64, .VPGATHERQQ,   pred(.YMM31, .K7, .Merge), vm64y, "67 62 22 fd 27 91 3c f0");
+        testOp2(m64, .VPGATHERQQ,   pred(.ZMM31, .K7, .Merge), vm64z, "67 62 22 fd 47 91 3c f0");
+    }
+
+    {
+        // VPLZCNTD / VPLZCNTQ
+        // VPLZCNTD
+        testOp2(m64, .VPLZCNTD,     pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 7d 8f 44 fc");
+        testOp2(m64, .VPLZCNTD,     pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 7d af 44 fc");
+        testOp2(m64, .VPLZCNTD,     pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 7d cf 44 fc");
+        // VPLZCNTQ
+        testOp2(m64, .VPLZCNTQ,     pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 fd 8f 44 fc");
+        testOp2(m64, .VPLZCNTQ,     pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 fd af 44 fc");
+        testOp2(m64, .VPLZCNTQ,     pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 fd cf 44 fc");
+    }
+
+    {
+        // VPMADD52HUQ
+        testOp3(m64, .VPMADD52HUQ,  pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 d5 87 b5 fc");
+        testOp3(m64, .VPMADD52HUQ,  pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 d5 a7 b5 fc");
+        testOp3(m64, .VPMADD52HUQ,  pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 d5 c7 b5 fc");
+        // VPMADD52LUQ
+        testOp3(m64, .VPMADD52LUQ,  pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 d5 87 b4 fc");
+        testOp3(m64, .VPMADD52LUQ,  pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 d5 a7 b4 fc");
+        testOp3(m64, .VPMADD52LUQ,  pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 d5 c7 b4 fc");
+    }
+
+    {
+        // VPMASKMOV
+        // VMASKMOVD
+        testOp3(m64, .VMASKMOVD,    reg(.XMM1), reg(.XMM2), rm_mem128, "67 c4 e2 69 8c 08");
+        testOp3(m64, .VMASKMOVD,    reg(.YMM1), reg(.YMM2), rm_mem256, "67 c4 e2 6d 8c 08");
+        testOp3(m64, .VMASKMOVD,    rm_mem128, reg(.XMM1), reg(.XMM2), "67 c4 e2 71 8e 10");
+        testOp3(m64, .VMASKMOVD,    rm_mem256, reg(.YMM1), reg(.YMM2), "67 c4 e2 75 8e 10");
+        // VMASKMOVQ
+        testOp3(m64, .VMASKMOVQ,    reg(.XMM1), reg(.XMM2), rm_mem128, "67 c4 e2 e9 8c 08");
+        testOp3(m64, .VMASKMOVQ,    reg(.YMM1), reg(.YMM2), rm_mem256, "67 c4 e2 ed 8c 08");
+        testOp3(m64, .VMASKMOVQ,    rm_mem128, reg(.XMM1), reg(.XMM2), "67 c4 e2 f1 8e 10");
+        testOp3(m64, .VMASKMOVQ,    rm_mem256, reg(.YMM1), reg(.YMM2), "67 c4 e2 f5 8e 10");
+    }
+
+    {
+        // VPMOVB2M / VPMOVW2M / VPMOVD2M / VPMOVQ2M
+        // VPMOVB2M
+        testOp2(m64, .VPMOVB2M,     reg(.K0), regRm(.XMM20), "62 b2 7e 08 29 c4");
+        testOp2(m64, .VPMOVB2M,     reg(.K0), regRm(.YMM20), "62 b2 7e 28 29 c4");
+        testOp2(m64, .VPMOVB2M,     reg(.K0), regRm(.ZMM20), "62 b2 7e 48 29 c4");
+        // VPMOVW2M
+        testOp2(m64, .VPMOVW2M,     reg(.K0), regRm(.XMM20), "62 b2 fe 08 29 c4");
+        testOp2(m64, .VPMOVW2M,     reg(.K0), regRm(.YMM20), "62 b2 fe 28 29 c4");
+        testOp2(m64, .VPMOVW2M,     reg(.K0), regRm(.ZMM20), "62 b2 fe 48 29 c4");
+        // VPMOVD2M
+        testOp2(m64, .VPMOVD2M,     reg(.K0), regRm(.XMM20), "62 b2 7e 08 39 c4");
+        testOp2(m64, .VPMOVD2M,     reg(.K0), regRm(.YMM20), "62 b2 7e 28 39 c4");
+        testOp2(m64, .VPMOVD2M,     reg(.K0), regRm(.ZMM20), "62 b2 7e 48 39 c4");
+        // VPMOVQ2M
+        testOp2(m64, .VPMOVQ2M,     reg(.K0), regRm(.XMM20), "62 b2 fe 08 39 c4");
+        testOp2(m64, .VPMOVQ2M,     reg(.K0), regRm(.YMM20), "62 b2 fe 28 39 c4");
+        testOp2(m64, .VPMOVQ2M,     reg(.K0), regRm(.ZMM20), "62 b2 fe 48 39 c4");
+    }
+
+    {
+        // VPMOVDB / VPMOVSDB / VPMOVUSDB
+        // VPMOVDB
+        testOp2(m64, .VPMOVDB,      regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 31 ec");
+        testOp2(m64, .VPMOVDB,      regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 31 ec");
+        testOp2(m64, .VPMOVDB,      regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 31 ec");
+        // VPMOVSDB
+        testOp2(m64, .VPMOVSDB,     regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 21 ec");
+        testOp2(m64, .VPMOVSDB,     regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 21 ec");
+        testOp2(m64, .VPMOVSDB,     regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 21 ec");
+        // VPMOVUSDB
+        testOp2(m64, .VPMOVUSDB,    regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 11 ec");
+        testOp2(m64, .VPMOVUSDB,    regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 11 ec");
+        testOp2(m64, .VPMOVUSDB,    regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 11 ec");
+    }
+
+    {
+        // VPMOVDW / VPMOVSDB / VPMOVUSDB
+        // VPMOVDW
+        testOp2(m64, .VPMOVDW,      regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 33 ec");
+        testOp2(m64, .VPMOVDW,      regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 33 ec");
+        testOp2(m64, .VPMOVDW,      regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 33 ec");
+        // VPMOVSDB
+        testOp2(m64, .VPMOVSDW,     regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 23 ec");
+        testOp2(m64, .VPMOVSDW,     regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 23 ec");
+        testOp2(m64, .VPMOVSDW,     regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 23 ec");
+        // VPMOVUSDB
+        testOp2(m64, .VPMOVUSDW,    regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 13 ec");
+        testOp2(m64, .VPMOVUSDW,    regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 13 ec");
+        testOp2(m64, .VPMOVUSDW,    regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 13 ec");
+    }
+
+    {
+        // VPMOVM2B / VPMOVM2W / VPMOVM2D / VPMOVM2Q
+        // VPMOVM2B
+        testOp2(m64, .VPMOVM2B,     reg(.XMM21), regRm(.K0), "62 e2 7e 08 28 e8");
+        testOp2(m64, .VPMOVM2B,     reg(.YMM21), regRm(.K0), "62 e2 7e 28 28 e8");
+        testOp2(m64, .VPMOVM2B,     reg(.ZMM21), regRm(.K0), "62 e2 7e 48 28 e8");
+        // VPMOVM2W
+        testOp2(m64, .VPMOVM2W,     reg(.XMM21), regRm(.K0), "62 e2 fe 08 28 e8");
+        testOp2(m64, .VPMOVM2W,     reg(.YMM21), regRm(.K0), "62 e2 fe 28 28 e8");
+        testOp2(m64, .VPMOVM2W,     reg(.ZMM21), regRm(.K0), "62 e2 fe 48 28 e8");
+        // VPMOVM2D
+        testOp2(m64, .VPMOVM2D,     reg(.XMM21), regRm(.K0), "62 e2 7e 08 38 e8");
+        testOp2(m64, .VPMOVM2D,     reg(.YMM21), regRm(.K0), "62 e2 7e 28 38 e8");
+        testOp2(m64, .VPMOVM2D,     reg(.ZMM21), regRm(.K0), "62 e2 7e 48 38 e8");
+        // VPMOVM2Q
+        testOp2(m64, .VPMOVM2Q,     reg(.XMM21), regRm(.K0), "62 e2 fe 08 38 e8");
+        testOp2(m64, .VPMOVM2Q,     reg(.YMM21), regRm(.K0), "62 e2 fe 28 38 e8");
+        testOp2(m64, .VPMOVM2Q,     reg(.ZMM21), regRm(.K0), "62 e2 fe 48 38 e8");
+    }
+
+    {
+        // VPMOVQB / VPMOVSQB / VPMOVUSQB
+        // VPMOVQB
+        testOp2(m64, .VPMOVQB,      regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 32 ec");
+        testOp2(m64, .VPMOVQB,      regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 32 ec");
+        testOp2(m64, .VPMOVQB,      regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 32 ec");
+        // VPMOVSQB
+        testOp2(m64, .VPMOVSQB,     regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 22 ec");
+        testOp2(m64, .VPMOVSQB,     regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 22 ec");
+        testOp2(m64, .VPMOVSQB,     regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 22 ec");
+        // VPMOVUSQB
+        testOp2(m64, .VPMOVUSQB,    regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 12 ec");
+        testOp2(m64, .VPMOVUSQB,    regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 12 ec");
+        testOp2(m64, .VPMOVUSQB,    regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 12 ec");
+    }
+
+    {
+        // VPMOVQD / VPMOVSQD / VPMOVUSQD
+        // VPMOVQD
+        testOp2(m64, .VPMOVQD,      regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 35 ec");
+        testOp2(m64, .VPMOVQD,      regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 35 ec");
+        testOp2(m64, .VPMOVQD,      regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 35 ec");
+        // VPMOVSQD
+        testOp2(m64, .VPMOVSQD,     regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 25 ec");
+        testOp2(m64, .VPMOVSQD,     regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 25 ec");
+        testOp2(m64, .VPMOVSQD,     regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 25 ec");
+        // VPMOVUSQD
+        testOp2(m64, .VPMOVUSQD,    regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 15 ec");
+        testOp2(m64, .VPMOVUSQD,    regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 15 ec");
+        testOp2(m64, .VPMOVUSQD,    regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 15 ec");
+        // VPMOVQD / VPMOVSQD / VPMOVUSQD
+        // VPMOVQD
+        testOp2(m64, .VPMOVQD,      predRm(rm_mem64, .K7, .Zero), reg(.XMM21), "67 62 e2 7e 8f 35 28");
+        testOp2(m64, .VPMOVQD,      predRm(rm_mem128, .K7, .Zero), reg(.YMM21), "67 62 e2 7e af 35 28");
+        testOp2(m64, .VPMOVQD,      predRm(rm_mem256, .K7, .Zero), reg(.ZMM21), "67 62 e2 7e cf 35 28");
+        // VPMOVSQD
+        testOp2(m64, .VPMOVSQD,     predRm(rm_mem64, .K7, .Zero), reg(.XMM21), "67 62 e2 7e 8f 25 28");
+        testOp2(m64, .VPMOVSQD,     predRm(rm_mem128, .K7, .Zero), reg(.YMM21), "67 62 e2 7e af 25 28");
+        testOp2(m64, .VPMOVSQD,     predRm(rm_mem256, .K7, .Zero), reg(.ZMM21), "67 62 e2 7e cf 25 28");
+        // VPMOVUSQD
+        testOp2(m64, .VPMOVUSQD,    predRm(rm_mem64, .K7, .Zero), reg(.XMM21), "67 62 e2 7e 8f 15 28");
+        testOp2(m64, .VPMOVUSQD,    predRm(rm_mem128, .K7, .Zero), reg(.YMM21), "67 62 e2 7e af 15 28");
+        testOp2(m64, .VPMOVUSQD,    predRm(rm_mem256, .K7, .Zero), reg(.ZMM21), "67 62 e2 7e cf 15 28");
+    }
+
+    {
+        // VPMOVQW / VPMOVSQW / VPMOVUSQW
+        // VPMOVQW
+        testOp2(m64, .VPMOVQW,      regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 34 ec");
+        testOp2(m64, .VPMOVQW,      regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 34 ec");
+        testOp2(m64, .VPMOVQW,      regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 34 ec");
+        // VPMOVSQW
+        testOp2(m64, .VPMOVSQW,     regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 24 ec");
+        testOp2(m64, .VPMOVSQW,     regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 24 ec");
+        testOp2(m64, .VPMOVSQW,     regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 24 ec");
+        // VPMOVUSQW
+        testOp2(m64, .VPMOVUSQW,    regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 14 ec");
+        testOp2(m64, .VPMOVUSQW,    regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 14 ec");
+        testOp2(m64, .VPMOVUSQW,    regRm(.XMM20), reg(.ZMM21), "62 a2 7e 48 14 ec");
+    }
+
+    {
+        // VPMOVWB / VPMOVSWB / VPMOVUSWB
+        // VPMOVWB
+        testOp2(m64, .VPMOVWB,      regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 30 ec");
+        testOp2(m64, .VPMOVWB,      regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 30 ec");
+        testOp2(m64, .VPMOVWB,      regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 30 ec");
+        // VPMOVSWB
+        testOp2(m64, .VPMOVSWB,     regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 20 ec");
+        testOp2(m64, .VPMOVSWB,     regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 20 ec");
+        testOp2(m64, .VPMOVSWB,     regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 20 ec");
+        // VPMOVUSWB
+        testOp2(m64, .VPMOVUSWB,    regRm(.XMM20), reg(.XMM21), "62 a2 7e 08 10 ec");
+        testOp2(m64, .VPMOVUSWB,    regRm(.XMM20), reg(.YMM21), "62 a2 7e 28 10 ec");
+        testOp2(m64, .VPMOVUSWB,    regRm(.YMM20), reg(.ZMM21), "62 a2 7e 48 10 ec");
+    }
+
+    {
+        // VPMULTISHIFTQB
+        testOp3(m64, .VPMULTISHIFTQB, pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 d5 87 83 fc");
+        testOp3(m64, .VPMULTISHIFTQB, pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 d5 a7 83 fc");
+        testOp3(m64, .VPMULTISHIFTQB, pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 d5 c7 83 fc");
+    }
+
+    {
+        // VPOPCNT
+        // VPOPCNTB
+        testOp2(m64, .VPOPCNTB,     pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 7d 8f 54 fc");
+        testOp2(m64, .VPOPCNTB,     pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 7d af 54 fc");
+        testOp2(m64, .VPOPCNTB,     pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 7d cf 54 fc");
+        // VPOPCNTW
+        testOp2(m64, .VPOPCNTW,     pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 fd 8f 54 fc");
+        testOp2(m64, .VPOPCNTW,     pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 fd af 54 fc");
+        testOp2(m64, .VPOPCNTW,     pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 fd cf 54 fc");
+        // VPOPCNTD
+        testOp2(m64, .VPOPCNTD,     pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 7d 8f 55 fc");
+        testOp2(m64, .VPOPCNTD,     pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 7d af 55 fc");
+        testOp2(m64, .VPOPCNTD,     pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 7d cf 55 fc");
+        // VPOPCNTQ
+        testOp2(m64, .VPOPCNTQ,     pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 fd 8f 55 fc");
+        testOp2(m64, .VPOPCNTQ,     pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 fd af 55 fc");
+        testOp2(m64, .VPOPCNTQ,     pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 fd cf 55 fc");
+    }
+
+    {
+        // VPROLD / VPROLVD / VPROLQ / VPROLVQ
+        // VPROLD
+        testOp3(m64, .VPROLD,       pred(.XMM31, .K7, .Zero), regRm(.XMM20), imm(0), "62 b1 05 87 72 cc 00");
+        testOp3(m64, .VPROLD,       pred(.YMM31, .K7, .Zero), regRm(.YMM20), imm(0), "62 b1 05 a7 72 cc 00");
+        testOp3(m64, .VPROLD,       pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), imm(0), "62 b1 05 c7 72 cc 00");
+        // VPROLVD
+        testOp3(m64, .VPROLVD,      pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 55 87 15 fc");
+        testOp3(m64, .VPROLVD,      pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 55 a7 15 fc");
+        testOp3(m64, .VPROLVD,      pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 55 c7 15 fc");
+        // VPROLQ
+        testOp3(m64, .VPROLQ,       pred(.XMM31, .K7, .Zero), regRm(.XMM20), imm(0), "62 b1 85 87 72 cc 00");
+        testOp3(m64, .VPROLQ,       pred(.YMM31, .K7, .Zero), regRm(.YMM20), imm(0), "62 b1 85 a7 72 cc 00");
+        testOp3(m64, .VPROLQ,       pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), imm(0), "62 b1 85 c7 72 cc 00");
+        // VPROLVQ
+        testOp3(m64, .VPROLVQ,      pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 d5 87 15 fc");
+        testOp3(m64, .VPROLVQ,      pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 d5 a7 15 fc");
+        testOp3(m64, .VPROLVQ,      pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 d5 c7 15 fc");
+    }
+
+    {
+        // VPRORD / VPRORVD / VPRORQ / VPRORVQ
+        // VPRORD
+        testOp3(m64, .VPRORD,       pred(.XMM31, .K7, .Zero), regRm(.XMM20), imm(0), "62 b1 05 87 72 c4 00");
+        testOp3(m64, .VPRORD,       pred(.YMM31, .K7, .Zero), regRm(.YMM20), imm(0), "62 b1 05 a7 72 c4 00");
+        testOp3(m64, .VPRORD,       pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), imm(0), "62 b1 05 c7 72 c4 00");
+        // VPRORVD
+        testOp3(m64, .VPRORVD,      pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 55 87 14 fc");
+        testOp3(m64, .VPRORVD,      pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 55 a7 14 fc");
+        testOp3(m64, .VPRORVD,      pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 55 c7 14 fc");
+        // VPRORQ
+        testOp3(m64, .VPRORQ,       pred(.XMM31, .K7, .Zero), regRm(.XMM20), imm(0), "62 b1 85 87 72 c4 00");
+        testOp3(m64, .VPRORQ,       pred(.YMM31, .K7, .Zero), regRm(.YMM20), imm(0), "62 b1 85 a7 72 c4 00");
+        testOp3(m64, .VPRORQ,       pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), imm(0), "62 b1 85 c7 72 c4 00");
+        // VPRORVQ
+        testOp3(m64, .VPRORVQ,      pred(.XMM31, .K7, .Zero), reg(.XMM21), regRm(.XMM20), "62 22 d5 87 14 fc");
+        testOp3(m64, .VPRORVQ,      pred(.YMM31, .K7, .Zero), reg(.YMM21), regRm(.YMM20), "62 22 d5 a7 14 fc");
+        testOp3(m64, .VPRORVQ,      pred(.ZMM31, .K7, .Zero), reg(.ZMM21), regRm(.ZMM20), "62 22 d5 c7 14 fc");
+    }
+
+    {
+        // VPSCATTERDD / VPSCATTERDQ / VPSCATTERQD / VPSCATTERQQ
+        // VPSCATTERDD
+        testOp2(m64, .VPSCATTERDD,  predRm(vm32x, .K7, .Merge), reg(.XMM21), "67 62 a2 7d 07 a0 2c f0");
+        testOp2(m64, .VPSCATTERDD,  predRm(vm32y, .K7, .Merge), reg(.YMM21), "67 62 a2 7d 27 a0 2c f0");
+        testOp2(m64, .VPSCATTERDD,  predRm(vm32z, .K7, .Merge), reg(.ZMM21), "67 62 a2 7d 47 a0 2c f0");
+        // VPSCATTERDQ
+        testOp2(m64, .VPSCATTERDQ,  predRm(vm32x, .K7, .Merge), reg(.XMM21), "67 62 a2 fd 07 a0 2c f0");
+        testOp2(m64, .VPSCATTERDQ,  predRm(vm32x, .K7, .Merge), reg(.YMM21), "67 62 a2 fd 27 a0 2c f0");
+        testOp2(m64, .VPSCATTERDQ,  predRm(vm32y, .K7, .Merge), reg(.ZMM21), "67 62 a2 fd 47 a0 2c f0");
+        // VPSCATTERQD
+        testOp2(m64, .VPSCATTERQD,  predRm(vm64x, .K7, .Merge), reg(.XMM21), "67 62 a2 7d 07 a1 2c f0");
+        testOp2(m64, .VPSCATTERQD,  predRm(vm64y, .K7, .Merge), reg(.XMM21), "67 62 a2 7d 27 a1 2c f0");
+        testOp2(m64, .VPSCATTERQD,  predRm(vm64z, .K7, .Merge), reg(.YMM21), "67 62 a2 7d 47 a1 2c f0");
+        // VPSCATTERQQ
+        testOp2(m64, .VPSCATTERQQ,  predRm(vm64x, .K7, .Merge), reg(.XMM21), "67 62 a2 fd 07 a1 2c f0");
+        testOp2(m64, .VPSCATTERQQ,  predRm(vm64y, .K7, .Merge), reg(.YMM21), "67 62 a2 fd 27 a1 2c f0");
+        testOp2(m64, .VPSCATTERQQ,  predRm(vm64z, .K7, .Merge), reg(.ZMM21), "67 62 a2 fd 47 a1 2c f0");
+    }
+
+    {
+        // VPSHLD
+        // VPSHLDW
+        testOp4(m64, .VPSHLDW,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 d5 87 70 fc 00");
+        testOp4(m64, .VPSHLDW,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 70 fc 00");
+        testOp4(m64, .VPSHLDW,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 70 fc 00");
+        // VPSHLDD
+        testOp4(m64, .VPSHLDD,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 55 87 71 fc 00");
+        testOp4(m64, .VPSHLDD,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 55 a7 71 fc 00");
+        testOp4(m64, .VPSHLDD,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 55 c7 71 fc 00");
+        // VPSHLDQ
+        testOp4(m64, .VPSHLDQ,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 d5 87 71 fc 00");
+        testOp4(m64, .VPSHLDQ,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 71 fc 00");
+        testOp4(m64, .VPSHLDQ,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 71 fc 00");
+        // VPSHLDV
+        // VPSHLDVW
+        testOp3(m64, .VPSHLDVW,  pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 70 fc");
+        testOp3(m64, .VPSHLDVW,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 70 fc");
+        testOp3(m64, .VPSHLDVW,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 70 fc");
+        // VPSHLDVD
+        testOp3(m64, .VPSHLDVD,  pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 71 fc");
+        testOp3(m64, .VPSHLDVD,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 71 fc");
+        testOp3(m64, .VPSHLDVD,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 71 fc");
+        // VPSHLDVQ
+        testOp3(m64, .VPSHLDVQ,  pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 71 fc");
+        testOp3(m64, .VPSHLDVQ,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 71 fc");
+        testOp3(m64, .VPSHLDVQ,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 71 fc");
+    }
+
+    {
+        // VPSHRD
+        // VPSHRDW
+        testOp4(m64, .VPSHRDW,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 d5 87 72 fc 00");
+        testOp4(m64, .VPSHRDW,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 72 fc 00");
+        testOp4(m64, .VPSHRDW,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 72 fc 00");
+        // VPSHRDD
+        testOp4(m64, .VPSHRDD,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 55 87 73 fc 00");
+        testOp4(m64, .VPSHRDD,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 55 a7 73 fc 00");
+        testOp4(m64, .VPSHRDD,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 55 c7 73 fc 00");
+        // VPSHRDQ
+        testOp4(m64, .VPSHRDQ,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 d5 87 73 fc 00");
+        testOp4(m64, .VPSHRDQ,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 73 fc 00");
+        testOp4(m64, .VPSHRDQ,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 73 fc 00");
+        // VPSHRDV
+        // VPSHRDVW
+        testOp3(m64, .VPSHRDVW,  pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 72 fc");
+        testOp3(m64, .VPSHRDVW,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 72 fc");
+        testOp3(m64, .VPSHRDVW,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 72 fc");
+        // VPSHRDVD
+        testOp3(m64, .VPSHRDVD,  pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 73 fc");
+        testOp3(m64, .VPSHRDVD,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 73 fc");
+        testOp3(m64, .VPSHRDVD,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 73 fc");
+        // VPSHRDVQ
+        testOp3(m64, .VPSHRDVQ,  pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 73 fc");
+        testOp3(m64, .VPSHRDVQ,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 73 fc");
+        testOp3(m64, .VPSHRDVQ,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 73 fc");
+    }
+
+    {
+        // VPSHUFBITQMB
+        testOp3(m64, .VPSHUFBITQMB, pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 55 07 8f c4");
+        testOp3(m64, .VPSHUFBITQMB, pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 55 27 8f c4");
+        testOp3(m64, .VPSHUFBITQMB, pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 55 47 8f c4");
+    }
+
+    {
+        // VPSLLVW / VPSLLVD / VPSLLVQ
+        // VPSLLVW
+        testOp3(m64, .VPSLLVW,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 12 fc");
+        testOp3(m64, .VPSLLVW,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 12 fc");
+        testOp3(m64, .VPSLLVW,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 12 fc");
+        // VPSLLVD
+        testOp3(m64, .VPSLLVD,      reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 69 47 c8");
+        testOp3(m64, .VPSLLVD,      reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 6d 47 c8");
+        testOp3(m64, .VPSLLVD,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 47 fc");
+        testOp3(m64, .VPSLLVD,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 47 fc");
+        testOp3(m64, .VPSLLVD,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 47 fc");
+        // VPSLLVQ
+        testOp3(m64, .VPSLLVQ,      reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 47 c8");
+        testOp3(m64, .VPSLLVQ,      reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 47 c8");
+        testOp3(m64, .VPSLLVQ,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 47 fc");
+        testOp3(m64, .VPSLLVQ,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 47 fc");
+        testOp3(m64, .VPSLLVQ,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 47 fc");
+    }
+
+    {
+        // VPSRAVW / VPSRAVD / VPSRAVQ
+        // VPSRAVW
+        testOp3(m64, .VPSRAVW,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 11 fc");
+        testOp3(m64, .VPSRAVW,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 11 fc");
+        testOp3(m64, .VPSRAVW,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 11 fc");
+        // VPSRAVD
+        testOp3(m64, .VPSRAVD,      reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 69 46 c8");
+        testOp3(m64, .VPSRAVD,      reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 6d 46 c8");
+        testOp3(m64, .VPSRAVD,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 46 fc");
+        testOp3(m64, .VPSRAVD,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 46 fc");
+        testOp3(m64, .VPSRAVD,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 46 fc");
+        // VPSRAVQ
+        testOp3(m64, .VPSRAVQ,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 46 fc");
+        testOp3(m64, .VPSRAVQ,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 46 fc");
+        testOp3(m64, .VPSRAVQ,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 46 fc");
+    }
+
+    {
+        // VPSRLVW / VPSRLVD / VPSRLVQ
+        // VPSRLVW
+        testOp3(m64, .VPSRLVW,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 10 fc");
+        testOp3(m64, .VPSRLVW,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 10 fc");
+        testOp3(m64, .VPSRLVW,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 10 fc");
+        // VPSRLVD
+        testOp3(m64, .VPSRLVD,      reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 69 45 c8");
+        testOp3(m64, .VPSRLVD,      reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 6d 45 c8");
+        testOp3(m64, .VPSRLVD,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 45 fc");
+        testOp3(m64, .VPSRLVD,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 45 fc");
+        testOp3(m64, .VPSRLVD,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 55 c7 45 fc");
+        // VPSRLVQ
+        testOp3(m64, .VPSRLVQ,      reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 45 c8");
+        testOp3(m64, .VPSRLVQ,      reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 45 c8");
+        testOp3(m64, .VPSRLVQ,      pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 45 fc");
+        testOp3(m64, .VPSRLVQ,      pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 45 fc");
+        testOp3(m64, .VPSRLVQ,      pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20), "62 22 d5 c7 45 fc");
+    }
+
+    {
+        // VPTERNLOGD / VPTERNLOGQ
+        // VPTERNLOGD
+        testOp4(m64, .VPTERNLOGD,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 55 87 25 fc 00");
+        testOp4(m64, .VPTERNLOGD,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 55 a7 25 fc 00");
+        testOp4(m64, .VPTERNLOGD,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 55 c7 25 fc 00");
+        // VPTERNLOGQ
+        testOp4(m64, .VPTERNLOGQ,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 d5 87 25 fc 00");
+        testOp4(m64, .VPTERNLOGQ,   pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 25 fc 00");
+        testOp4(m64, .VPTERNLOGQ,   pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 25 fc 00");
+    }
+
+    {
+        // VPTESTMB / VPTESTMW / VPTESTMD / VPTESTMQ
+        // VPTESTMB
+        testOp3(m64, .VPTESTMB,   pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 55 07 26 c4");
+        testOp3(m64, .VPTESTMB,   pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 55 27 26 c4");
+        testOp3(m64, .VPTESTMB,   pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 55 47 26 c4");
+        // VPTESTMW
+        testOp3(m64, .VPTESTMW,   pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 d5 07 26 c4");
+        testOp3(m64, .VPTESTMW,   pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 d5 27 26 c4");
+        testOp3(m64, .VPTESTMW,   pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 d5 47 26 c4");
+        // VPTESTMD
+        testOp3(m64, .VPTESTMD,   pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 55 07 27 c4");
+        testOp3(m64, .VPTESTMD,   pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 55 27 27 c4");
+        testOp3(m64, .VPTESTMD,   pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 55 47 27 c4");
+        // VPTESTMQ
+        testOp3(m64, .VPTESTMQ,   pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 d5 07 27 c4");
+        testOp3(m64, .VPTESTMQ,   pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 d5 27 27 c4");
+        testOp3(m64, .VPTESTMQ,   pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 d5 47 27 c4");
+    }
+
+    {
+        // VPTESTNMB / VPTESTNMW / VPTESTNMD / VPTESTNMQ
+        // VPTESTNMB
+        testOp3(m64, .VPTESTNMB,    pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 56 07 26 c4");
+        testOp3(m64, .VPTESTNMB,    pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 56 27 26 c4");
+        testOp3(m64, .VPTESTNMB,    pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 56 47 26 c4");
+        // VPTESTNMW
+        testOp3(m64, .VPTESTNMW,    pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 d6 07 26 c4");
+        testOp3(m64, .VPTESTNMW,    pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 d6 27 26 c4");
+        testOp3(m64, .VPTESTNMW,    pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 d6 47 26 c4");
+        // VPTESTNMD
+        testOp3(m64, .VPTESTNMD,    pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 56 07 27 c4");
+        testOp3(m64, .VPTESTNMD,    pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 56 27 27 c4");
+        testOp3(m64, .VPTESTNMD,    pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 56 47 27 c4");
+        // VPTESTNMQ
+        testOp3(m64, .VPTESTNMQ,    pred(.K0, .K7, .Merge), reg(.XMM21), regRm(.XMM20), "62 b2 d6 07 27 c4");
+        testOp3(m64, .VPTESTNMQ,    pred(.K0, .K7, .Merge), reg(.YMM21), regRm(.YMM20), "62 b2 d6 27 27 c4");
+        testOp3(m64, .VPTESTNMQ,    pred(.K0, .K7, .Merge), reg(.ZMM21), regRm(.ZMM20), "62 b2 d6 47 27 c4");
+    }
+
+    {
+        // VRANGEPD / VRANGEPS / VRANGESD / VRANGESS
+        // VRANGEPD
+        testOp4(m64, .VRANGEPD, pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 d5 87 50 fc 00");
+        testOp4(m64, .VRANGEPD, pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 50 fc 00");
+        testOp4(m64, .VRANGEPD, pred(.ZMM31, .K7, .Zero),reg(.ZMM21),sae(.ZMM30, .SAE),imm(0), "62 03 d5 d7 50 fe 00");
+        // VRANGEPS
+        testOp4(m64, .VRANGEPS, pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20),imm(0), "62 23 55 87 50 fc 00");
+        testOp4(m64, .VRANGEPS, pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 55 a7 50 fc 00");
+        testOp4(m64, .VRANGEPS, pred(.ZMM31, .K7, .Zero),reg(.ZMM21),sae(.ZMM30, .SAE),imm(0), "62 03 55 d7 50 fe 00");
+        // VRANGESD
+        testOp4(m64, .VRANGESD, pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .SAE), imm(0), "62 03 d5 97 51 fe 00");
+        // VRANGESS
+        testOp4(m64, .VRANGESS, pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .SAE), imm(0), "62 03 55 97 51 fe 00");
+    }
+
+    {
+        // VRCP14PD / VRCP14PS / VRCP14SD / VRCP14SS
+        // VRCP14PD
+        testOp2(m64, .VRCP14PD, pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 fd 8f 4c fc");
+        testOp2(m64, .VRCP14PD, pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 fd af 4c fc");
+        testOp2(m64, .VRCP14PD, pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 fd cf 4c fc");
+        // VRCP14PS
+        testOp2(m64, .VRCP14PS, pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 7d 8f 4c fc");
+        testOp2(m64, .VRCP14PS, pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 7d af 4c fc");
+        testOp2(m64, .VRCP14PS, pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 7d cf 4c fc");
+        // VRCP14SD
+        testOp3(m64, .VRCP14SD, pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 4d fc");
+        // VRCP14SS
+        testOp3(m64, .VRCP14SS, pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 4d fc");
+    }
+
+    {
+        // VREDUCEPD / VREDUCEPS / VREDUCESD / VREDUCESS
+        // VREDUCEPD
+        testOp3(m64, .VREDUCEPD,    pred(.XMM31, .K7, .Zero),regRm(.XMM20),imm(0), "62 23 fd 8f 56 fc 00");
+        testOp3(m64, .VREDUCEPD,    pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 fd af 56 fc 00");
+        testOp3(m64, .VREDUCEPD,    pred(.ZMM31, .K7, .Zero),sae(.ZMM30, .SAE),imm(0), "62 03 fd df 56 fe 00");
+        // VREDUCEPS
+        testOp3(m64, .VREDUCEPS,    pred(.XMM31, .K7, .Zero),regRm(.XMM20),imm(0), "62 23 7d 8f 56 fc 00");
+        testOp3(m64, .VREDUCEPS,    pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 7d af 56 fc 00");
+        testOp3(m64, .VREDUCEPS,    pred(.ZMM31, .K7, .Zero),sae(.ZMM30, .SAE),imm(0), "62 03 7d df 56 fe 00");
+        // VREDUCESD
+        testOp4(m64, .VREDUCESD,    pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .SAE),imm(0), "62 03 d5 97 57 fe 00");
+        // VREDUCESS
+        testOp4(m64, .VREDUCESS,    pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .SAE),imm(0), "62 03 55 97 57 fe 00");
+    }
+
+    {
+        // VRNDSCALEPD / VRNDSCALEPS / VRNDSCALESD / VRNDSCALESS
+        // VRNDSCALEPD
+        testOp3(m64, .VRNDSCALEPD,  pred(.XMM31, .K7, .Zero),regRm(.XMM20),imm(0), "62 23 fd 8f 09 fc 00");
+        testOp3(m64, .VRNDSCALEPD,  pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 fd af 09 fc 00");
+        testOp3(m64, .VRNDSCALEPD,  pred(.ZMM31, .K7, .Zero),sae(.ZMM30, .SAE),imm(0), "62 03 fd df 09 fe 00");
+        // VRNDSCALEPS
+        testOp3(m64, .VRNDSCALEPS,  pred(.XMM31, .K7, .Zero),regRm(.XMM20),imm(0), "62 23 7d 8f 08 fc 00");
+        testOp3(m64, .VRNDSCALEPS,  pred(.YMM31, .K7, .Zero),regRm(.YMM20),imm(0), "62 23 7d af 08 fc 00");
+        testOp3(m64, .VRNDSCALEPS,  pred(.ZMM31, .K7, .Zero),sae(.ZMM30, .SAE),imm(0), "62 03 7d df 08 fe 00");
+        // VRNDSCALESD
+        testOp4(m64, .VRNDSCALESD,  pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .SAE),imm(0), "62 03 d5 97 0b fe 00");
+        // VRNDSCALESS
+        testOp4(m64, .VRNDSCALESS,  pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .SAE),imm(0), "62 03 55 97 0a fe 00");
+    }
+
+    {
+        // VRSQRT14PD
+        testOp2(m64, .VRSQRT14PD,   pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 fd 8f 4e fc");
+        testOp2(m64, .VRSQRT14PD,   pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 fd af 4e fc");
+        testOp2(m64, .VRSQRT14PD,   pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 fd cf 4e fc");
+        // VRSQRT14PS
+        testOp2(m64, .VRSQRT14PS,   pred(.XMM31, .K7, .Zero), regRm(.XMM20), "62 22 7d 8f 4e fc");
+        testOp2(m64, .VRSQRT14PS,   pred(.YMM31, .K7, .Zero), regRm(.YMM20), "62 22 7d af 4e fc");
+        testOp2(m64, .VRSQRT14PS,   pred(.ZMM31, .K7, .Zero), regRm(.ZMM20), "62 22 7d cf 4e fc");
+        // VRSQRT14SD
+        testOp3(m64, .VRSQRT14SD,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 4f fc");
+        // VRSQRT14SS
+        testOp3(m64, .VRSQRT14SS,   pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 4f fc");
+    }
+
+    {
+        // VSCALEFPD / VSCALEFPS / VSCALEFSD / VSCALEFSS
+        // VSCALEFPD
+        testOp3(m64, .VSCALEFPD,    pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 d5 87 2c fc");
+        testOp3(m64, .VSCALEFPD,    pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 d5 a7 2c fc");
+        testOp3(m64, .VSCALEFPD,    pred(.ZMM31, .K7, .Zero),reg(.ZMM21),sae(.ZMM30, .RN_SAE), "62 02 d5 97 2c fe");
+        // VSCALEFPS
+        testOp3(m64, .VSCALEFPS,    pred(.XMM31, .K7, .Zero),reg(.XMM21),regRm(.XMM20), "62 22 55 87 2c fc");
+        testOp3(m64, .VSCALEFPS,    pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20), "62 22 55 a7 2c fc");
+        testOp3(m64, .VSCALEFPS,    pred(.ZMM31, .K7, .Zero),reg(.ZMM21),sae(.ZMM30, .RN_SAE), "62 02 55 97 2c fe");
+        // VSCALEFSD
+        testOp3(m64, .VSCALEFSD,    pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .RN_SAE), "62 02 d5 97 2d fe");
+        // VSCALEFSS
+        testOp3(m64, .VSCALEFSS,    pred(.XMM31, .K7, .Zero),reg(.XMM21),sae(.XMM30, .RN_SAE), "62 02 55 97 2d fe");
+    }
+
+    {
+        // VSCATTERDPS / VSCATTERDPD / VSCATTERQPS / VSCATTERQPD
+        // VSCATTERDPS
+        testOp2(m64, .VSCATTERDPS,  predRm(vm32x, .K7, .Merge), reg(.XMM21), "67 62 a2 7d 07 a2 2c f0");
+        testOp2(m64, .VSCATTERDPS,  predRm(vm32y, .K7, .Merge), reg(.YMM21), "67 62 a2 7d 27 a2 2c f0");
+        testOp2(m64, .VSCATTERDPS,  predRm(vm32z, .K7, .Merge), reg(.ZMM21), "67 62 a2 7d 47 a2 2c f0");
+        // VSCATTERDPD
+        testOp2(m64, .VSCATTERDPD,  predRm(vm32x, .K7, .Merge), reg(.XMM21), "67 62 a2 fd 07 a2 2c f0");
+        testOp2(m64, .VSCATTERDPD,  predRm(vm32x, .K7, .Merge), reg(.YMM21), "67 62 a2 fd 27 a2 2c f0");
+        testOp2(m64, .VSCATTERDPD,  predRm(vm32y, .K7, .Merge), reg(.ZMM21), "67 62 a2 fd 47 a2 2c f0");
+        // VSCATTERQPS
+        testOp2(m64, .VSCATTERQPS,  predRm(vm64x, .K7, .Merge), reg(.XMM21), "67 62 a2 7d 07 a3 2c f0");
+        testOp2(m64, .VSCATTERQPS,  predRm(vm64y, .K7, .Merge), reg(.XMM21), "67 62 a2 7d 27 a3 2c f0");
+        testOp2(m64, .VSCATTERQPS,  predRm(vm64z, .K7, .Merge), reg(.YMM21), "67 62 a2 7d 47 a3 2c f0");
+        // VSCATTERQPD
+        testOp2(m64, .VSCATTERQPD,  predRm(vm64x, .K7, .Merge), reg(.XMM21), "67 62 a2 fd 07 a3 2c f0");
+        testOp2(m64, .VSCATTERQPD,  predRm(vm64y, .K7, .Merge), reg(.YMM21), "67 62 a2 fd 27 a3 2c f0");
+        testOp2(m64, .VSCATTERQPD,  predRm(vm64z, .K7, .Merge), reg(.ZMM21), "67 62 a2 fd 47 a3 2c f0");
+    }
+
+    {
+        // VSHUFF 32X4 / VSHUFF 64X2 / VSHUFI32X4 / VSHUFI64X2
+        // VSHUFF 32X4
+        testOp4(m64, .VSHUFF32X4,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 55 a7 23 fc 00");
+        testOp4(m64, .VSHUFF32X4,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 55 c7 23 fc 00");
+        // VSHUFF 64X2
+        testOp4(m64, .VSHUFF64X2,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 23 fc 00");
+        testOp4(m64, .VSHUFF64X2,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 23 fc 00");
+        // VSHUFI32X4
+        testOp4(m64, .VSHUFI32X4,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 55 a7 43 fc 00");
+        testOp4(m64, .VSHUFI32X4,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 55 c7 43 fc 00");
+        // VSHUFI64X2
+        testOp4(m64, .VSHUFI64X2,  pred(.YMM31, .K7, .Zero),reg(.YMM21),regRm(.YMM20),imm(0), "62 23 d5 a7 43 fc 00");
+        testOp4(m64, .VSHUFI64X2,  pred(.ZMM31, .K7, .Zero),reg(.ZMM21),regRm(.ZMM20),imm(0), "62 23 d5 c7 43 fc 00");
+    }
+
+    {
+        // VTESTPD / VTESTPS
+        // VTESTPS
+        testOp2(m64, .VTESTPS,     reg(.XMM1), regRm(.XMM0), "c4 e2 79 0e c8");
+        testOp2(m64, .VTESTPS,     reg(.YMM1), regRm(.YMM0), "c4 e2 7d 0e c8");
+        // VTESTPD
+        testOp2(m64, .VTESTPD,     reg(.XMM1), regRm(.XMM0), "c4 e2 79 0f c8");
+        testOp2(m64, .VTESTPD,     reg(.YMM1), regRm(.YMM0), "c4 e2 7d 0f c8");
     }
 
     {

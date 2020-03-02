@@ -2,10 +2,14 @@ const std = @import("std");
 
 pub usingnamespace(@import("types.zig"));
 
-const Operand = @import("operand.zig").Operand;
-const Register = @import("register.zig").Register;
-const ModRm = @import("operand.zig").ModRm;
-const Machine = @import("machine.zig").Machine;
+const x86 = @import("machine.zig");
+
+const Operand = x86.operand.Operand;
+const OperandType = x86.operand.OperandType;
+const ModRm = x86.operand.ModRm;
+const ModRmResult = x86.operand.ModRmResult;
+const Register = x86.register.Register;
+const Machine = x86.Machine;
 
 pub const AvxMagic = enum (u8) {
     Vex2 = 0xC4,
@@ -53,6 +57,78 @@ pub const AvxResult = struct {
             or (self.is4 != null and self.is4.? > 7)
         );
     }
+
+    pub fn addVecLen(self: *AvxResult, machine: Machine, vec_len: EvexLength) void {
+        switch (vec_len) {
+            .L128, .LZ => self.L = 0,
+            .L256, .L1 => self.L = 1,
+
+            .L512 => {
+                self.L = 0;
+                self.L_ = 1;
+            },
+
+            .LIG => {
+                self.L = @intCast(u1, (machine.l_fill >> 0) & 0x01);
+                self.L_ = @intCast(u1, (machine.l_fill >> 1) & 0x01);
+            },
+
+            ._11 => unreachable,
+
+            .LRC => {
+                // TODO:
+                unreachable;
+            },
+        }
+    }
+
+    pub fn addModRm(self: *AvxResult, modrm: *const ModRmResult) void {
+        self.X = modrm.rex_x;
+        self.B = modrm.rex_b;
+        self.V_ |= modrm.evex_v;
+
+        switch (modrm.data_size) {
+            .DWORD_BCST, .QWORD_BCST => self.b = 1,
+            else => {},
+        }
+    }
+
+    pub fn addPred(self: *AvxResult, mask: MaskRegister, z: ZeroOrMerge) void {
+        self.aaa = @enumToInt(mask);
+        self.z = @enumToInt(z);
+    }
+
+    pub fn addSae(self: *AvxResult, sae: SuppressAllExceptions) void {
+        switch (sae) {
+            .AE => {},
+            .SAE => {
+                self.b = 1;
+            },
+            else => {
+                self.b = 1;
+                const LL_ = @enumToInt(sae);
+                self.L = @intCast(u1, (LL_ >> 0) & 0x01);
+                self.L_ = @intCast(u1, (LL_ >> 1) & 0x01);
+            },
+        }
+    }
+
+    pub fn addVecR(self: *AvxResult, num: u8) void {
+        self.R = @intCast(u1, (num & 0x08) >> 3);
+        self.R_ = @intCast(u1, (num & 0x10) >> 4);
+    }
+
+    pub fn addVecV(self: *AvxResult, num: u8) void {
+        self.vvvv = @intCast(u4, (num & 0x0f));
+        self.V_ = @intCast(u1, (num & 0x10) >> 4);
+    }
+
+    pub fn addVecRm(self: *AvxResult, reg: Register) void {
+        const reg_num = reg.number();
+        self.B = @intCast(u1, (reg_num & 0x08) >> 3);
+        self.X = @intCast(u1, (reg_num & 0x10) >> 4);
+    }
+
 
     /// Generate EVEX prefix bytes
     ///
@@ -254,6 +330,82 @@ pub const SuppressAllExceptions = enum (u3) {
     SAE,
 };
 
+pub const TupleType = enum(u8) {
+    None,
+    NoMem,
+    Full,
+    Half,
+    Tuple1Scalar,
+    Tuple1Fixed,
+    Tuple2,
+    Tuple4,
+    Tuple8,
+    FullMem,
+    HalfMem,
+    QuarterMem,
+    EighthMem,
+    Mem128,
+    Movddup,
+};
+
+/// Calultate N for disp8*N compressed displacement in AVX512
+///
+/// NOTE: this does not take into account EVEX.b broadcast bit.  If a broadcast
+/// is used, should pick N according to:
+///     * m32bcst -> N = 4
+///     * m64bcst -> N = 8
+pub fn calcDispMultiplier(op: AvxOpcode, op_type: OperandType) u8 {
+    if (op.encoding != .EVEX) {
+        return 1;
+    }
+
+    const full: u8 = switch (op.vec_len) {
+        .L128 => 16,
+        .L256 => 32,
+        .L512 => 64,
+        else => 0,
+    };
+
+    const tup_size: u8 = switch (op.vex_w) {
+        .W0 => 4,
+        .W1 => 8,
+        else => 0,
+    };
+
+    const result: u8 = switch (op.tuple_type) {
+        .None => unreachable,
+        .NoMem => 0,
+        .Tuple1Scalar => switch (op_type.getMemClass()) {
+            .mem8 => 1,
+            .mem16 => 2,
+            .mem32 => 4,
+            .mem64 => 8,
+            else => tup_size,
+        },
+        .Tuple1Fixed => switch (op_type.getMemClass()) {
+            .mem32 => @as(u8, 4),
+            .mem64 => @as(u8, 8),
+            else => unreachable,
+        },
+        .Tuple2 => tup_size * 2,
+        .Tuple4 => tup_size * 4,
+        .Tuple8 => tup_size * 8,
+        .Full, .FullMem => full,
+        .Half, .HalfMem => full / 2,
+        .QuarterMem => full / 4,
+        .EighthMem => full / 8,
+        .Mem128 => 16,
+        .Movddup => switch (op.vec_len) {
+            .L128 => @as(u8, 8),
+            .L256 => @as(u8, 32),
+            .L512 => @as(u8, 64),
+            else => unreachable,
+        },
+    };
+
+    return result;
+}
+
 pub const AvxOpcode = struct {
     encoding: AvxEncoding,
     vec_len: EvexLength,
@@ -263,6 +415,7 @@ pub const AvxOpcode = struct {
     reg_bits: ?u3 = null,
     vex_w: VexW,
     immSourceOp: bool = false,
+    tuple_type: TupleType = .None,
 
     pub fn encode(
         self: AvxOpcode,
@@ -270,169 +423,74 @@ pub const AvxOpcode = struct {
         vec1_r: ?*const Operand,
         vec2_v: ?*const Operand,
         vec3_rm: ?*const Operand,
+        modrm_result: ?*const ModRmResult,
     ) AsmError!AvxResult {
         var res = AvxResult{};
 
         res.pp = @enumToInt(self.prefix);
         res.mm = @enumToInt(self.escape);
+        res.addVecLen(machine, self.vec_len);
 
-        switch (self.vec_len) {
-            .L128, .LZ => res.L = 0,
-            .L256, .L1 => res.L = 1,
-
-            .L512 => {
-                res.L = 0;
-                res.L_ = 1;
-            },
-
-            .LIG => {
-                res.L = @intCast(u1, (machine.l_fill >> 0) & 0x01);
-                res.L_ = @intCast(u1, (machine.l_fill >> 1) & 0x01);
-            },
-
-            ._11 => unreachable,
-
-            .LRC => {
-                // TODO:
-                unreachable;
-            },
-        }
-
+        // handle (E)VEX modrm.reg register
         if (vec1_r) |v| {
             switch (v.*) {
+                .Reg => |reg| {
+                    res.addVecR(reg.number());
+                },
                 .RegPred => |reg_pred| {
-                    res.aaa = @enumToInt(reg_pred.mask);
-                    res.z = @enumToInt(reg_pred.z);
+                    res.addVecR(reg_pred.reg.number());
+                    res.addPred(reg_pred.mask, reg_pred.z);
                 },
                 .RegSae => |reg_sae| {
-                    switch (reg_sae.sae) {
-                        .AE => {},
-                        .SAE => {
-                            res.b = 1;
-                        },
-                        else => {
-                            res.b = 1;
-                            const LL_ = @enumToInt(reg_sae.sae);
-                            res.L = @intCast(u1, (LL_ >> 0) & 0x01);
-                            res.L_ = @intCast(u1, (LL_ >> 1) & 0x01);
-                        },
-                    }
+                    res.addVecR(reg_sae.reg.number());
+                    res.addSae(reg_sae.sae);
                 },
-
-                else => {},
+                else => unreachable,
             }
+        } else if (self.reg_bits) |reg_bits| {
+            res.addVecR(reg_bits);
+        } else x: {
+            res.addVecR(0);
         }
 
+        // handle (E)VEX.V'vvvv register
         if (vec2_v) |v| {
             switch (v.*) {
-                .RegPred => |reg_pred| {
-                    res.aaa = @enumToInt(reg_pred.mask);
-                    res.z = @enumToInt(reg_pred.z);
+                .Reg => |reg| {
+                    res.addVecV(reg.number());
                 },
-
-                else => {},
+                .RegPred => |reg_pred| {
+                    res.addVecV(reg_pred.reg.number());
+                    res.addPred(reg_pred.mask, reg_pred.z);
+                },
+                else => unreachable,
             }
+        } else {
+            res.addVecV(0);
         }
 
-        const vec_num1: u8 = if (vec1_r) |v| x: {
-            break :x switch (v.*) {
-                .Reg => v.Reg.number(),
-                .RegPred => v.RegPred.reg.number(),
-                .RegSae => v.RegSae.reg.number(),
-                else => unreachable,
-            };
-        } else if (self.reg_bits) |reg_bits| x: {
-            break :x reg_bits;
-        } else x: {
-            break :x 0;
-        };
-        res.R = @intCast(u1, (vec_num1 & 0x08) >> 3);
-        res.R_ = @intCast(u1, (vec_num1 & 0x10) >> 4);
-
-        const vec_num2 = if (vec2_v) |v| x: {
-            break :x switch (v.*) {
-                .Reg => v.Reg.number(),
-                .RegPred => v.RegPred.reg.number(),
-                else => unreachable,
-            };
-        } else x: {
-            break :x 0;
-        };
-        res.vvvv = @intCast(u4, (vec_num2 & 0x0f));
-        res.V_ = @intCast(u1, (vec_num2 & 0x10) >> 4);
-
+        // handle (E)VEX modrm.rm register
         if (vec3_rm) |vec| {
             switch (vec.*) {
                 .Reg => |reg| {
-                    const num3 = reg.number();
-                    res.B = @intCast(u1, (num3 & 0x08) >> 3);
-                    res.X = @intCast(u1, (num3 & 0x10) >> 4);
+                    res.addVecRm(reg);
                 },
+
                 .Rm => |rm| switch (rm) {
-                    .Reg => |reg| {
-                        const num3 = reg.number();
-                        res.B = @intCast(u1, (num3 & 0x08) >> 3);
-                        res.X = @intCast(u1, (num3 & 0x10) >> 4);
-                    },
-
-                    else => {
-                        // TODO: probably want to handle this better.  This value
-                        // also gets computed in Machine.encodeAvx().
-                        const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
-                        res.X = modrm.rex_x;
-                        res.B = modrm.rex_b;
-                        res.V_ |= modrm.evex_v;
-
-                        switch (rm.operandDataSize()) {
-                            .DWORD_BCST, .QWORD_BCST => res.b = 1,
-                            else => {},
-                        }
-                        // unreachable;
-                    },
+                    .Reg => |reg| res.addVecRm(reg),
+                    else => res.addModRm(modrm_result.?),
                 },
 
                 .RegSae => |reg_sae| {
-                    const num3 = reg_sae.reg.number();
-                    res.B = @intCast(u1, (num3 & 0x08) >> 3);
-                    res.X = @intCast(u1, (num3 & 0x10) >> 4);
-                    switch (reg_sae.sae) {
-                        .AE => {},
-                        .SAE => {
-                            res.b = 1;
-                        },
-                        else => {
-                            res.b = 1;
-                            const LL_ = @enumToInt(reg_sae.sae);
-                            res.L = @intCast(u1, (LL_ >> 0) & 0x01);
-                            res.L_ = @intCast(u1, (LL_ >> 1) & 0x01);
-                        },
-                    }
+                    res.addVecRm(reg_sae.reg);
+                    res.addSae(reg_sae.sae);
                 },
 
                 .RmPred => |rm_pred| {
-                    res.aaa = @enumToInt(rm_pred.mask);
-                    res.z = @enumToInt(rm_pred.z);
-                    const rm = rm_pred.rm;
-                    switch (rm) {
-                        .Reg => |reg| {
-                            const num3 = reg.number();
-                            res.B = @intCast(u1, (num3 & 0x08) >> 3);
-                            res.X = @intCast(u1, (num3 & 0x10) >> 4);
-                        },
-
-                        else => {
-                            // TODO: probably want to handle this better.  This value
-                            // also gets computed in Machine.encodeAvx().
-                            const modrm = try rm.encodeReg(machine.mode, .AX, .ZO);
-                            res.X = modrm.rex_x;
-                            res.B = modrm.rex_b;
-
-                            switch (rm.operandDataSize()) {
-                                .DWORD_BCST, .QWORD_BCST => res.b = 1,
-                                else => {},
-                            }
-                            // unreachable;
-                        },
+                    res.addPred(rm_pred.mask, rm_pred.z);
+                    switch (rm_pred.rm) {
+                        .Reg => |reg| res.addVecRm(reg),
+                        else => res.addModRm(modrm_result.?),
                     }
                 },
                 else => unreachable,
@@ -483,9 +541,10 @@ pub const AvxOpcode = struct {
         pre: VexPrefix,
         esc: VexEscape,
         w: VexW,
-        op: u8
+        op: u8,
+        tuple: TupleType,
     ) AvxOpcode {
-        return evexr(len, pre, esc, w, op, null);
+        return evexr(len, pre, esc, w, op, null, tuple);
     }
 
 
@@ -496,6 +555,7 @@ pub const AvxOpcode = struct {
         w: VexW,
         op: u8,
         reg: ?u3,
+        tuple: TupleType,
     ) AvxOpcode {
         return AvxOpcode {
             .encoding = .EVEX,
@@ -506,6 +566,7 @@ pub const AvxOpcode = struct {
             .opcode = op,
             .reg_bits = reg,
             .immSourceOp = false,
+            .tuple_type = tuple,
         };
     }
 

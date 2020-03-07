@@ -7,208 +7,11 @@ pub const Mode86 = enum {
     x64 = 2,
 };
 
-// NOTE: the names of these rules are written from the point of view of 64 bit
-// mode.  However, they also define the behavior of 32/16 bit modes as well.
-//
-pub const DefaultSize = enum (u8) {
-    /// Default operand is 8 bit, other operand sizes are invalid
-    RM8 = 0x00,
-    /// 64 bit mode:
-    ///   Default operand is 16 bit, REX prefix for 64 bit, 0x66 prefix for 32 bit
-    /// 32 bit mode:
-    ///   Default operand is 16 bit, 0x66 prefix for 32 bit
-    /// 16 bit mode:
-    ///   Default operand is 16 bit, 0x66 prefix for 32 bit
-    RM16 = 0x01,
-    /// 64 bit mode:
-    ///   Default operand is 32 bit, REX prefix for 64 bit, 0x66 prefix for 16 bit
-    /// 32 bit mode:
-    ///   Default operand is 32 bit, 0x66 prefix for 16 bit
-    /// 16 bit mode:
-    ///   Default operand is 16 bit, 0x66 prefix for 32 bit
-    RM32 = 0x02,
-    /// Default operand is 64 bit, other operand sizes are invalid
-    // TODO: might change this behavior later
-    RM64 = 0x03,
-
-    /// Same as RM32, except operand accepts an 8 bit immediate
-    RM32_I8,
-
-    /// No prefix used, valid all sizes
-    RM,
-
-    /// Same as RM32, but use the r/m operand size only ignoring the other operand
-    RM32_RM,
-
-    /// Same as RM32, but use the reg operand size only ignoring the other operand
-    RM32_Reg,
-
-    /// Same as RM64, but use the r/m operand size only ignoring the other operand
-    RM64_RM,
-
-    /// Same as RM64, but use the reg operand size only ignoring the other operand
-    RM64_Reg,
-
-    /// 64 bit mode:
-    ///     Default operand is 32 bit, 16/64 bit invalid
-    /// 32 bit mode:
-    ///     Default operand is 32 bit, 0x66 prefix for 16 bit
-    RM32Strict,
-
-    /// 64 bit mode:
-    ///     Default operand is 64 bit, 16/32 bit invalid
-    /// 32 bit mode:
-    ///     Default operand is 32 bit, 0x66 prefix for 16 bit
-    RM64Strict,
-
-    /// 64 bit mode:
-    ///     invalid
-    /// 32 bit mode:
-    ///     Default operand is 32 bit, 0x66 prefix for 16 bit
-    /// 16 bit mode:
-    ///     Default operand is 16 bit, 0x66 prefix for 32 bit
-    RM32Only,
-
-    /// 64 bit mode:
-    ///     Default operand is 64 bit, 0x66 prefix for 16 bit, 32 bit invalid
-    /// 32 bit mode:
-    ///     Default operand is 32 bit, 0x66 prefix for 16 bit
-    RM64_16,
-
-    /// Used for instructions that use 0x67 to determine register size
-    ///
-    /// 64 bit mode:
-    ///     Invalid
-    /// 32 bit mode:
-    ///     address overide prefix 0x67, memory addressing must be 16 bit if used
-    R_Over16,
-
-    /// 64 bit mode:
-    ///     address overide prefix 0x67, memory addressing must be 32 bit if used
-    /// 32 bit mode:
-    ///     no prefix
-    R_Over32,
-
-    /// 64 bit mode:
-    ///     no prefix, memory addressing must use 64 bit registers if used
-    /// 32 bit mode:
-    ///     invalid
-    R_Over64,
-
-    /// 64 bit mode:
-    ///     Default operand is 8 bit
-    /// 32/16 bit mode:
-    ///     Invalid
-    RM8_64Only,
-
-    /// 64 bit mode:
-
-    /// 64 bit mode:
-    ///     zero operands, valid
-    /// 32 bit mode:
-    ///     zero operands, valid
-    /// 16 bit mode:
-    ///     zero operands, valid
-    ZO,
-
-    /// 64 bit mode:
-    ///     zero operands, invalid
-    /// 32 bit mode:
-    ///     zero operands, valid
-    /// 16 bit mode:
-    ///     zero operands, valid
-    ZO32Only,
-
-    /// Behaves like RM64_16, but the encoding uses zero operands
-    ZO64_16,
-
-    /// Forces REX.W bit set
-    REX_W,
-
-    pub fn bitSize32(self: DefaultSize) BitSize {
-        return switch (self) {
-            .R_Over16,
-            .R_Over32,
-            .R_Over64,
-            .RM8_64Only,
-            .RM8 => .Bit8,
-
-            .RM16 => .Bit16,
-
-            .RM64_16,
-            .ZO64_16,
-            .RM64Strict,
-            .RM32_I8,
-            .RM32_RM,
-            .RM32_Reg,
-            .RM32Strict,
-            .RM32Only,
-            .RM32 => .Bit32,
-
-            .RM64_RM,
-            .RM64_Reg,
-            .RM64 => .Bit64,
-
-            .RM,
-            .ZO,
-            .REX_W,
-            .ZO32Only => .Bit0,
-        };
-    }
-
-    pub fn bitSize64(self: DefaultSize) BitSize {
-        return switch (self) {
-            .R_Over16,
-            .R_Over32,
-            .R_Over64,
-            .RM8_64Only,
-            .RM8 => .Bit8,
-
-            .RM16 => .Bit16,
-
-            .RM32_I8,
-            .RM32_RM,
-            .RM32_Reg,
-            .RM32Strict,
-            .RM32Only,
-            .RM32 => .Bit32,
-
-            .RM64Strict,
-            .ZO64_16,
-            .RM64_16,
-            .RM64_RM,
-            .RM64_Reg,
-            .RM64 => .Bit64,
-
-            .RM,
-            .ZO,
-            .REX_W,
-            .ZO32Only => .Bit0,
-        };
-    }
-
-    pub fn bitSize(self: DefaultSize, mode: Mode86) BitSize {
-        return switch (mode) {
-            .x86_16 => unreachable, // TODO:
-            .x86_32 => self.bitSize32(),
-            .x64 => self.bitSize64(),
-        };
-    }
-
-    pub fn is64Default(self: DefaultSize) bool {
-        return switch (self) {
-            .ZO64_16, .RM64, .RM64Strict, .RM64_16, .RM64_RM, .RM64_Reg, .ZO, .R_Over64 => true,
-            else => false,
-        };
-    }
-
-    pub fn needsSizeCheck(self: DefaultSize) bool {
-        return switch (self) {
-            .RM32_RM, .RM32_Reg, .RM64_RM, .RM64_Reg, .REX_W,
-            .ZO, .R_Over16, .R_Over32, .R_Over64, => false,
-            else => true,
-        };
-    }
+pub const AsmError = error {
+    InvalidOperand,
+    InvalidMode,
+    InvalidMemoryAddressing,
+    InvalidRegisterCombination,
 };
 
 pub const Segment = enum (u8) {
@@ -222,18 +25,8 @@ pub const Segment = enum (u8) {
     DefaultSeg = 0x10,
 };
 
-pub const AsmError = error {
-    InvalidMemoryAddressing,
-    InvalidOperand,
-    InvalidMode,
-    InvalidRegisterCombination,
-    InvalidRegister,
-    RelativeImmediateOverflow,
-    // InvalidImmediate,
-};
-
 pub const BitSize = enum (u16) {
-    Bit0  = 0,
+    None  = 0,
     Bit8  = 1,
     Bit16 = 2,
     Bit32 = 4,
@@ -243,14 +36,75 @@ pub const BitSize = enum (u16) {
     Bit256 = 32,
     Bit512 = 64,
 
-    None = 0xffff,
-
     pub fn value(self: BitSize) u16 {
         return 8 * @enumToInt(self);
     }
 
     pub fn valueBytes(self: BitSize) u16 {
         return @enumToInt(self);
+    }
+};
+
+
+pub const Overides = enum (u8) {
+    /// 64 bit mode:
+    ///     zero overides, valid
+    /// 32 bit mode:
+    ///     zero overides, valid
+    /// 16 bit mode:
+    ///     zero overides, valid
+    ZO,
+
+    /// 64 bit mode:
+    ///     0x66 size overide prefix
+    /// 32 bit mode:
+    ///     0x66 size overide prefix
+    /// 16 bit mode:
+    ///     no overide prefix
+    Op16,
+
+    /// 64 bit mode:
+    ///     no overide prefix
+    /// 32 bit mode:
+    ///     no overide prefix
+    /// 16 bit mode:
+    ///     0x66 size overide prefix
+    Op32,
+
+    /// Forces REX.W bit set, only valid in 64 bit mode
+    REX_W,
+
+    /// Used for instructions that use 0x67 to determine register size
+    ///
+    /// 64 bit mode:
+    ///     Invalid
+    /// 32 bit mode:
+    ///     address overide prefix 0x67, memory addressing must be 16 bit if used
+    /// 16 bit mode:
+    ///     no address overide, memory addressing must be 16 bit if used
+    Addr16,
+
+    /// 64 bit mode:
+    ///     address overide prefix 0x67, memory addressing must be 32 bit if used
+    /// 32 bit mode:
+    ///     no prefix
+    /// 16 bit mode:
+    ///     address overide prefix 0x67, memory addressing must be 32 bit if used
+    Addr32,
+
+    /// 64 bit mode:
+    ///     no address overide, memory addressing must use 64 bit registers if used
+    /// 32 bit mode:
+    ///     invalid
+    /// 16 bit mode:
+    ///     invalid
+    Addr64,
+
+    pub fn is64Default(self: Overides) bool {
+        return switch (self) {
+            .ZO, .Addr64 => true,
+            else => false,
+        };
     }
 };
 
@@ -287,10 +141,16 @@ pub const OpcodePrefix = enum(u8) {
     }
 };
 
+pub const CompoundInstruction = enum (u8) {
+    None = 0x66,
+    FWAIT = 0x9B,
+};
+
 pub const Opcode = struct {
-    const max_length:u8 = 4;
+    const max_length:u8 = 3;
     opcode: [max_length]u8 = undefined,
     len: u8 = 0,
+    compound_op: CompoundInstruction = .None,
     prefix: OpcodePrefix = .Any,
     prefix_type: OpcodePrefixType = .Prefixable,
     reg_bits: ?u3 = null,
@@ -316,7 +176,7 @@ pub const Opcode = struct {
 
     fn create_generic(
         prefix: OpcodePrefix,
-        opcode_bytes: [4]u8,
+        opcode_bytes: [3]u8,
         len: u8,
         reg_bits: ?u3
     ) Opcode {
@@ -337,66 +197,62 @@ pub const Opcode = struct {
     }
 
     pub fn op1(byte0: u8) Opcode {
-        return create_generic(.Any, [_]u8{byte0, 0, 0, 0}, 1, null);
+        return create_generic(.Any, [_]u8{byte0, 0, 0}, 1, null);
     }
 
     pub fn op2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, 0, 0}, 2, null);
+        return create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, null);
     }
 
     pub fn op3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, byte2, 0}, 3, null);
+        return create_generic(.Any, [_]u8{byte0, byte1, byte2}, 3, null);
     }
 
     pub fn op1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
+        return create_generic(.Any, [_]u8{byte0, 0, 0}, 1, reg_bits);
     }
 
     pub fn op2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
+        return create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, reg_bits);
     }
 
     pub fn op3r(byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
-    }
-
-    pub fn op4r(byte0: u8, byte1: u8, byte2: u8, byte3: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, byte2, byte3, 0}, 4, reg_bits);
+        return create_generic(.Any, [_]u8{byte0, byte1, byte2}, 3, reg_bits);
     }
 
     pub fn preOp1r(prefix: OpcodePrefix, byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(prefix, [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
+        return create_generic(prefix, [_]u8{byte0, 0, 0}, 1, reg_bits);
     }
 
     pub fn preOp2r(prefix: OpcodePrefix, byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, 0, 0}, 2, reg_bits);
+        return create_generic(prefix, [_]u8{byte0, byte1, 0}, 2, reg_bits);
     }
 
     pub fn preOp3r(prefix: OpcodePrefix, byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, byte2, 0}, 3, reg_bits);
+        return create_generic(prefix, [_]u8{byte0, byte1, byte2}, 3, reg_bits);
     }
 
     pub fn preOp1(prefix: OpcodePrefix, byte0: u8) Opcode {
-        return create_generic(prefix, [_]u8{byte0, 0, 0, 0}, 1, null);
+        return create_generic(prefix, [_]u8{byte0, 0, 0}, 1, null);
     }
 
     pub fn preOp2(prefix: OpcodePrefix, byte0: u8, byte1: u8) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, 0, 0}, 2, null);
+        return create_generic(prefix, [_]u8{byte0, byte1, 0}, 2, null);
     }
 
     pub fn preOp3(prefix: OpcodePrefix, byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, byte2, 0}, 3, null);
+        return create_generic(prefix, [_]u8{byte0, byte1, byte2}, 3, null);
     }
 
-    pub fn compOp1r(instr: u8, byte0: u8, reg_bits: u3) Opcode {
-        var res = create_generic(OpcodePrefix.opcode(instr), [_]u8{byte0, 0, 0, 0}, 1, reg_bits);
-        res.prefix_type = .Compound;
+    pub fn compOp1r(compound_op: CompoundInstruction, byte0: u8, reg_bits: u3) Opcode {
+        var res = create_generic(.Any, [_]u8{byte0, 0, 0}, 1, reg_bits);
+        res.compound_op = compound_op;
         return res;
     }
 
-    pub fn compOp2(instr: u8, byte0: u8, byte1: u8) Opcode {
-        var res = create_generic(OpcodePrefix.opcode(instr), [_]u8{byte0, byte1, 0, 0}, 2, null);
-        res.prefix_type = .Compound;
+    pub fn compOp2(compound_op: CompoundInstruction, byte0: u8, byte1: u8) Opcode {
+        var res = create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, null);
+        res.compound_op = compound_op;
         return res;
     }
 };
@@ -477,13 +333,6 @@ pub const DataSize = enum (u16) {
     pub fn dataType(self: DataSize) DataType {
         return @intToEnum(DataType, @enumToInt(self) & tag_mask);
     }
-
-    pub fn defaultBitSize(self: DataSize, mode: Mode86) BitSize {
-        return switch (self) {
-            .Default => default_size.bitSize(mode),
-            else => self.bitSize(),
-        };
-    }
 };
 
 pub const PrefixGroup = enum {
@@ -494,7 +343,6 @@ pub const PrefixGroup = enum {
     None,
 };
 
-/// Legacy prefixes
 pub const Prefix = enum(u8) {
     None = 0x00,
 
@@ -548,29 +396,6 @@ pub const Prefixes = struct {
     prefixes: [max_count]Prefix = [1]Prefix{.None} ** max_count,
     len: u8 = 0,
 
-    pub fn single(prefix: Prefix) Prefixes {
-        return Prefixes {
-            .prefixes = [max_count]Prefix { prefix, .None, .None, .None },
-            .len = 1,
-        };
-    }
-
-    pub fn singleRaw(prefix: u8) Prefixes {
-        return Prefixes.single(@intToEnum(Prefix, prefix));
-    }
-
-    pub fn multiple(prefixes_: []const Prefix) Prefixes {
-        var res: Prefixes = undefined;
-        res.len = 0;
-
-        for (prefixes_) |p| {
-            if (p != .None) {
-                res.addPrefix(p);
-            }
-        }
-        return res;
-    }
-
     pub fn addSegmentOveride(self: *Prefixes, seg: Segment) void {
         switch (seg) {
             .ES => self.addPrefix(.SegmentES),
@@ -579,6 +404,7 @@ pub const Prefixes = struct {
             .DS => self.addPrefix(.SegmentDS),
             .FS => self.addPrefix(.SegmentFS),
             .GS => self.addPrefix(.SegmentGS),
+            .DefaultSeg => {},
             else => unreachable,
         }
     }
@@ -589,10 +415,6 @@ pub const Prefixes = struct {
         assert(prefix != .None);
         self.prefixes[self.len] = prefix;
         self.len += 1;
-    }
-
-    pub fn addRawPrefix(self: *Prefixes, prefix: u8) void {
-        self.addPrefix(@intToEnum(Prefix, prefix));
     }
 
     pub fn hasPrefix(self: Prefixes, prefix: Prefix) bool {
@@ -613,67 +435,20 @@ pub const Prefixes = struct {
         rex_w: *u1,
         operand_size: BitSize,
         addressing_size: BitSize,
-        default_size: DefaultSize
+        overides: Overides
     ) AsmError!void {
-        switch (default_size) {
-            .RM8_64Only,
-            .RM8 => switch (operand_size) {
-                .Bit8 => {},
-                else => return AsmError.InvalidOperand,
-            },
-
-            .RM16 => switch (operand_size) {
-                .Bit16 => {}, // default
-                .Bit32 => self.addPrefix(.OperandOveride),
-                .Bit64 => rex_w.* = 1,
-                else => return AsmError.InvalidOperand,
-            },
-
-            .RM32_I8,
-            .RM32_RM,
-            .RM32_Reg,
-            .RM32 => switch (operand_size) {
-                .Bit16 => self.addPrefix(.OperandOveride),
-                .Bit32 => {}, // default
-                .Bit64 => rex_w.* = 1,
-                else => return AsmError.InvalidOperand,
-            },
-
-            .RM64_RM,
-            .RM64_Reg,
-            .RM64 => switch (operand_size) {
-                .Bit64 => {},
-                else => return AsmError.InvalidOperand,
-            },
-
-            .ZO64_16,
-            .RM64_16 => switch (operand_size) {
-                .Bit16 => self.addPrefix(.OperandOveride),
-                .Bit64 => rex_w.* = 0,
-                else => return AsmError.InvalidOperand,
-            },
-
-            .RM64Strict => switch (operand_size) {
-                .Bit64 => {},
-                else => return AsmError.InvalidOperand,
-            },
-
-            .RM32Strict => switch (operand_size) {
-                .Bit16 => return AsmError.InvalidOperand,
-                .Bit32 => {},
-                else => return AsmError.InvalidOperand,
-            },
-
-            // Invalid in 64 bit mode
-            .RM32Only,
-            .ZO32Only => return AsmError.InvalidOperand,
-
-            .RM, .ZO => {}, // zero operand
-
+        switch (overides) {
+            // zero overides
+            .ZO => {},
+            // size overide, 16 bit
+            .Op16 => self.addPrefix(.OperandOveride),
+            // size overide, 32 bit
+            .Op32 => {},
+            //
             .REX_W => rex_w.* = 1,
 
-            .R_Over16 => return AsmError.InvalidOperand,
-            .R_Over32 => {
+            .Addr16 => return AsmError.InvalidOperand,
+            .Addr32 => {
                 if (addressing_size == .None) {
                     self.addPrefix(.AddressOveride);
                 } else if (addressing_size != .Bit32) {
@@ -681,7 +456,7 @@ pub const Prefixes = struct {
                     return AsmError.InvalidOperand;
                 }
             },
-            .R_Over64 => {
+            .Addr64 => {
                 if (addressing_size == .None) {
                     // okay
                 } else if (addressing_size != .Bit64) {
@@ -704,46 +479,21 @@ pub const Prefixes = struct {
         rex_w: *u1,
         operand_size: BitSize,
         addressing_size: BitSize,
-        default_size: DefaultSize
+        overides: Overides
     ) AsmError!void {
 
-        switch (default_size) {
-            .RM8 => switch (operand_size) {
-                .Bit8 => {},
-                else => return AsmError.InvalidOperand,
-            },
-            .RM16 => switch (operand_size) {
-                .Bit16 => {}, // default
-                .Bit32 => self.addPrefix(.OperandOveride),
-                else => return AsmError.InvalidOperand,
-            },
+        switch (overides) {
+            // zero overides
+            .ZO => {},
+            // size overide, 16 bit
+            .Op16 => self.addPrefix(.OperandOveride),
+            // size overide, 32 bit
+            .Op32 => {},
+            //
+            .REX_W => return AsmError.InvalidOperand,
 
-            .RM32_I8,
-            .RM32,
-            .RM32_RM,
-            .RM32_Reg,
-            .RM32Strict,
-            .RM32Only,
-            .ZO64_16,
-            .RM64_16,
-            .RM64Strict => switch (operand_size) {
-                .Bit16 => self.addPrefix(.OperandOveride),
-                .Bit32 => {},
-                else => return AsmError.InvalidOperand,
-            },
 
-            .REX_W,
-            .RM64_Reg,
-            .RM64_RM,
-            .RM64 => return AsmError.InvalidOperand,
-
-            .RM8_64Only => return AsmError.InvalidOperand,
-
-            .RM,
-            .ZO32Only,
-            .ZO => {}, // zero operand
-
-            .R_Over16 => {
+            .Addr16 => {
                 if (addressing_size == .None) {
                     self.addPrefix(.AddressOveride);
                 } else if (addressing_size != .Bit16) {
@@ -751,7 +501,7 @@ pub const Prefixes = struct {
                     return AsmError.InvalidOperand;
                 }
             },
-            .R_Over32 => {
+            .Addr32 => {
                 if (addressing_size == .None) {
                     // okay
                 } else if (addressing_size != .Bit32) {
@@ -759,7 +509,7 @@ pub const Prefixes = struct {
                     return AsmError.InvalidOperand;
                 }
             },
-            .R_Over64 => unreachable,
+            .Addr64 => unreachable,
         }
 
         switch (addressing_size) {
@@ -776,46 +526,20 @@ pub const Prefixes = struct {
         rex_w: *u1,
         operand_size: BitSize,
         addressing_size: BitSize,
-        default_size: DefaultSize
+        overides: Overides
     ) AsmError!void {
 
-        switch (default_size) {
-            .RM8 => switch (operand_size) {
-                .Bit8 => {},
-                else => return AsmError.InvalidOperand,
-            },
-            .RM16 => switch (operand_size) {
-                .Bit16 => {}, // default
-                .Bit32 => self.addPrefix(.OperandOveride),
-                else => return AsmError.InvalidOperand,
-            },
+        switch (overides) {
+            // zero overides
+            .ZO => {},
+            // size overide, 16 bit
+            .Op16 => {},
+            // size overide, 32 bit
+            .Op32 => self.addPrefix(.OperandOveride),
+            //
+            .REX_W => return AsmError.InvalidOperand,
 
-            .RM32_I8,
-            .RM32,
-            .RM32_RM,
-            .RM32_Reg,
-            .RM32Strict,
-            .RM32Only,
-            .ZO64_16,
-            .RM64_16,
-            .RM64Strict => switch (operand_size) {
-                .Bit16 => {},
-                .Bit32 => self.addPrefix(.OperandOveride),
-                else => return AsmError.InvalidOperand,
-            },
-
-            .REX_W,
-            .RM64_Reg,
-            .RM64_RM,
-            .RM64 => return AsmError.InvalidOperand,
-
-            .RM8_64Only => return AsmError.InvalidOperand,
-
-            .RM,
-            .ZO32Only,
-            .ZO => {}, // zero operand
-
-            .R_Over16 => {
+            .Addr16 => {
                 if (addressing_size == .None) {
                     // okay
                 } else if (addressing_size != .Bit16) {
@@ -823,7 +547,7 @@ pub const Prefixes = struct {
                     return AsmError.InvalidOperand;
                 }
             },
-            .R_Over32 => {
+            .Addr32 => {
                 if (addressing_size == .None) {
                     self.addPrefix(.AddressOveride);
                 } else if (addressing_size != .Bit32) {
@@ -831,7 +555,7 @@ pub const Prefixes = struct {
                     return AsmError.InvalidOperand;
                 }
             },
-            .R_Over64 => unreachable,
+            .Addr64 => unreachable,
         }
 
         switch (addressing_size) {
@@ -849,12 +573,12 @@ pub const Prefixes = struct {
         rex_w: *u1,
         operand_size: BitSize,
         addressing_size: BitSize,
-        default_size: DefaultSize
+        overides: Overides
     ) AsmError!void {
         switch (mode) {
-            .x86_16 => try self.addOverides16(rex_w, operand_size, addressing_size, default_size),
-            .x86_32 => try self.addOverides32(rex_w, operand_size, addressing_size, default_size),
-            .x64 => try self.addOverides64(rex_w, operand_size, addressing_size, default_size),
+            .x86_16 => try self.addOverides16(rex_w, operand_size, addressing_size, overides),
+            .x86_32 => try self.addOverides32(rex_w, operand_size, addressing_size, overides),
+            .x64 => try self.addOverides64(rex_w, operand_size, addressing_size, overides),
         }
     }
 };

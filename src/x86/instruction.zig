@@ -131,15 +131,20 @@ pub const Instruction = struct {
 
 
     // TODO: need to handle more cases, and those interacting with different addressing modes
-    pub fn addRex(self: *@This(), mode: Mode86, reg: ?Register, rm: ?Register, default_size: DefaultSize) AsmError!void {
+    pub fn addRex(self: *@This(), mode: Mode86, reg: ?Register, rm: ?Register, overides: Overides) AsmError!void {
         const reg_num = if (reg == null) 0 else reg.?.number();
         const rm_num = if (rm == null) 0 else rm.?.number();
         var needs_rex = false;
+        var needs_no_rex = false;
         var w: u1 = 0;
 
-        if (default_size.bitSize(mode) != .Bit64) {
-            if (reg != null and reg.?.needsRex()) { needs_rex = true; }
-            if (rm != null and rm.?.needsRex())   { needs_rex = true; }
+        if (reg != null and reg.?.needsRex()) { needs_rex = true; }
+        if (rm != null and rm.?.needsRex())   { needs_rex = true; }
+
+        if (reg != null and reg.?.needsNoRex()) { needs_no_rex = true; }
+        if (rm != null and rm.?.needsNoRex())   { needs_no_rex = true; }
+
+        if (!overides.is64Default()) {
             if (reg != null and reg.?.bitSize() == .Bit64) { w = 1; }
             if (rm != null and rm.?.bitSize() == .Bit64)  { w = 1; }
         }
@@ -158,6 +163,10 @@ pub const Instruction = struct {
         if (rex_byte != 0x40 or needs_rex) {
             if (mode != .x64) {
                 return AsmError.InvalidMode;
+            }
+
+            if (needs_no_rex) {
+                return AsmError.InvalidRegisterCombination;
             }
 
             self.view.ext = self.makeViewPart(1);
@@ -227,11 +236,18 @@ pub const Instruction = struct {
         }
 
         switch (rm.disp_bit_size) {
-            .Bit0 => {},
+            .None => {},
             .Bit8 => self.addDisp8(@intCast(i8, rm.disp)),
             .Bit16 => self.addDisp16(@intCast(i16, rm.disp)),
             .Bit32 => self.addDisp32(rm.disp),
             else => unreachable,
+        }
+    }
+
+    /// Add the opcode to instruction.
+    pub fn addCompoundOpcode(self: *@This(), op: Opcode) void {
+        if (op.compound_op != .None) {
+            self.addByte(@enumToInt(op.compound_op));
         }
     }
 

@@ -16,6 +16,7 @@ test "extra instructions" {
     const reg16 = Operand.register(.AX);
     const reg32 = Operand.register(.EAX);
     const reg64 = Operand.register(.RAX);
+    const rm8 = Operand.memoryRm(.DefaultSeg, .BYTE, .EAX, 0);
     const rm16 = Operand.memoryRm(.DefaultSeg, .WORD, .EAX, 0);
     const rm32 = Operand.memoryRm(.DefaultSeg, .DWORD, .EAX, 0);
     const rm64 = Operand.memoryRm(.DefaultSeg, .QWORD, .EAX, 0);
@@ -85,6 +86,15 @@ test "extra instructions" {
 
         testOp1(m32, .STMXCSR, rm_mem32, "0F AE 18");
         testOp1(m64, .STMXCSR, rm_mem32, "67 0F AE 18");
+    }
+
+    // CRC32
+    {
+        // CRC32
+        testOp2(m64, .CRC32,       reg(.EAX), rm8, "67f20f38f000");
+        testOp2(m64, .CRC32,       reg(.EAX), rm16, "6667f20f38f100");
+        testOp2(m64, .CRC32,       reg(.EAX), rm32, "67f20f38f100");
+        testOp2(m64, .CRC32,       reg(.RAX), rm64, "67f2480f38f100");
     }
 
     // ADX

@@ -17,9 +17,11 @@ pub const Instruction = instruction.Instruction;
 pub const Mnemonic = mnemonic.Mnemonic;
 pub const Operand = operand.Operand;
 pub const Register = register.Register;
+pub const CpuFeature = database.CpuFeature;
 
 const Address = operand.Address;
 const Signature = database.Signature;
+const InstructionItem = database.InstructionItem;
 
 const warn = if (util.debug) std.debug.warn else util.warnDummy;
 
@@ -39,9 +41,18 @@ pub const Machine = struct {
     l_fill: u2 = 0b0,
     // prefix_order: ? = null;
 
+    cpu_feature_mask: CpuFeature.MaskType = CpuFeature.all_features_mask,
+
     pub fn init(mode: Mode86) Machine {
         return Machine {
             .mode = mode,
+        };
+    }
+
+    pub fn init_with_features(mode: Mode86, features: []const CpuFeature) Machine {
+        return Machine {
+            .mode = mode,
+            .cpu_feature_mask = CpuFeature.arrayToMask(features),
         };
     }
 
@@ -50,14 +61,6 @@ pub const Machine = struct {
             .x86_16 => .Bit16,
             .x86_32 => .Bit32,
             .x64 => .Bit64,
-        };
-    }
-
-    pub fn dataSize(self: Machine) DataSize {
-        return switch (self.mode) {
-            .x86_16 => .WORD,
-            .x86_32 => .DWORD,
-            .x64 => .QWORD,
         };
     }
 
@@ -72,28 +75,59 @@ pub const Machine = struct {
         }
     }
 
-
-    pub fn encodeOpcode(self: Machine, opcode: Opcode, void_op: ?*const Operand, default_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeRMI(
+        self: Machine,
+        instr_item: *const InstructionItem,
+        op_reg: ?*const Operand,
+        op_rm: ?*const Operand,
+        imm: ?Immediate,
+        overides: Overides
+    ) AsmError!Instruction {
+        const opcode = instr_item.opcode.Op;
         var res = Instruction{};
         var prefixes = Prefixes {};
         var rex_w: u1 = 0;
-        const addressing_size = BitSize.None;
-        const operand_size = if (void_op) |op| x: {
-            switch (op.operandDataSize()) {
-                .Default => break :x default_size.bitSize(self.mode),
-                else => |op_size| break :x op_size.bitSize(),
-            }
+
+        const reg = if (op_reg) |r| x: {
+            break :x r.Reg;
+        } else if (opcode.reg_bits) |reg_bits| x: {
+            const fake_reg = @intToEnum(Register, reg_bits + @enumToInt(Register.AX));
+            break :x fake_reg;
         } else x: {
-            break :x default_size.bitSize(self.mode);
+            const fake_reg = @intToEnum(Register, self.reg_bits_fill + @enumToInt(Register.AX));
+            break :x fake_reg;
         };
 
-        try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, default_size);
+        const has_rm = (op_rm != null);
+        var modrm: operand.ModRmResult = undefined;
 
-        res.addPrefixes(prefixes, opcode);
-        if (rex_w != 0) {
-            try res.addRex(self.mode, Register.RAX, Register.RAX, default_size);
+        if (has_rm) {
+            const rm = self.coerceRm(op_rm.?.*).Rm;
+            modrm = try rm.encodeReg(self.mode, reg, overides);
         }
+
+        res.addCompoundOpcode(opcode);
+        if (has_rm) {
+            res.addPrefixes(modrm.prefixes, opcode);
+        } else if (imm) |im| {
+            const op_size = im.bitSize();
+            const addr_size = .None;
+            try prefixes.addOverides(self.mode, &rex_w, op_size, addr_size, overides);
+            res.addPrefixes(prefixes, opcode);
+        } else {
+            try prefixes.addOverides(self.mode, &rex_w, .None, .None, overides);
+            res.addPrefixes(prefixes, opcode);
+        }
+
+        try res.addRexRm(self.mode, rex_w, modrm);
         res.addOpcode(opcode);
+        if (has_rm) {
+            res.modrm(modrm);
+        }
+        if (imm) |im| {
+            res.addImm(im);
+        }
+
         return res;
     }
 
@@ -105,17 +139,18 @@ pub const Machine = struct {
     /// B0+ rb ib    MOV r8, imm8           ( 0xB0 + 8 bit register number (8 opcodes))
     /// B8+ rw iw    MOV r16, imm16         ( 0xB8 + 16/32/64 bit register number (8 opcodes))
     ///
-    pub fn encodeOpcodeRegNumImmediate(self: Machine, opcode: Opcode, reg: Operand, imm: Immediate, default_size: DefaultSize) AsmError!Instruction {
-        var res = try self.encodeOpcodeRegNum(opcode, reg, default_size);
-        res.addImm(imm);
-        return res;
-    }
-
-    pub fn encodeOpcodeRegNum(self: Machine, opcode: Opcode, op_reg: Operand, default_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeOI(
+        self: Machine,
+        instr_item: *const InstructionItem,
+        op_reg: ?*const Operand,
+        imm: ?Immediate,
+        overides: Overides
+    ) AsmError!Instruction {
+        const opcode = instr_item.opcode.Op;
         var res = Instruction{};
         var prefixes = Prefixes {};
         var rex_w: u1 = 0;
-        const reg = switch (op_reg) {
+        const reg = switch (op_reg.?.*) {
             .Reg => |reg| reg,
             else => unreachable,
         };
@@ -125,188 +160,261 @@ pub const Machine = struct {
             const operand_size = reg.bitSize();
             const addressing_size = BitSize.None;
 
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, default_size);
+            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
         }
 
         res.addPrefixes(prefixes, opcode);
-        try res.addRex(self.mode, null, reg, default_size);
+        try res.addRex(self.mode, null, reg, overides);
         res.addOpcodeRegNum(opcode, reg);
-        return res;
-    }
 
-    pub fn encodeRmImmediate(self: Machine, opcode: Opcode, rm_op: Operand, imm: Immediate, default_size: DefaultSize) AsmError!Instruction {
-        var res = Instruction{};
-        const rm = self.coerceRm(rm_op).Rm;
-
-        switch (default_size) {
-            .RM8, .RM32 => {
-                if (rm.operandSize() == .Bit64 and imm.bitSize() == .Bit32) {
-                    // skip: can't encode 64 bit immediate and r/m64 at the same time
-                    // but we can do r/m64 with a 32 bit immediate
-                } else if (rm.operandSize() != imm.bitSize()) {
-                    return AsmError.InvalidOperand;
-                }
-            },
-
-            .RM32_I8 => {
-                if (imm.bitSize() != .Bit8) {
-                    return AsmError.InvalidOperand;
-                }
-            },
-
-            else => if (default_size.needsSizeCheck() and imm.bitSize() != rm.operandSize()) {
-                return AsmError.InvalidOperand;
-            }
-,
+        if (imm) |im| {
+            res.addImm(im);
         }
 
-        const reg_bits = if (opcode.reg_bits) |bits| bits else self.reg_bits_fill;
-        const modrm = try rm.encodeOpcodeRm(self.mode, reg_bits, default_size);
-
-        res.addPrefixes(modrm.prefixes, opcode);
-        try res.addRexRm(self.mode, 0, modrm);
-        res.addOpcode(opcode);
-        res.modrm(modrm);
-        res.addImm(imm);
-        return res;
-    }
-
-    pub fn encodeRm(self: Machine, opcode: Opcode, op_rm: Operand, def_size: DefaultSize) AsmError!Instruction {
-        var res = Instruction{};
-
-        const rm = self.coerceRm(op_rm).Rm;
-        const reg_bits = if (opcode.reg_bits) |bits| bits else self.reg_bits_fill;
-        const modrm = try rm.encodeOpcodeRm(self.mode, reg_bits, def_size);
-
-        res.addPrefixes(modrm.prefixes, opcode);
-        try res.addRexRm(self.mode, 0, modrm);
-        res.addOpcode(opcode);
-        res.modrm(modrm);
-        return res;
-    }
-
-    pub fn encodeImmediate(self: Machine, opcode: Opcode, void_op: ?*const Operand, imm: Immediate, def_size: DefaultSize) AsmError!Instruction {
-        var res = Instruction{};
-        var prefixes = Prefixes {};
-        var rex_w: u1 = 0;
-
-        const addressing_size = BitSize.None;
-        const operand_size = if (void_op) |op| x: {
-            break :x op.operandDataSize().bitSize();
-        } else x: {
-            break :x imm.bitSize();
-        };
-
-        try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
-
-        res.addPrefixes(prefixes, opcode);
-        if (void_op) |op| {
-            switch (op.*) {
-                .Reg => try res.addRex(self.mode, op.Reg, Register.AX, def_size),
-                else => unreachable,
-            }
-        }
-        res.addOpcode(opcode);
-        res.addImm(imm);
         return res;
     }
 
     pub fn encodeImmImm(
         self: Machine,
-        opcode: Opcode,
-        void_op: ?*const Operand,
+        instr_item: *const InstructionItem,
         imm1: Immediate,
         imm2: Immediate,
-        def_size: DefaultSize
+        overides: Overides
     ) AsmError!Instruction {
-        var res = try self.encodeImmediate(opcode, void_op, imm1, def_size);
+        var res = try self.encodeRMI(instr_item, null, null, imm1, overides);
         res.addImm(imm2);
 
         return res;
     }
 
-    pub fn encodeAddress(self: Machine, opcode: Opcode, op: Operand, def_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeAddress(
+        self: Machine,
+        instr_item: *const InstructionItem,
+        op_addr: ?*const Operand,
+        overides: Overides
+    ) AsmError!Instruction {
+        const opcode = instr_item.opcode.Op;
         var res = Instruction{};
         var prefixes = Prefixes {};
         var rex_w: u1 = 0;
 
+        const addr = op_addr.?.Addr;
+
         // compute prefixes
         {
-            const operand_size = op.Addr.getDisp().bitSize();
+            const operand_size = addr.getDisp().bitSize();
             const addressing_size = BitSize.None;
 
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
+            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
         }
 
+        res.addCompoundOpcode(opcode);
         res.addPrefixes(prefixes, opcode);
         res.addOpcode(opcode);
-        res.addAddress(op.Addr);
+        res.addAddress(addr);
 
         return res;
     }
 
-    pub fn encodeRegRm(self: Machine, opcode: Opcode, op_reg: Operand, op_rm: Operand, def_size: DefaultSize) AsmError!Instruction {
-        var res = Instruction{};
-        const reg = op_reg.Reg;
-        const rm = self.coerceRm(op_rm).Rm;
-
-        if (def_size.needsSizeCheck() and reg.bitSize() != rm.operandSize()) {
-            warn("operand size mismatch: reg({}), rm({})\n", .{reg.bitSize(), rm.operandSize()});
-            return AsmError.InvalidOperand;
+    fn getSpecialAddrSize(op: *const Operand, name: register.RegisterName, seg: *Segment) BitSize {
+        switch (op.*) {
+            .Rm => {},
+            else => return .None,
         }
 
-        const modrm = try rm.encodeReg(self.mode, reg, def_size);
+        switch (op.Rm) {
+            // [base_reg16 + index_reg16 + disp0/8/16]
+            .Mem16 => |mem| {
+                seg.* = mem.segment;
+                if (
+                    mem.index == null
+                    or mem.index.?.name() != name
+                    or mem.disp.size != .None
+                ) {
+                    return .None;
+                } else {
+                    return mem.index.?.bitSize();
+                }
+            },
 
-        res.addPrefixes(modrm.prefixes, opcode);
-        try res.addRexRm(self.mode, 0, modrm);
-        res.addOpcode(opcode);
-        res.modrm(modrm);
+            // [reg + disp0/8/32]
+            .Mem => |mem| {
+                seg.* = mem.segment;
+                if (
+                    mem.reg.name() != name
+                    or mem.disp.size != .None
+                ) {
+                    return .None;
+                } else {
+                    return mem.reg.bitSize();
+                }
+            },
 
-        return res;
+            else => return .None,
+        }
     }
 
-    pub fn encodeRegRmImmediate(
+    pub fn encodeMSpecial(
         self: Machine,
-        opcode: Opcode,
-        op_reg: Operand,
-        op_rm: Operand,
-        imm: Immediate,
-        default_size: DefaultSize
+        instr_item: *const InstructionItem,
+        op_1: ?*const Operand,
+        op_2: ?*const Operand,
+        overides: Overides,
     ) AsmError!Instruction {
+        const mnem = instr_item.mnemonic;
+        const opcode = instr_item.opcode.Op;
+        var res = Instruction{};
 
-        const rm = self.coerceRm(op_rm);
+        var operand_size: BitSize = .None;
+        var addressing_size: BitSize = .None;
+        var def_seg: Segment = .DefaultSeg;
+        var overide_seg: Segment = .DefaultSeg;
+        var di_seg: Segment = .DefaultSeg;
+        var si_seg: Segment = .DefaultSeg;
 
-        switch (default_size) {
-            .RM8, .RM32 => {
-                if (rm.operandSize() == .Bit64 and imm.bitSize() == .Bit32) {
-                    // skip: can't encode 64 bit immediate and r/m64 at the same time
-                    // but we can do r/m64 with a 32 bit immediate
-                } else if (rm.Rm.operandSize() != imm.bitSize()) {
+        const di_op_size = if (op_1) |op_| op_.operandSize() else .None;
+        const si_op_size = if (op_2) |op_| op_.operandSize() else .None;
+
+        const di_addr_size = if (op_1) |op_| getSpecialAddrSize(op_, .DI, &di_seg) else .None;
+        const si_addr_size = if (op_2) |op_| getSpecialAddrSize(op_, .SI, &si_seg) else .None;
+
+        switch (mnem) {
+            // ES:[DI], __
+            //
+            // INS   BYTE ES:[(E/R)DI], DX
+            // INS   WORD ES:[(E/R)DI], DX
+            // INS   DWORD ES:[(E/R)DI], DX
+            //
+            // STOS  BYTE ES:[(E/R)DI], AL
+            // STOS  WORD ES:[(E/R)DI], AX
+            // STOS  DWORD ES:[(E/R)DI], EAX
+            // STOS  QWORD ES:[(E/R)DI], RAX
+            //
+            // SCAS  BYTE ES:[(E/R)DI], AL
+            // SCAS  WORD ES:[(E/R)DI], AX
+            // SCAS  DWORD ES:[(E/R)DI], EAX
+            // SCAS  QWORD ES:[(E/R)DI], RAX
+            .SCAS, .STOS, .INS => {
+                if (
+                    di_addr_size == .None
+                    or (mnem == .INS and si_op_size != .Bit16)
+                    or (mnem != .INS and di_op_size != si_op_size)
+                ) {
                     return AsmError.InvalidOperand;
                 }
+                addressing_size = di_addr_size;
+                operand_size = di_op_size;
+                overide_seg = di_seg;
+                def_seg = .ES;
             },
 
-            .RM32_I8 => {
-                if (imm.bitSize() != .Bit8) {
+            // __, DS:[SI]
+            //
+            // OUTS  DX, BYTE DS:[(E/R)SI]
+            // OUTS  DX, WORD DS:[(E/R)SI]
+            // OUTS  DX, DWORD DS:[(E/R)SI]
+            //
+            // LODS  AL, BYTE DS:[(E/R)SI]
+            // LODS  AX, WORD DS:[(E/R)SI]
+            // LODS  EAX, DWORD DS:[(E/R)SI]
+            // LODS  RAX, QWORD DS:[(E/R)SI]
+            .LODS, .OUTS => {
+                if (
+                    si_addr_size == .None
+                    or (mnem == .OUTS and di_op_size != .Bit16)
+                    or (mnem != .OUTS and di_op_size != si_op_size)
+                ) {
                     return AsmError.InvalidOperand;
                 }
+                addressing_size = si_addr_size;
+                operand_size = si_op_size;
+                overide_seg = si_seg;
+                def_seg = .DS;
             },
 
-            .RM32_RM, .ZO, .REX_W => {},
+            // ES:[DI], DS:[SI]
+            //
+            // MOVS  BYTE ES:[(E/R)DI], BYTE DS:[(E/R)SI]
+            // MOVS  WORD ES:[(E/R)DI], WORD DS:[(E/R)SI]
+            // MOVS  DWORD ES:[(E/R)DI], DWORD DS:[(E/R)SI]
+            // MOVS  QWORD ES:[(E/R)DI], QWORD DS:[(E/R)SI]
+            //
+            // CMPS  BYTE ES:[(R/E)DI], BYTE DS:[(R/E)SI]
+            // CMPS  WORD ES:[(R/E)DI], WORD DS:[(R/E)SI]
+            // CMPS  DWORD ES:[(R/E)DI], DWORD DS:[(R/E)SI]
+            // CMPS  QWORD ES:[(R/E)DI], QWORD DS:[(R/E)SI]
+            .CMPS, .MOVS => {
+                if (
+                    di_addr_size == .None
+                    or si_addr_size == .None
+                    or di_addr_size != si_addr_size
+                    or di_op_size != si_op_size
+                    or !(di_seg == .ES or di_seg == .DefaultSeg)
+                ) {
+                    return AsmError.InvalidOperand;
+                }
+                addressing_size = di_addr_size;
+                operand_size = di_op_size;
+                overide_seg = si_seg;
+                def_seg = .DS;
+            },
 
+            // XLAT AL, BYTE DS:[(E/R)BX + AL]
+            .XLAT => {
+                const rm = if (op_2) |op_2_| op_2_.Rm else op_1.?.Rm;
+                operand_size = .Bit8;
+                def_seg = .DS;
+                switch (rm) {
+                    .Sib => |sib| {
+                        overide_seg = sib.segment;
+                        if (sib.base == null or sib.index == null) {
+                            return AsmError.InvalidOperand;
+                        } else if (sib.base.?.name() == .BX and sib.index.? == .AL) {
+                            addressing_size = sib.base.?.bitSize();
+                        } else if (sib.base.? == .AL and sib.index.?.name() == .BX) {
+                            addressing_size = sib.index.?.bitSize();
+                        } else {
+                            return AsmError.InvalidOperand;
+                        }
+
+                        // x86_64 doesn't use a default segment for these instructions
+                        if (self.mode == .x64 and addressing_size == .Bit64) {
+                            def_seg = .DefaultSeg;
+                        }
+                    },
+                    else => return AsmError.InvalidOperand,
+                }
+            },
             else => unreachable,
         }
 
-        var res = try self.encodeRegRm(opcode, op_reg, rm, default_size);
-        res.addImm(imm);
+
+        // compute the prefixes
+        var prefixes = Prefixes {};
+        var rex_w: u1 = 0;
+        if (overide_seg != def_seg) {
+            prefixes.addSegmentOveride(overide_seg);
+        }
+        try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
+
+        res.addPrefixes(prefixes, opcode);
+        try res.rexRaw(self.mode, util.rexValue(rex_w, 0, 0, 0));
+        res.addOpcode(opcode);
 
         return res;
     }
 
-    pub fn encodeMOffset(self: Machine, opcode: Opcode, op_reg: Operand, op_moff: Operand, def_size: DefaultSize) AsmError!Instruction {
+    pub fn encodeMOffset(
+        self: Machine,
+        instr_item: *const InstructionItem,
+        op_reg: ?*const Operand,
+        op_moff: ?*const Operand,
+        overides: Overides
+    ) AsmError!Instruction {
+        const opcode = instr_item.opcode.Op;
         var res = Instruction{};
-        const reg = op_reg.Reg;
-        const moff = op_moff.Addr.MOffset;
+        const reg = op_reg.?.Reg;
+        const moff = op_moff.?.Addr.MOffset;
         // MOffset can only use AL, AX, EAX, RAX
         if (reg.number() != Register.AX.number()) {
             return AsmError.InvalidOperand;
@@ -328,9 +436,10 @@ pub const Machine = struct {
             const operand_size = reg.bitSize();
             const addressing_size = moff.disp.bitSize();
 
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, def_size);
+            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
         }
 
+        res.addCompoundOpcode(opcode);
         res.addPrefixes(prefixes, opcode);
         try res.rexRaw(self.mode, util.rexValue(rex_w, 0, 0, 0));
         res.addOpcode(opcode);
@@ -346,7 +455,7 @@ pub const Machine = struct {
 
     pub fn encodeAvx(
         self: Machine,
-        avx_opcode: avx.AvxOpcode,
+        instr_item: *const InstructionItem,
         vec1_r: ?*const Operand,
         vec2_v: ?*const Operand,
         rm_op: ?*const Operand,
@@ -354,8 +463,8 @@ pub const Machine = struct {
         imm_op: ?*const Operand,
         /// 8 bit displacement multiplier
         disp_n: u8,
-        default_size: DefaultSize
     ) AsmError!Instruction {
+        const avx_opcode = instr_item.opcode.Avx;
         var res = Instruction{};
 
         var modrm: operand.ModRmResult = undefined;
@@ -372,13 +481,13 @@ pub const Machine = struct {
                 .RegSae => v.RegSae.reg,
                 else => unreachable,
             };
-            modrm = try rm.encodeReg(self.mode, reg, default_size);
+            modrm = try rm.encodeReg(self.mode, reg, .ZO);
             has_modrm = true;
         } else {
             var rm = self.coerceRm(rm_op.?.*).Rm;
             rm.scaleAvx512Displacement(disp_n);
             const fake_reg = Register.create(.Bit32, avx_opcode.reg_bits.?);
-            modrm = try rm.encodeReg(self.mode, fake_reg, default_size);
+            modrm = try rm.encodeReg(self.mode, fake_reg, .ZO);
             has_modrm = true;
         }
 
@@ -436,7 +545,14 @@ pub const Machine = struct {
         return self.build(mnem, &ops1, &ops2, &ops3, null);
     }
 
-    pub fn build4(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand, ops4: Operand) AsmError!Instruction {
+    pub fn build4(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand,
+        ops4: Operand
+    ) AsmError!Instruction {
         return self.build(mnem, &ops1, &ops2, &ops3, &ops4);
     }
 

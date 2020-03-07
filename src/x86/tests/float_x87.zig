@@ -3,6 +3,7 @@ usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
 test "x87 floating point instructions" {
+    const m16 = Machine.init(.x86_16);
     const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
@@ -263,16 +264,59 @@ test "x87 floating point instructions" {
     }
 
     {
-        const op1 = Operand.memoryRm(.DefaultSeg, .Void, .RAX, 0);
-        testOp1(m64, .FRSTOR,  op1, "DD 20");
-        testOp1(m64, .FSAVE,   op1, "9B DD 30");
-        testOp1(m64, .FNSAVE,  op1, "DD 30");
-        testOp1(m64, .FSTCW,   op1, "9B D9 38");
-        testOp1(m64, .FNSTCW,  op1, "D9 38");
-        testOp1(m64, .FSTENV,  op1, "9B D9 30");
-        testOp1(m64, .FNSTENV, op1, "D9 30");
-        testOp1(m64, .FSTSW,   op1, "9B DD 38");
-        testOp1(m64, .FNSTSW,  op1, "DD 38");
+        const op1 = Operand.memoryRm(.DefaultSeg, .Void, .EAX, 0);
+        testOp1(m64, .FRSTOR,   op1, "67 DD 20");
+        testOp1(m64, .FRSTORD,  op1, "67 DD 20");
+        testOp1(m64, .FRSTORW,  op1, "66 67 DD 20");
+        testOp1(m64, .FSAVE,    op1, "9B 67 DD 30");
+        testOp1(m64, .FSAVED,   op1, "9B 67 DD 30");
+        testOp1(m64, .FSAVEW,   op1, "9B 66 67 DD 30");
+        testOp1(m64, .FNSAVE,   op1, "67 DD 30");
+        testOp1(m64, .FNSAVED,  op1, "67 DD 30");
+        testOp1(m64, .FNSAVEW,  op1, "66 67 DD 30");
+        testOp1(m64, .FSTENV,   op1, "9B 67 D9 30");
+        testOp1(m64, .FSTENVD,  op1, "9B 67 D9 30");
+        testOp1(m64, .FSTENVW,  op1, "9B 66 67 D9 30");
+        testOp1(m64, .FNSTENV,  op1, "67 D9 30");
+        testOp1(m64, .FNSTENVD, op1, "67 D9 30");
+        testOp1(m64, .FNSTENVW, op1, "66 67 D9 30");
+
+        testOp1(m32, .FRSTOR,   op1, "DD 20");
+        testOp1(m32, .FRSTORD,  op1, "DD 20");
+        testOp1(m32, .FRSTORW,  op1, "66 DD 20");
+        testOp1(m32, .FSAVE,    op1, "9B DD 30");
+        testOp1(m32, .FSAVED,   op1, "9B DD 30");
+        testOp1(m32, .FSAVEW,   op1, "9B 66 DD 30");
+        testOp1(m32, .FNSAVE,   op1, "DD 30");
+        testOp1(m32, .FNSAVED,  op1, "DD 30");
+        testOp1(m32, .FNSAVEW,  op1, "66 DD 30");
+        testOp1(m32, .FSTENV,   op1, "9B D9 30");
+        testOp1(m32, .FSTENVD,  op1, "9B D9 30");
+        testOp1(m32, .FSTENVW,  op1, "9B 66 D9 30");
+        testOp1(m32, .FNSTENV,  op1, "D9 30");
+        testOp1(m32, .FNSTENVD, op1, "D9 30");
+        testOp1(m32, .FNSTENVW, op1, "66 D9 30");
+
+        testOp1(m16, .FRSTOR,   op1, "67 DD 20");
+        testOp1(m16, .FRSTORD,  op1, "66 67 DD 20");
+        testOp1(m16, .FRSTORW,  op1, "67 DD 20");
+        testOp1(m16, .FSAVE,    op1, "9B 67 DD 30");
+        testOp1(m16, .FSAVED,   op1, "9B 66 67 DD 30");
+        testOp1(m16, .FSAVEW,   op1, "9B 67 DD 30");
+        testOp1(m16, .FNSAVE,   op1, "67 DD 30");
+        testOp1(m16, .FNSAVED,  op1, "66 67 DD 30");
+        testOp1(m16, .FNSAVEW,  op1, "67 DD 30");
+        testOp1(m16, .FSTENV,   op1, "9B 67 D9 30");
+        testOp1(m16, .FSTENVD,  op1, "9B 66 67 D9 30");
+        testOp1(m16, .FSTENVW,  op1, "9B 67 D9 30");
+        testOp1(m16, .FNSTENV,  op1, "67 D9 30");
+        testOp1(m16, .FNSTENVD, op1, "66 67 D9 30");
+        testOp1(m16, .FNSTENVW, op1, "67 D9 30");
+
+        testOp1(m64, .FSTSW,  op1, "9B 67 DD 38");
+        testOp1(m64, .FNSTSW, op1, "67 DD 38");
+        testOp1(m64, .FSTCW,  op1, "9B 67 D9 38");
+        testOp1(m64, .FNSTCW, op1, "67 D9 38");
     }
 
     {

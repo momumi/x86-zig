@@ -2,7 +2,13 @@ const std = @import("std");
 usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
+const imm = Operand.immediate;
+const memory = Operand.memory;
+const reg = Operand.register;
+const regRm = Operand.registerRm;
+
 test "simple 8086 opcodes" {
+    const m16 = Machine.init(.x86_16);
     const m32 = Machine.init(.x86_32);
     const m64 = Machine.init(.x64);
 
@@ -26,6 +32,9 @@ test "simple 8086 opcodes" {
         testOp0(m32, .LAHF, "9F");
         testOp0(m32, .SAHF, "9E");
 
+        testOp0(m32, .SALC, "D6");
+        testOp0(m64, .SALC, AsmError.InvalidOperand);
+
         testOp0(m32, .STC, "F9");
         testOp0(m32, .STD, "FD");
         testOp0(m32, .STI, "FB");
@@ -37,11 +46,6 @@ test "simple 8086 opcodes" {
 
         testOp0(m32, .WAIT, "9B");
         testOp0(m32, .FWAIT, "9B");
-
-        testOp0(m32, .XLAT, "D7");
-        testOp0(m32, .XLATB, "D7");
-
-        testOp1(m64, .XLAT, Operand.voidOperand(.QWORD), "48 D7");
 
         testOp0(m64, .CBW, "66 98");
         testOp0(m64, .CWDE, "98");
@@ -146,22 +150,56 @@ test "simple 8086 opcodes" {
             testOp0(m32, .SCASW, "66 AF");
             testOp0(m32, .SCASD, "AF");
             testOp0(m32, .SCASQ, AsmError.InvalidOperand);
+
+        }
+
+        {
+            // XLATB
+            testOp0(m32, .XLATB, "D7");
         }
     }
 
     {
         const op1 = Operand.immediate16(0x1100);
-        testOp0(m32, .RETN, "C3");
-        testOp0(m32, .RETF, "CB");
-        testOp1(m32, .RETN, op1, "C2 00 11");
-        testOp1(m32, .RETF, op1, "CA 00 11");
+        //  RET
+        testOp0(m64, .RET,     "c3");
+        testOp1(m64, .RET,     imm(0x7FFF), "c2ff7f");
+        testOp0(m64, .RETW,    "66c3");
+        testOp1(m64, .RETW,    imm(0x7FFF), "66c2ff7f");
+        testOp0(m64, .RETD,    AsmError.InvalidOperand);
+        testOp1(m64, .RETD,    imm(0x7FFF), AsmError.InvalidOperand);
+        testOp0(m64, .RETQ,    "c3");
+        testOp1(m64, .RETQ,    imm(0x7FFF), "c2ff7f");
+        //  RETF
+        testOp0(m64, .RETF,    "cb");
+        testOp1(m64, .RETF,    imm(0x7FFF), "caff7f");
+        testOp0(m64, .RETFW,   "66cb");
+        testOp1(m64, .RETFW,   imm(0x7FFF), "66caff7f");
+        testOp0(m64, .RETFD,   AsmError.InvalidOperand);
+        testOp1(m64, .RETFD,   imm(0x7FFF), AsmError.InvalidOperand);
+        testOp0(m64, .RETFQ,   "cb");
+        testOp1(m64, .RETFQ,   imm(0x7FFF), "caff7f");
+        //  RETN
+        testOp0(m64, .RETN,    "c3");
+        testOp1(m64, .RETN,    imm(0x7FFF), "c2ff7f");
+        testOp0(m64, .RETNW,   "66c3");
+        testOp1(m64, .RETNW,   imm(0x7FFF), "66c2ff7f");
+        testOp0(m64, .RETND,   AsmError.InvalidOperand);
+        testOp1(m64, .RETND,   imm(0x7FFF), AsmError.InvalidOperand);
+        testOp0(m64, .RETNQ,   "c3");
+        testOp1(m64, .RETNQ,   imm(0x7FFF), "c2ff7f");
 
-        testOp0(m32, .IRET, "66 CF");
-        testOp0(m32, .IRETD, "CF");
-        testOp0(m32, .IRETQ, AsmError.InvalidOperand);
-        testOp0(m64, .IRET, "66 CF");
-        testOp0(m64, .IRETD, "CF");
-        testOp0(m64, .IRETQ, "48 CF");
+        // IRET
+        testOp0(m32, .IRET,    "cf");
+        testOp0(m32, .IRETW,   "66cf");
+        testOp0(m32, .IRETD,   "cf");
+        testOp0(m32, .IRETQ,   AsmError.InvalidOperand);
+
+        // IRET
+        testOp0(m16, .IRET,    "cf");
+        testOp0(m16, .IRETW,   "cf");
+        testOp0(m16, .IRETD,   "66cf");
+        testOp0(m16, .IRETQ,   AsmError.InvalidOperand);
     }
 
     {
@@ -209,55 +247,93 @@ test "simple 8086 opcodes" {
     // Unary
     {
         {
-            const op1 = Operand.registerRm(.AL);
-            testOp1(m32, .INC, op1, "FE C0");
-            testOp1(m32, .DEC, op1, "FE C8");
-            testOp1(m32, .NOT, op1, "F6 D0");
-            testOp1(m32, .NEG, op1, "F6 D8");
+            testOp1(m16, .INC, regRm(.AL), "FE C0");
+            testOp1(m16, .DEC, regRm(.AL), "FE C8");
+            testOp1(m16, .NOT, regRm(.AL), "F6 D0");
+            testOp1(m16, .NEG, regRm(.AL), "F6 D8");
+            //
+            testOp1(m32, .INC, regRm(.AL), "FE C0");
+            testOp1(m32, .DEC, regRm(.AL), "FE C8");
+            testOp1(m32, .NOT, regRm(.AL), "F6 D0");
+            testOp1(m32, .NEG, regRm(.AL), "F6 D8");
+            //
+            testOp1(m64, .INC, regRm(.AL), "FE C0");
+            testOp1(m64, .DEC, regRm(.AL), "FE C8");
+            testOp1(m64, .NOT, regRm(.AL), "F6 D0");
+            testOp1(m64, .NEG, regRm(.AL), "F6 D8");
         }
 
         {
-            const op1 = Operand.registerRm(.AX);
-            testOp1(m32, .INC, op1, "66 FF C0");
-            testOp1(m32, .DEC, op1, "66 FF C8");
-            testOp1(m32, .NOT, op1, "66 F7 D0");
-            testOp1(m32, .NEG, op1, "66 F7 D8");
+            testOp1(m16, .INC, regRm(.AX), "FF C0");
+            testOp1(m16, .DEC, regRm(.AX), "FF C8");
+            testOp1(m16, .NOT, regRm(.AX), "F7 D0");
+            testOp1(m16, .NEG, regRm(.AX), "F7 D8");
+            //
+            testOp1(m32, .INC, regRm(.AX), "66 FF C0");
+            testOp1(m32, .DEC, regRm(.AX), "66 FF C8");
+            testOp1(m32, .NOT, regRm(.AX), "66 F7 D0");
+            testOp1(m32, .NEG, regRm(.AX), "66 F7 D8");
+            //
+            testOp1(m64, .INC, regRm(.AX), "66 FF C0");
+            testOp1(m64, .DEC, regRm(.AX), "66 FF C8");
+            testOp1(m64, .NOT, regRm(.AX), "66 F7 D0");
+            testOp1(m64, .NEG, regRm(.AX), "66 F7 D8");
         }
 
         {
-            const op1 = Operand.registerRm(.EAX);
-            testOp1(m32, .INC, op1, "FF C0");
-            testOp1(m32, .DEC, op1, "FF C8");
-            testOp1(m32, .NOT, op1, "F7 D0");
-            testOp1(m32, .NEG, op1, "F7 D8");
+            testOp1(m16, .INC, regRm(.EAX), "66 FF C0");
+            testOp1(m16, .DEC, regRm(.EAX), "66 FF C8");
+            testOp1(m16, .NOT, regRm(.EAX), "66 F7 D0");
+            testOp1(m16, .NEG, regRm(.EAX), "66 F7 D8");
+            //
+            testOp1(m32, .INC, regRm(.EAX), "FF C0");
+            testOp1(m32, .DEC, regRm(.EAX), "FF C8");
+            testOp1(m32, .NOT, regRm(.EAX), "F7 D0");
+            testOp1(m32, .NEG, regRm(.EAX), "F7 D8");
+            //
+            testOp1(m64, .INC, regRm(.EAX), "FF C0");
+            testOp1(m64, .DEC, regRm(.EAX), "FF C8");
+            testOp1(m64, .NOT, regRm(.EAX), "F7 D0");
+            testOp1(m64, .NEG, regRm(.EAX), "F7 D8");
         }
 
         {
-            const op1 = Operand.registerRm(.RAX);
-            testOp1(m32, .INC, op1, AsmError.InvalidOperand);
-            testOp1(m32, .DEC, op1, AsmError.InvalidOperand);
-            testOp1(m32, .NOT, op1, AsmError.InvalidOperand);
-            testOp1(m32, .NEG, op1, AsmError.InvalidOperand);
-            testOp1(m64, .INC, op1, "48 FF C0");
-            testOp1(m64, .DEC, op1, "48 FF C8");
-            testOp1(m64, .NOT, op1, "48 F7 D0");
-            testOp1(m64, .NEG, op1, "48 F7 D8");
+            testOp1(m16, .INC, regRm(.RAX), AsmError.InvalidOperand);
+            testOp1(m16, .DEC, regRm(.RAX), AsmError.InvalidOperand);
+            testOp1(m16, .NOT, regRm(.RAX), AsmError.InvalidOperand);
+            testOp1(m16, .NEG, regRm(.RAX), AsmError.InvalidOperand);
+            //
+            testOp1(m32, .INC, regRm(.RAX), AsmError.InvalidOperand);
+            testOp1(m32, .DEC, regRm(.RAX), AsmError.InvalidOperand);
+            testOp1(m32, .NOT, regRm(.RAX), AsmError.InvalidOperand);
+            testOp1(m32, .NEG, regRm(.RAX), AsmError.InvalidOperand);
+            //
+            testOp1(m64, .INC, regRm(.RAX), "48 FF C0");
+            testOp1(m64, .DEC, regRm(.RAX), "48 FF C8");
+            testOp1(m64, .NOT, regRm(.RAX), "48 F7 D0");
+            testOp1(m64, .NEG, regRm(.RAX), "48 F7 D8");
         }
 
         {
-            const op1 = Operand.register(.AX);
-            testOp1(m32, .INC, op1, "66 40");
-            testOp1(m32, .DEC, op1, "66 48");
-            testOp1(m64, .INC, op1, "66 FF C0");
-            testOp1(m64, .DEC, op1, "66 FF C8");
+            testOp1(m16, .INC, reg(.AX), "40");
+            testOp1(m16, .DEC, reg(.AX), "48");
+            //
+            testOp1(m32, .INC, reg(.AX), "66 40");
+            testOp1(m32, .DEC, reg(.AX), "66 48");
+            //
+            testOp1(m64, .INC, reg(.AX), "66 FF C0");
+            testOp1(m64, .DEC, reg(.AX), "66 FF C8");
         }
 
         {
-            const op1 = Operand.register(.EAX);
-            testOp1(m32, .INC, op1, "40");
-            testOp1(m32, .DEC, op1, "48");
-            testOp1(m64, .INC, op1, "FF C0");
-            testOp1(m64, .DEC, op1, "FF C8");
+            testOp1(m16, .INC, reg(.EAX), "66 40");
+            testOp1(m16, .DEC, reg(.EAX), "66 48");
+            //
+            testOp1(m32, .INC, reg(.EAX), "40");
+            testOp1(m32, .DEC, reg(.EAX), "48");
+            //
+            testOp1(m64, .INC, reg(.EAX), "FF C0");
+            testOp1(m64, .DEC, reg(.EAX), "FF C8");
         }
     }
 

@@ -2,7 +2,20 @@ const std = @import("std");
 usingnamespace (@import("../machine.zig"));
 usingnamespace (@import("../util.zig"));
 
-// QuickRef: https://www.felixcloutier.com/x86/cmp
+const imm = Operand.immediate;
+const imm8 = Operand.immediate8;
+const imm16 = Operand.immediate16;
+const imm32 = Operand.immediate32;
+const imm64 = Operand.immediate64;
+
+const immSign = Operand.immediateSigned;
+const immSign8 = Operand.immediateSigned8;
+const immSign16 = Operand.immediateSigned16;
+const immSign32 = Operand.immediateSigned32;
+const immSign64 = Operand.immediateSigned64;
+
+const reg = Operand.register;
+const regRm = Operand.registerRm;
 
 test "cmp" {
     const m32 = Machine.init(.x86_32);
@@ -11,132 +24,67 @@ test "cmp" {
     debugPrint(false);
 
     {
-        const op1 = Operand.register(.RAX);
-        const op2 = Operand.immediate(0x00);
-        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperand);
-        testOp2(m64, .CMP, op1, op2, "48 83 f8 00");
+        testOp2(m32, .CMP, reg(.RAX), imm(0), AsmError.InvalidOperand);
+        testOp2(m64, .CMP, reg(.RAX), imm(0), "48 83 f8 00");
+        //
+        testOp2(m32, .CMP, reg(.RAX), imm(0xff), AsmError.InvalidOperand);
+        testOp2(m64, .CMP, reg(.RAX), imm(0xff), "48 3d ff 00 00 00");
+        //
+        testOp2(m32, .CMP, reg(.RAX), immSign(-1), AsmError.InvalidOperand);
+        testOp2(m64, .CMP, reg(.RAX), immSign(-1), "48 83 f8 ff");
+        //
+        testOp2(m32, .CMP, reg(.AL), immSign(-1), "3C ff");
+        testOp2(m64, .CMP, reg(.AL), immSign(-1), "3C ff");
+        //
+        testOp2(m32, .CMP, reg(.AX), imm16(0xff), "66 3D ff 00");
+        testOp2(m64, .CMP, reg(.AX), imm16(0xff), "66 3D ff 00");
+        //
+        testOp2(m32, .CMP, reg(.EAX), imm32(0xff), "3D ff 00 00 00");
+        testOp2(m64, .CMP, reg(.EAX), imm32(0xff), "3D ff 00 00 00");
+        //
+        testOp2(m32, .CMP, reg(.RAX), immSign64(0xff), AsmError.InvalidOperand);
+        testOp2(m64, .CMP, reg(.RAX), immSign64(0xff), AsmError.InvalidOperand);
+        //
+        testOp2(m32, .CMP, reg(.RAX), immSign32(0xff), AsmError.InvalidOperand);
+        testOp2(m64, .CMP, reg(.RAX), immSign32(0xff), "48 3D ff 00 00 00");
+        //
+        testOp2(m32, .CMP, reg(.AX), immSign(-1), "66 83 f8 ff");
+        testOp2(m64, .CMP, reg(.AX), immSign(-1), "66 83 f8 ff");
+        //
+        testOp2(m32, .CMP, reg(.EAX), immSign(-1), "83 f8 ff");
+        testOp2(m64, .CMP, reg(.EAX), immSign(-1), "83 f8 ff");
+        //
+        testOp2(m32, .CMP, reg(.EAX), immSign(-1), "83 f8 ff");
+        testOp2(m64, .CMP, reg(.EAX), immSign(-1), "83 f8 ff");
+        //
+        testOp2(m32, .CMP, reg(.EAX), immSign32(-1), "3d ff ff ff ff");
+        testOp2(m64, .CMP, reg(.EAX), immSign32(-1), "3d ff ff ff ff");
     }
 
     {
-        // Since the immediate is signed extended, need to use a different
-        // encoding for this value
-        const op1 = Operand.register(.RAX);
-        const op2 = Operand.immediate(0xff);
-        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperand);
-        testOp2(m64, .CMP, op1, op2, "48 3d ff 00 00 00");
+        testOp2(m32, .CMP, reg(.EAX), reg(.EAX), "3b c0");
+        testOp2(m64, .CMP, reg(.EAX), reg(.EAX), "3b c0");
+        //
+        testOp2(m32, .CMP, reg(.EAX), regRm(.EAX), "3b c0");
+        testOp2(m64, .CMP, reg(.EAX), regRm(.EAX), "3b c0");
+        //
+        testOp2(m32, .CMP, regRm(.EAX), reg(.EAX), "39 c0");
+        testOp2(m64, .CMP, regRm(.EAX), reg(.EAX), "39 c0");
     }
 
     {
-        // However, if the immediate is marked as Signed, then we can use the
-        // shorter encoding.
-        const op1 = Operand.register(.RAX);
-        const op2 = Operand.immediateSigned(-1);
-        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperand);
-        testOp2(m64, .CMP, op1, op2, "48 83 f8 ff");
+        testOp2(m32, .CMP, reg(.AL), regRm(.AL), "3a c0");
+        testOp2(m64, .CMP, reg(.AL), regRm(.AL), "3a c0");
+        //
+        testOp2(m32, .CMP, regRm(.AL), reg(.AL), "38 c0");
+        testOp2(m64, .CMP, regRm(.AL), reg(.AL), "38 c0");
     }
 
     {
-        const op1 = Operand.register(.AL);
-        const op2 = Operand.immediateSigned(-1);
-        testOp2(m32, .CMP, op1, op2, "3C ff");
-        testOp2(m64, .CMP, op1, op2, "3C ff");
-    }
-
-    {
-        const op1 = Operand.register(.AX);
-        const op2 = Operand.immediate16(0xff);
-        testOp2(m32, .CMP, op1, op2, "66 3D ff 00");
-        testOp2(m64, .CMP, op1, op2, "66 3D ff 00");
-    }
-
-    {
-        const op1 = Operand.register(.EAX);
-        const op2 = Operand.immediateSigned32(0xff);
-        testOp2(m32, .CMP, op1, op2, "3D ff 00 00 00");
-        testOp2(m64, .CMP, op1, op2, "3D ff 00 00 00");
-    }
-
-    {
-        const op1 = Operand.register(.RAX);
-        const op2 = Operand.immediateSigned64(0xff);
-        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperand);
-        testOp2(m64, .CMP, op1, op2, AsmError.InvalidOperand);
-    }
-
-    {
-        const op1 = Operand.register(.RAX);
-        const op2 = Operand.immediateSigned32(0xff);
-        testOp2(m32, .CMP, op1, op2, AsmError.InvalidOperand);
-        testOp2(m64, .CMP, op1, op2, "48 3D ff 00 00 00");
-    }
-
-    {
-        const op1 = Operand.register(.AX);
-        const op2 = Operand.immediateSigned(-1);
-        testOp2(m32, .CMP, op1, op2, "66 83 f8 ff");
-        testOp2(m64, .CMP, op1, op2, "66 83 f8 ff");
-    }
-
-    {
-        const op1 = Operand.register(.EAX);
-        const op2 = Operand.immediateSigned(-1);
-        testOp2(m32, .CMP, op1, op2, "83 f8 ff");
-        testOp2(m64, .CMP, op1, op2, "83 f8 ff");
-    }
-
-    {
-        const op1 = Operand.register(.EAX);
-        const op2 = Operand.immediateSigned8(-1);
-        testOp2(m32, .CMP, op1, op2, "83 f8 ff");
-        testOp2(m64, .CMP, op1, op2, "83 f8 ff");
-    }
-
-    {
-        const op1 = Operand.register(.EAX);
-        const op2 = Operand.immediateSigned32(-1);
-        testOp2(m32, .CMP, op1, op2, "3d ff ff ff ff");
-        testOp2(m64, .CMP, op1, op2, "3d ff ff ff ff");
-    }
-
-    {
-        const op1 = Operand.registerRm(.EAX);
-        const op2 = Operand.register(.EAX);
-        testOp2(m32, .CMP, op1, op2, "39 c0");
-        testOp2(m64, .CMP, op1, op2, "39 c0");
-    }
-
-    {
-        const op1 = Operand.register(.EAX);
-        const op2 = Operand.registerRm(.EAX);
-        testOp2(m32, .CMP, op1, op2, "3b c0");
-        testOp2(m64, .CMP, op1, op2, "3b c0");
-    }
-
-    {
-        const op1 = Operand.registerRm(.AL);
-        const op2 = Operand.register(.AL);
-        testOp2(m32, .CMP, op1, op2, "38 c0");
-        testOp2(m64, .CMP, op1, op2, "38 c0");
-    }
-
-    {
-        const op1 = Operand.register(.AL);
-        const op2 = Operand.registerRm(.AL);
-        testOp2(m32, .CMP, op1, op2, "3a c0");
-        testOp2(m64, .CMP, op1, op2, "3a c0");
-    }
-
-    {
-        const op1 = Operand.registerRm(.EAX);
-        const op2 = Operand.immediate32(0x33221100);
-        testOp2(m32, .CMP, op1, op2, "81 f8 00 11 22 33");
-        testOp2(m64, .CMP, op1, op2, "81 f8 00 11 22 33");
-    }
-
-    {
-        const op1 = Operand.registerRm(.AL);
-        const op2 = Operand.immediate8(0x00);
-        testOp2(m32, .CMP, op1, op2, "80 f8 00");
-        testOp2(m64, .CMP, op1, op2, "80 f8 00");
+        testOp2(m32, .CMP, regRm(.EAX), imm32(0x33221100), "81 f8 00 11 22 33");
+        testOp2(m64, .CMP, regRm(.EAX), imm32(0x33221100), "81 f8 00 11 22 33");
+        //
+        testOp2(m32, .CMP, regRm(.AL), imm8(0), "80 f8 00");
+        testOp2(m64, .CMP, regRm(.AL), imm8(0), "80 f8 00");
     }
 }

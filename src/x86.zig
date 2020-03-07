@@ -18,6 +18,7 @@ test "main test" {
     _ = @import("x86/tests/simple_8086.zig");
     _ = @import("x86/tests/float_x87.zig");
     _ = @import("x86/tests/extra.zig");
+    _ = @import("x86/tests/special_mem.zig");
     _ = @import("x86/tests/80286.zig");
     _ = @import("x86/tests/80386.zig");
     _ = @import("x86/tests/80486.zig");
@@ -29,4 +30,6 @@ test "main test" {
     _ = @import("x86/tests/mask_register.zig");
     _ = @import("x86/tests/avx_512.zig");
     _ = @import("x86/tests/16bit_mode.zig");
+    _ = @import("x86/tests/reserved.zig");
+    _ = @import("x86/tests/cpuid.zig");
 }

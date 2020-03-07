@@ -1032,15 +1032,12 @@ pub const ModRmResult = struct {
     reg: u3 = 0,
     rm: u3 = 0,
     sib: ?u8 = null,
-    disp_bit_size: BitSize = .Bit0,
+    disp_bit_size: BitSize = .None,
     disp: i32 = 0,
     segment: Segment = .DefaultSeg,
 
-    pub fn rexRequirements(self: *@This(), reg: Register, default_size: DefaultSize) void {
-        // Don't need to check this if the instruction uses 64 bit by default
-        if (!default_size.is64Default()) {
-            self.needs_rex = self.needs_rex or reg.needsRex();
-        }
+    pub fn rexRequirements(self: *@This(), reg: Register, overides: Overides) void {
+        self.needs_rex = self.needs_rex or reg.needsRex();
         self.needs_no_rex = self.needs_no_rex or reg.needsNoRex();
     }
 
@@ -1115,13 +1112,13 @@ pub const ModRm = union(ModRmTag) {
             .Mem => |mem| mem.data_size.dataType(),
             .Sib => |sib| sib.data_size.dataType(),
             .Rel => |reg| reg.data_size.dataType(),
-            .VecSib => |vsib| vsib.data_size.dataType(),
+            .VecSib => |vsib| if (vsib.base) |reg| reg.bitSize() else .None,
         };
     }
 
-    pub fn encodeOpcodeRm(self: @This(), mode: Mode86, reg_bits: u3, default_size: DefaultSize) AsmError!ModRmResult {
+    pub fn encodeOpcodeRm(self: @This(), mode: Mode86, reg_bits: u3, overides: Overides) AsmError!ModRmResult {
         const fake_reg = @intToEnum(Register, reg_bits + @enumToInt(Register.AX));
-        var res = try self.encodeReg(mode, fake_reg, default_size);
+        var res = try self.encodeReg(mode, fake_reg, overides);
         res.reg_size = .None;
         return res;
     }
@@ -1255,21 +1252,18 @@ pub const ModRm = union(ModRmTag) {
     }
 
     // TODO: probably change the asserts in this function to errors
-    pub fn encodeReg(self: @This(), mode: Mode86, modrm_reg: Register, default_size: DefaultSize) AsmError!ModRmResult {
+    pub fn encodeReg(self: @This(), mode: Mode86, modrm_reg: Register, overides: Overides) AsmError!ModRmResult {
         var res = ModRmResult{};
         res.rex_r = modrm_reg.numberRex();
         res.reg = modrm_reg.numberRm();
         res.reg_size = modrm_reg.bitSize();
-        res.rexRequirements(modrm_reg, default_size);
-        if (modrm_reg.bitSize() == .Bit64 and !default_size.is64Default()) {
-            res.rex_w = 1;
-        }
+        res.rexRequirements(modrm_reg, overides);
 
         switch (self) {
             .Reg => |reg| {
                 res.mod = 0b11;
 
-                res.rexRequirements(reg, default_size);
+                res.rexRequirements(reg, overides);
                 res.rm = reg.numberRm();
                 res.rex_b = reg.numberRex();
                 res.operand_size = reg.bitSize();
@@ -1525,12 +1519,8 @@ pub const ModRm = union(ModRmTag) {
             res.prefixes.addSegmentOveride(res.segment);
         }
 
-        if (default_size == .RM32_Reg) {
-            res.operand_size = res.reg_size;
-        }
-
         try res.prefixes.addOverides(
-            mode, &res.rex_w, res.operand_size, res.addressing_size, default_size
+            mode, &res.rex_w, res.operand_size, res.addressing_size, overides
         );
 
         return res;
@@ -2433,9 +2423,9 @@ test "ModRm Encoding" {
     // x86_16: [BP + SI]
     {
         const modrm = ModRm.memory16Bit(.DefaultSeg, .WORD, .BP, .SI, 0);
-        const result = try modrm.encodeOpcodeRm(.x86_16, 7, .RM32);
+        const result = try modrm.encodeOpcodeRm(.x86_16, 7, .Op16);
         expect(result.modrm() == 0b00111010);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
         expect(result.disp          == 0);
         expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{}));
     }
@@ -2443,7 +2433,7 @@ test "ModRm Encoding" {
     // x86_32: WORD [BP + DI + 0x10], (RM32)
     {
         const modrm = ModRm.memory16Bit(.DefaultSeg, .WORD, .BP, .DI, 0x10);
-        const result = try modrm.encodeOpcodeRm(.x86_32, 7, .RM32);
+        const result = try modrm.encodeOpcodeRm(.x86_32, 7, .Op16);
         expect(result.modrm() == 0b01111011);
         expect(result.disp_bit_size == .Bit8);
         expect(result.disp          == 0x10);
@@ -2453,7 +2443,7 @@ test "ModRm Encoding" {
     // x86_16: DWORD [BX], (RM32)
     {
         const modrm = ModRm.memory16Bit(.DefaultSeg, .DWORD, .BX, null, 0x1100);
-        const result = try modrm.encodeOpcodeRm(.x86_16, 5, .RM32);
+        const result = try modrm.encodeOpcodeRm(.x86_16, 5, .Op32);
         expect(result.modrm() == 0b10101111);
         expect(result.disp_bit_size == .Bit16);
         expect(result.disp          == 0x1100);
@@ -2462,28 +2452,28 @@ test "ModRm Encoding" {
 
     {
         const modrm = ModRm.register(.RAX);
-        const result = try modrm.encodeOpcodeRm(.x64, 0, .RM32);
+        const result = try modrm.encodeOpcodeRm(.x64, 0, .REX_W);
         expect(result.rex(0)  == 0b01001000);
         expect(result.rex(1)  == 0b01001000);
         expect(result.modrm() == 0b11000000);
         expect(result.sib == null);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
     }
 
     {
         const modrm = ModRm.register(.R15);
-        const result = try modrm.encodeReg(.x64, .R9, .RM32);
+        const result = try modrm.encodeReg(.x64, .R9, .REX_W);
         expect(result.rex(0)  == 0b01001101);
         expect(result.rex(1)  == 0b01001101);
         expect(result.modrm() == 0b11001111);
         expect(result.sib == null);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
         expect(result.prefixes.len == 0);
     }
 
     {
         const modrm = ModRm.relMemory(.DefaultSeg, .DWORD, .EIP, 0x76543210);
-        const result = try modrm.encodeReg(.x64, .R8, .RM32);
+        const result = try modrm.encodeReg(.x64, .R8, .REX_W);
         expect(result.rex(0)  == 0b01001100);
         expect(result.rex(1)  == 0b01001100);
         expect(result.modrm() == 0b00000101);
@@ -2494,7 +2484,7 @@ test "ModRm Encoding" {
 
     {
         const modrm = ModRm.relMemory(.DefaultSeg, .QWORD, .RIP, 0x76543210);
-        const result = try modrm.encodeReg(.x64, .R8, .RM32);
+        const result = try modrm.encodeReg(.x64, .R8, .REX_W);
         expect(result.rex(0)  == 0b01001100);
         expect(result.rex(1)  == 0b01001100);
         expect(result.modrm() == 0b00000101);
@@ -2505,17 +2495,17 @@ test "ModRm Encoding" {
 
     {
         const modrm = ModRm.memoryRm(.DefaultSeg, .QWORD, .R9, 0x0);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(0)  == 0b01001001);
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b00000001);
         expect(result.sib == null);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
     }
 
     {
         const modrm = ModRm.memoryRm(.DefaultSeg, .QWORD, .R9, 0x10);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(0)  == 0b01001001);
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b01000001);
@@ -2525,7 +2515,7 @@ test "ModRm Encoding" {
 
     {
         const modrm = ModRm.memoryRm(.DefaultSeg, .QWORD, .R9, 0x76543210);
-        const result = try modrm.encodeReg(.x64, .R15, .RM32);
+        const result = try modrm.encodeReg(.x64, .R15, .REX_W);
         expect(result.rex(0)  == 0b01001101);
         expect(result.rex(1)  == 0b01001101);
         expect(result.modrm() == 0b10111001);
@@ -2536,7 +2526,7 @@ test "ModRm Encoding" {
     // [2*R15 + R15 + 0x10]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 2, .R15, .R15, 0x10);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01111111);
@@ -2546,7 +2536,7 @@ test "ModRm Encoding" {
     // [2*R15 + R15 + 0x76543210]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 1, .R15, .R15, 0x76543210);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b00111111);
@@ -2556,7 +2546,7 @@ test "ModRm Encoding" {
     // [R15 + 0x10]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 2, null, .R15, 0x10);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01100111);
@@ -2566,7 +2556,7 @@ test "ModRm Encoding" {
     // [R15 + 0x3210]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 2, null, .R15, 0x3210);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b01100111);
@@ -2576,17 +2566,17 @@ test "ModRm Encoding" {
     // [4*R15 + R15]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 4, .R15, .R15, 0x00);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001011);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111111);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
     }
 
     // [4*R15 + 0x10]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 4, .R15, null, 0x10);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001010);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111101);
@@ -2596,7 +2586,7 @@ test "ModRm Encoding" {
     // [0x10]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 8, null, null, 0x10);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001000);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b11100101);
@@ -2606,26 +2596,26 @@ test "ModRm Encoding" {
     // [R15]
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 4, null, .R15, 0x00);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
         expect(result.rex(1)  == 0b01001001);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10100111);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
     }
 
     // DWORD [1*xmm0 + RAX + 0x00]
     {
         const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 1, .XMM0, .RAX, 0x00);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .Op32);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b00000000);
-        expect(result.disp_bit_size == .Bit0);
+        expect(result.disp_bit_size == .None);
     }
 
     // DWORD [4*xmm31 + R8 + 0x33221100]
     {
         const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 4, .XMM31, .R9, 0x33221100);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .Op32);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b10111001);
         expect(result.rex_b == 1);
@@ -2638,7 +2628,7 @@ test "ModRm Encoding" {
     // DWORD [8*xmm17 + RBP]
     {
         const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 8, .XMM17, .RBP, 0);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .Op32);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b11001101);
         expect(result.rex_b == 0);
@@ -2651,7 +2641,7 @@ test "ModRm Encoding" {
     // DWORD [8*xmm17 + 0x77]
     {
         const modrm = ModRm.memoryVecSib(.DefaultSeg, .DWORD, 8, .XMM17, null, 0x77);
-        const result = try modrm.encodeReg(.x64, .RAX, .RM32);
+        const result = try modrm.encodeReg(.x64, .RAX, .Op32);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b11001101);
         expect(result.rex_b == 0);

@@ -118,7 +118,7 @@ pub const Register = enum (u16) {
 
     // We use a flag 0x80 to mark registers that require REX prefix
     // 64 bit register
-    RAX = 0x30 | rex_flag | tag_general,
+    RAX = 0x30 | tag_general,
     RCX,
     RDX,
     RBX,
@@ -133,7 +133,7 @@ pub const Register = enum (u16) {
     R12,
     R13,
     R14,
-    R15 = 0x3F | rex_flag | tag_general,
+    R15 = 0x3F | tag_general,
 
     // special 8 bit registers added in x86-64:
     SPL = 0x04 | rex_flag | tag_general, // would be AH without REX flag
@@ -349,17 +349,17 @@ pub const Register = enum (u16) {
             .Bit8 => return @intToEnum(Register, (0<<4) | reg_num),
             .Bit16 => return @intToEnum(Register, (1<<4) | reg_num),
             .Bit32 => return @intToEnum(Register, (2<<4) | reg_num),
-            .Bit64 => return @intToEnum(Register, (3<<4) | reg_num | rex_flag),
+            .Bit64 => return @intToEnum(Register, (3<<4) | reg_num),
             else => unreachable,
         }
     }
 
+    /// If the register needs rex to be used, ie: BPL, SPL, SIL, DIL,
     pub fn needsRex(self: Register) bool {
-        if (self.registerType() == .General) {
-            return (@enumToInt(self) & rex_flag) == rex_flag;
-        } else {
-            return false;
-        }
+        return (
+            self.registerType() == .General
+            and (@enumToInt(self) & rex_flag) == rex_flag
+        );
     }
 
     pub fn needsNoRex(self: Register) bool {

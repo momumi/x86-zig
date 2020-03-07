@@ -201,7 +201,12 @@ pub const OpcodeEdgeCase = enum {
 // * https://en.wikichip.org/wiki/intel/cpuid
 // * https://en.wikipedia.org/wiki/X86_instruction_listings
 // * https://www.felixcloutier.com/x86/
-pub const CpuVersion = enum {
+// * Intel manual: Vol 3, Ch 22.13 New instructions in the pentium and later ia-32 processors
+pub const CpuFeature = enum {
+    pub const count = __num_cpu_features;
+    pub const MaskType = u128;
+    pub const all_features_mask = ~@as(CpuFeature.MaskType, 0);
+
     /// Added in 8086 / 8088
     _8086,
     /// Added in 80186 / 80188
@@ -210,198 +215,291 @@ pub const CpuVersion = enum {
     _286,
     /// Added in 80386
     _386,
-    /// Added in 80486 models
+    /// Added in 80486
     _486,
-    /// Added in later 80486 models
-    _486p,
-    /// Added in 8087 FPU
-    _087,
-    /// Added in 80287 FPU
-    _287,
-    /// Added in 80387 FPU
-    _387,
-    /// Added in Pentium
-    Pent,
-    /// Added in Pentium MMX
-    MMX,
-    /// Added in AMD K6
-    K6,
-    /// Added in Pentium Pro
-    PentPro,
-    /// Added in Pentium II
-    Pent2,
-    /// Added in SSE
-    SSE,
-    /// Added in SSE2
-    SSE2,
-    /// Added in SSE3
-    SSE3,
-    /// Added in SSSE3 (supplemental SSE3)
-    SSSE3,
-    /// Added in SSE4a
-    SSE4_a,
-    /// Added in SSE4.1
-    SSE4_1,
-    /// Added in SSE4.2
-    SSE4_2,
     /// Added in x86-64
-    x64,
+    x86_64,
+
+    /// Added in 8087 FPU, or CPUID.01H.EDX.FPU[0] = 1
+    _087,
+    /// Added in 80287 FPU, or CPUID.01H.EDX.FPU[0] = 1
+    _287,
+    /// Added in 80387 FPU, or CPUID.01H.EDX.FPU[0] = 1
+    _387,
+
+    /// Only works on Intel CPUs
+    Intel,
+    /// Only works on Amd CPUS
+    Amd,
+
     /// Added in AMD-V
     AMD_V,
-    /// Added in Intel VT-x
-    VT_x,
+    /// Added in VT-x
+    VT_X,
+
+    ///  EFLAGS.ID[bit 21] can be set and cleared
+    CPUID,
+
     /// CPUID.01H.EAX[11:8] = Family = 6 or 15 = 0110B or 1111B
     P6,
-    /// Added in ABM (advanced bit manipulation)
-    ABM,
-    /// Added in BMI1 (bit manipulation instructions 1)
-    BMI1,
-    /// Added in BMI2 (bit manipulation instructions 2)
-    BMI2,
-    /// Added in TBM (trailing bit manipulation)
-    TBM,
-    /// PKRU (Protection Key Rights Register for user pages)
-    PKRU,
-    /// Added in AVX
-    AVX,
-    /// Added in AVX2
-    AVX2,
-    /// Added in AVX-512 F (Foundation)
-    AVX512F,
-    /// Added in AVX-512 CD (Conflict Detection)
-    AVX512CD,
-    /// Added in AVX-512 ER (Exponential and Reciprocal)
-    AVX512ER,
-    /// Added in AVX-512 PF (Prefetch Instructions)
-    AVX512PF,
-    /// Added in AVX-512 VL (Vector length extensions)
-    AVX512VL,
-    /// Added in AVX-512 BW (Byte and Word)
-    AVX512BW,
-    /// Added in AVX-512 DQ (Doubleword and Quadword)
-    AVX512DQ,
-    /// Added in AVX-512 IFMA (Integer Fused Multiply Add)
-    AVX512_IFMA,
-    /// Added in AVX-512 VBMI (Vector Byte Manipulation Instructions)
-    AVX512_VBMI,
-    /// Added in AVX-512 4VNNIW (Vector Neural Network Instructions Word variable precision (4VNNIW))
-    AVX512_4VNNIW,
-    /// Added in AVX-512 4FMAPS (Fused Multiply Accumulation Packed Single precision (4FMAPS))
-    AVX512_4FMAPS,
-    /// Added in AVX-512 VPOPCNTDQ (Vector Population Count)
-    AVX512_VPOPCNTDQ,
-    /// Added in AVX-512 VNNI (Vector Neural Network Instructions)
-    AVX512_VNNI,
-    /// Added in AVX-512 VBMI2 (Vector Byte Manipulation Instructions 2)
-    AVX512_VBMI2,
-    /// Added in AVX-512 BITALG (Bit Algorithms)
-    AVX512_BITALG,
-    /// Added in AVX-512 VP2INTERSECT (Vector Pair Intersection to a Pair of Mask Registers)
-    AVX512_VP2INTERSECT,
-    /// Added in AVX-512 GFNI (Galois field new instructions EVEX version)
-    AVX512_GFNI,
-    /// Added in AVX-512 VPCLMULQDQ (Carry-less multiplication quadword EVEX version)
-    AVX512_VPCLMULQDQ,
 
-    /// CPUID flag ADX
-    ADX,
-    /// CPUID flag AES
-    AES,
-    /// CPUID flag CLDEMOTE
-    CLDEMOTE,
-    /// CPUID flag CLFLUSHOPT
-    CLFLUSHOPT,
-    /// CPUID flag CET_IBT (Control-flow Enforcement Technology - Indirect-Branch Tracking)
-    CET_IBT,
-    /// CPUID flag CET_SS (Control-flow Enforcement Technology - Shadow Stack)
-    CET_SS,
-    /// CPUID flag CLWB
-    CLWB,
-    /// CPUID flag FMA (Fused Multiply and Add)
-    FMA,
-    /// CPUID flag FSGSBASE
-    FSGSBASE,
-    /// CPUID flag FXSR
-    FXSR,
-    /// CPUID flag F16C
-    F16C,
-    /// CPUID flag SGX (Software Guard eXtensions)
-    SGX,
-    /// CPUID flag SMX (Safer Mode eXtensions)
-    SMX,
-    /// CPUID flag GFNI
-    GFNI,
-    /// CPUID flag HLE
-    HLE,
-    /// CPUID flag INVPCID
-    INVPCID,
-    /// CPUID flag MOVBE
-    MOVBE,
-    /// CPUID flag MOVDIRI
-    MOVDIRI,
-    /// CPUID flag MOVDIR64B
-    MOVDIR64B,
-    /// CPUID flag MPX (memory protection extension)
-    MPX,
-    /// CPUID flag OSPKE
-    OSPKE,
-    /// CPUID flag PCLMULQDQ
+    /// (IA-32e mode supported) or (CPUID DisplayFamily_DisplayModel = 06H_0CH )
+    RSM,
+
+    //
+    // CPUID.(EAX=1).ECX
+    //
+    /// CPUID.01H.ECX.SSE3[0] = 1
+    SSE3,
+    /// CPUID.01H.ECX.PCLMULQDQ[1] = 1
     PCLMULQDQ,
-    /// CPUID flag PREFETCHW
-    PREFETCHW,
-    /// CPUID flag PTWRITE
-    PTWRITE,
-    /// CPUID flag RDPID
-    RDPID,
-    /// CPUID flag RDRAND
-    RDRAND,
-    /// CPUID flag RDSEED
-    RDSEED,
-    /// CPUID flag RTM
-    RTM,
-    /// CPUID flag SHA
-    SHA,
-    /// CPUID flag SMAP
-    SMAP,
-    /// CPUID flag HLE or RTM
-    TDX,
-    /// CPUID flag WAITPKG
-    WAITPKG,
-    /// CPUID flag VAES
-    VAES,
-    /// CPUID flag VPCLMULQDQ
-    VPCLMULQDQ,
-    /// CPUID flag XSAVE
+    /// CPUID.01H.ECX.MONITOR[3] = 1
+    MONITOR,
+    /// CPUID.01H.ECX.VMX[5] = 1
+    VMX,
+    /// CPUID.01H.ECX.SMX[6] = 1
+    SMX,
+    /// CPUID.01H.ECX.SSSE3[9] = 1 (supplemental SSE3)
+    SSSE3,
+    /// CPUID.01H.ECX.FMA[12] = 1 (Fused Multiply and Add)
+    FMA,
+    /// CPUID.01H.ECX.CX16[13] = 1
+    CX16,
+    /// CPUID.01H.ECX.SSE4_1[19] = 1
+    SSE4_1,
+    /// CPUID.01H.ECX.SSE4_2[20] = 1
+    SSE4_2,
+    /// CPUID.01H.ECX.MOVBE[22] = 1
+    MOVBE,
+    /// CPUID.01H.ECX.POPCNT[23] = 1
+    POPCNT,
+    /// CPUID.01H.ECX.AES[25] = 1
+    AES,
+    /// CPUID.01H.ECX.XSAVE[26] = 1
     XSAVE,
-    /// CPUID flag XSAVEC
-    XSAVEC,
-    /// CPUID flag XSAVEOPT
+    /// CPUID.01H.ECX.AVX[28] = 1
+    AVX,
+    /// CPUID.01H.ECX.F16C[29] = 1
+    F16C,
+    /// CPUID.01H.ECX.RDRAND[30] = 1
+    RDRAND,
+
+    //
+    // CPUID.(EAX=1).EDX
+    //
+    /// CPUID.01H.EDX.FPU[0] = 1
+    FPU,
+    /// CPUID.01H.EDX.TSC[4] = 1
+    TSC,
+    /// CPUID.01H.EDX.MSR[5] = 1
+    MSR,
+    /// CPUID.01H.EDX.CX8[8] = 1
+    CX8,
+    /// CPUID.01H.EDX.SEP[11] = 1 (SYSENTER and SYSEXIT)
+    SEP,
+    /// CPUID.01H.EDX.CMOV[15] = 1 (CMOVcc and FCMOVcc)
+    CMOV,
+    /// CPUID.01H.EDX.CLFSH[19] = 1 (CFLUSH)
+    CLFSH,
+    /// CPUID.01H.EDX.MMX[23] = 1
+    MMX,
+    /// CPUID.01H.EDX.FXSR[24] = 1 (FXSAVE, FXRSTOR)
+    FXSR,
+    /// CPUID.01H.EDX.SSE[25] = 1
+    SSE,
+    /// CPUID.01H.EDX.SSE2[26] = 1
+    SSE2,
+
+    //
+    // CPUID.(EAX=7, ECX=0).EBX
+    //
+    /// CPUID.EAX.07H.EBX.FSGSBASE[0] = 1
+    FSGSBASE,
+    /// CPUID.EAX.07H.EBX.SGX[2] = 1 (Software Guard eXtensions)
+    SGX,
+    /// CPUID.EAX.07H.EBX.BMI1[3] = 1 (Bit Manipulation Instructions 1)
+    BMI1,
+    /// CPUID.EAX.07H.EBX.HLE[4] = 1 (Hardware Lock Elision)
+    HLE,
+    /// CPUID.EAX.07H.EBX.AVX2[5] = 1 (Advanced Vector eXtension 2)
+    AVX2,
+    /// CPUID.EAX.07H.EBX.SMEP[7] = 1 (Supervisor Mode Execution Prevention)
+    SMEP,
+    /// CPUID.EAX.07H.EBX.BMI2[8] = 1 (Bit Manipulation Instructions 2)
+    BMI2,
+    /// CPUID.EAX.07H.EBX.INVPCID[10] = 1
+    INVPCID,
+    /// CPUID.EAX.07H.EBX.RTM[11] = 1
+    RTM,
+    /// CPUID.EAX.07H.EBX.MPX[14] = 1 (Memory Protection eXtension)
+    MPX,
+    /// CPUID.EAX.07H.EBX.AVX512F[16] = 1
+    AVX512F,
+    /// CPUID.EAX.07H.EBX.AVX512DQ[17] = 1 (Doubleword and Quadword)
+    AVX512DQ,
+    /// CPUID.EAX.07H.EBX.RDSEED[18] = 1
+    RDSEED,
+    /// CPUID.EAX.07H.EBX.ADX[19] = 1
+    ADX,
+    /// CPUID.EAX.07H.EBX.SMAP[20] = 1 (Supervisor Mode Access Prevention)
+    SMAP,
+    /// CPUID.EAX.07H.EBX.AVX512_I1FMA[21] = 1 (AVX512 Integer Fused Multiply Add)
+    AVX512_IFMA,
+    /// CPUID.EAX.07H.EBX.PCOMMIT[22] = 1
+    PCOMMIT,
+    /// CPUID.EAX.07H.EBX.CLFLUSHOPT[23] = 1
+    CLFLUSHOPT,
+    /// CPUID.EAX.07H.EBX.CLWB[24] = 1
+    CLWB,
+    /// CPUID.EAX.07H.EBX.AVX512PF[26] = 1 (AVX512 Prefetch Instructions)
+    AVX512PF,
+    /// CPUID.EAX.07H.EBX.AVX512ER[27] = 1 (AVX512 Exponential and Reciprocal)
+    AVX512ER,
+    /// CPUID.EAX.07H.EBX.AVX512CD[28] = 1 (AVX512 Conflict Detection)
+    AVX512CD,
+    /// CPUID.EAX.07H.EBX.SHA[29] = 1
+    SHA,
+    /// CPUID.EAX.07H.EBX.AVX512BW[30] = 1 (AVX512 Byte and Word)
+    AVX512BW,
+    /// CPUID.EAX.07H.EBX.AVX512_VL[31] = 1 (AVX512 Vector length extensions)
+    AVX512VL,
+
+    //
+    // CPUID.(EAX=7, ECX=0).ECX
+    //
+    /// CPUID.EAX.07H.ECX.PREFETCHWT1[0] = 1
+    PREFETCHWT1,
+    /// CPUID.EAX.07H.ECX.AVX512_VBMI[1] = 1 (AVX512 Vector Byte Manipulation Instructions)
+    AVX512_VBMI,
+    /// CPUID.EAX.07H.ECX.PKU[3] = 1 (Protection Key rights register for User pages)
+    PKU,
+    /// CPUID.EAX.07H.ECX.WAITPKG[5] = 1
+    WAITPKG,
+    /// CPUID.EAX.07H.ECX.AVX512_VBMI2[5] = 1 (AVX512 Vector Byte Manipulation Instructions 2)
+    AVX512_VBMI2,
+    /// CPUID.EAX.07H.ECX.CET_SS[7] = 1 (Control-flow Enforcement Technology - Shadow Stack)
+    CET_SS,
+    /// CPUID.EAX.07H.ECX.GFNI[8] = 1
+    GFNI,
+    /// CPUID.EAX.07H.ECX.VAES[9] = 1
+    VAES,
+    /// CPUID.EAX.07H.ECX.VPCLMULQDQ[10] = 1 (Carry-less multiplication )
+    VPCLMULQDQ,
+    /// CPUID.EAX.07H.ECX.AVX512_VNNI[11] = 1 (AVX512 Vector Neural Network Instructions)
+    AVX512_VNNI,
+    /// CPUID.EAX.07H.ECX.AVX512_BITALG[12] = 1 (AVX512 Bit Algorithms)
+    AVX512_BITALG,
+    /// CPUID.EAX.07H.ECX.AVX512_VPOPCNTDQ[14] = 1 (AVX512 Vector Population Count Dword and Qword)
+    AVX512_VPOPCNTDQ,
+    /// CPUID.EAX.07H.ECX.RDPID[22] = 1
+    RDPID,
+    /// CPUID.EAX.07H.ECX.CLDEMOTE[25] = 1
+    CLDEMOTE,
+    /// CPUID.EAX.07H.ECX.MOVDIRI[27] = 1
+    MOVDIRI,
+    /// CPUID.EAX.07H.ECX.MOVDIR64B[28] = 1
+    MOVDIR64B,
+
+    //
+    // CPUID.(EAX=7, ECX=1)
+    //
+    /// CPUID.(EAX=7, ECX=1).EAX.AVX512_BF16 (Brain Float16)
+    AVX512_BF16,
+
+    //
+    // CPUID.(EAX=7, ECX=0).EDX
+    //
+    /// CPUID.EAX.07H.EDX.AVX512_4VNNIW[2] = 1 (Vector Neural Network Instructions Word (4VNNIW))
+    AVX512_4VNNIW,
+    /// CPUID.EAX.07H.EDX.AVX512_4FMAPS[3] = 1 (Fused Multiply Accumulation Packed Single precision (4FMAPS))
+    AVX512_4FMAPS,
+    /// CPUID.EAX.07H.EDX.CET_IBT[20] = 1 (Control-flow Enforcement Technology - Indirect-Branch Tracking)
+    CET_IBT,
+
+    //
+    // CPUID.(EAX=0DH, ECX=1).EAX
+    //
+    /// CPUID.(EAX=0DH, ECX=1).EAX.XSAVEOPT[0]
     XSAVEOPT,
-    /// CPUID flag XSS
+    /// CPUID.(EAX=0DH, ECX=1).EAX.XSAVEC[1]
+    XSAVEC,
+    /// CPUID.(EAX=0DH, ECX=1).EAX.XSS[3]
     XSS,
 
-    /// LAHF valid in 64 bit mode only if CPUID.80000001H:ECX.LAHF-SAHF[bit 0]
-    FeatLAHF,
+    //
+    // CPUID.(EAX=14H, ECX=0).EBX
+    //
+    /// CPUID.[EAX=14H, ECX=0).EBX.PTWRITE[4]
+    PTWRITE,
+
+    //
+    // CPUID.(EAX=0x8000_0001).ECX
+    //
+    /// CPUID.80000001H:ECX.LAHF_SAHF[0]  LAHF/SAHF valid in 64 bit mode
+    LAHF_SAHF,
+    /// CPUID.80000001H:ECX.LZCNT[5] (AMD: (ABM Advanced Bit Manipulation))
+    LZCNT,
+    /// CPUID.80000001H:ECX.SSE4A[6]
+    SSE4A,
+    /// CPUID.80000001H:ECX.PREFETCHW[8]
+    PREFETCHW,
+    /// CPUID.80000001H:ECX.XOP[11]
+    XOP,
+    /// CPUID.80000001H:ECX.SKINIT[12] (SKINIT / STGI)
+    SKINIT,
+    /// CPUID.80000001H:ECX.TBM[21] (Trailing Bit Manipulation)
+    TBM,
+
+    //
+    // CPUID.(EAX=0x8000_0001).EDX
+    //
+    /// CPUID.80000001H:EDX.SYSCALL[8]
+    SYSCALL,
+    /// CPUID.80000001H:EDX.MMX_EXT[22]
+    MMX_EXT,
+    /// CPUID.80000001H:EDX.RDTSCP[27]
+    RDTSCP,
+    /// CPUID.80000001H:EDX.3DNOWEXT[30]
+    _3DNOW_EXT,
+    /// CPUID.80000001H:EDX.3DNOW[31]
+    _3DNOW,
+
+
+    __num_cpu_features,
+
+    pub fn toMask(self: CpuFeature) MaskType {
+        return @shlExact(@as(MaskType, 1), @enumToInt(self));
+    }
+
+    pub fn arrayToMask(feature_array: []const CpuFeature) MaskType {
+        var res: MaskType = 0;
+        for (feature_array) |feature| {
+            res |= feature.toMask();
+        }
+        return res;
+    }
 };
 
 pub const InstructionPrefix = enum {
     Lock,
-    Repne,
     Rep,
+    Repe,
+    Repne,
     Bnd,
+    /// Either XACQUIRE or XRELEASE prefix, requires lock prefix to be used
+    Hle,
+    /// Either XACQUIRE or XRELEASE perfix, no lock prefix required
+    HleNoLock,
+    /// XRELEASE prefix, no lock prefix required
+    Xrelease,
 };
 
 pub const InstructionEncoding = enum {
     ZO,     // no operands
-    ZO16,   // no operands, 16 bit void operand
-    ZO32,   // no operands, 32 bit void operand
-    ZO64,   // no operands, 64 bit void operand
-    ZODef,  // no operands, void operand with default size
     M,      // r/m value
     I,      // immediate
     I2,     // IGNORE           immediate
     II,     // immediate        immediate
-    II16,   // immediate        immediate       void16
     O,      // opcode+reg.num
     O2,     // IGNORE           opcode+reg.num
     RM,     // ModRM:reg        ModRM:r/m
@@ -411,6 +509,7 @@ pub const InstructionEncoding = enum {
     OI,     // opcode+reg.num   imm8/16/32/64
     MI,     // ModRM:r/m        imm8/16/32/64
 
+    MSpec,  // Special memory handling for instructions like MOVS,OUTS,XLAT, etc
     D,      // encode address or offset
     FD,     // AL/AX/EAX/RAX    Moffs   NA  NA
     TD,     // Moffs (w)        AL/AX/EAX/RAX   NA  NA
@@ -451,43 +550,47 @@ pub const InstructionItem = struct {
     signature: Signature,
     opcode: OpcodeAny,
     encoding: InstructionEncoding,
-    default_size: DefaultSize,
+    overides: Overides,
     edge_case: OpcodeEdgeCase,
     mode_edge_case: OpcodeEdgeCase,
     disp_n: u8,
+    cpu_feature_mask: CpuFeature.MaskType,
 
     fn create(
         mnem: Mnemonic,
         signature: Signature,
         opcode: var,
         encoding: InstructionEncoding,
-        default_size: DefaultSize,
-        version_and_features: var
+        overides: Overides,
+        extra_opts: var
     ) InstructionItem {
         _ = @setEvalBranchQuota(100000);
-        // TODO: process version and features field
-        // NOTE: If no version flags are given, can calculate version information
-        // based of the signature/encoding/default_size properties as one of
-        // _8086, _386, x64
         var edge_case = OpcodeEdgeCase.None;
         var mode_edge_case = OpcodeEdgeCase.None;
-
-
-        if (@typeInfo(@TypeOf(version_and_features)) != .Struct) {
-            @compileError("Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
-        }
+        var cpu_feature_mask: CpuFeature.MaskType = 0;
+        var disp_n: u8 = 1;
 
         const opcode_any = switch (@TypeOf(opcode)) {
             Opcode => OpcodeAny { .Op = opcode },
-            AvxOpcode => OpcodeAny { .Avx = opcode },
-            else => @compileError("Expected Opcode or AvxOpcode, got: " ++ @TypeOf(opcode)),
+            AvxOpcode => x: {
+                if (encoding.getMemPos()) |pos| {
+                    const op_type = signature.operands[pos];
+                    disp_n = x86.avx.calcDispMultiplier(opcode, op_type);
+                } else {
+                    // don't care if no memory
+                }
+                break :x OpcodeAny { .Avx = opcode };
+            },
+            else => @compileError("opcode: Expected Opcode or AvxOpcode, got: " ++ @TypeOf(opcode)),
         };
 
-        inline for (version_and_features) |opt, i| {
+        if (@typeInfo(@TypeOf(extra_opts)) != .Struct) {
+            @compileError("extra_opts: Expected tuple or struct argument, found " ++ @typeName(@TypeOf(args)));
+        }
+
+        for (extra_opts) |opt, i| {
             switch (@TypeOf(opt)) {
-                CpuVersion => {
-                    // TODO:
-                },
+                CpuFeature => cpu_feature_mask |= opt.toMask(),
 
                 InstructionPrefix => {
                     // TODO:
@@ -515,49 +618,16 @@ pub const InstructionItem = struct {
             }
         }
 
-        switch (default_size) {
-            .RM32Strict => switch(signature.operands[0]) {
-                .imm16 => {
-                    assert(mode_edge_case == .None);
-                    mode_edge_case = .No64;
-                },
-                else => {},
-            },
-
-            .RM64Strict => switch(signature.operands[0]) {
-                .imm16,
-                .imm32 => {
-                    assert(mode_edge_case == .None);
-                    mode_edge_case = .No64;
-                },
-                else => {},
-            },
-
-            else => {},
-        }
-
-        var disp_n: u8 = 1;
-        switch (@TypeOf(opcode)) {
-            AvxOpcode => {
-                if (encoding.getMemPos()) |pos| {
-                    const op_type = signature.operands[pos];
-                    disp_n = x86.avx.calcDispMultiplier(opcode, op_type);
-                } else {
-                    // don't care if no memory
-                }
-            },
-            else => {},
-        }
-
         return InstructionItem {
             .mnemonic = mnem,
             .signature = signature,
             .opcode = opcode_any,
             .encoding = encoding,
-            .default_size = default_size,
+            .overides = overides,
             .edge_case = edge_case,
             .mode_edge_case = mode_edge_case,
             .disp_n = disp_n,
+            .cpu_feature_mask = cpu_feature_mask,
         };
     }
 
@@ -566,6 +636,11 @@ pub const InstructionItem = struct {
     }
 
     pub inline fn isMachineMatch(self: InstructionItem, machine: Machine) bool {
+
+        if (self.cpu_feature_mask & machine.cpu_feature_mask != self.cpu_feature_mask) {
+            return false;
+        }
+
         switch (self.mode_edge_case) {
             .None => {},
             .No64 => if (machine.mode == .x64) return false,
@@ -597,7 +672,7 @@ pub const InstructionItem = struct {
     }
 
     pub fn encode(
-        self: InstructionItem,
+        self: *const InstructionItem,
         machine: Machine,
         op1: ?*const Operand,
         op2: ?*const Operand,
@@ -605,41 +680,37 @@ pub const InstructionItem = struct {
         op4: ?*const Operand
     ) AsmError!Instruction {
         return switch (self.encoding) {
-            .ZO => machine.encodeOpcode(self.opcode.Op, op1, self.default_size),
-            .ZO16 => machine.encodeOpcode(self.opcode.Op, &Operand.voidOperand(.WORD), self.default_size),
-            .ZO32 => machine.encodeOpcode(self.opcode.Op, &Operand.voidOperand(.DWORD), self.default_size),
-            .ZO64 => machine.encodeOpcode(self.opcode.Op, &Operand.voidOperand(.QWORD), self.default_size),
-            .ZODef => machine.encodeOpcode(self.opcode.Op, &Operand.voidOperand(machine.dataSize()), self.default_size),
-            .M => machine.encodeRm(self.opcode.Op, op1.?.*, self.default_size),
-            .I => machine.encodeImmediate(self.opcode.Op, op2, self.coerceImm(op1, 0), self.default_size),
-            .I2 => machine.encodeImmediate(self.opcode.Op, op1, self.coerceImm(op2, 1), self.default_size),
-            .II => machine.encodeImmImm(self.opcode.Op, op3, self.coerceImm(op1, 0), self.coerceImm(op2, 1), self.default_size),
-            .II16 => machine.encodeImmImm(self.opcode.Op, &Operand.voidOperand(.WORD), self.coerceImm(op1, 0), self.coerceImm(op2, 1), self.default_size),
-            .O => machine.encodeOpcodeRegNum(self.opcode.Op, op1.?.*, self.default_size),
-            .O2 => machine.encodeOpcodeRegNum(self.opcode.Op, op2.?.*, self.default_size),
-            .D => machine.encodeAddress(self.opcode.Op, op1.?.*, self.default_size),
-            .OI => machine.encodeOpcodeRegNumImmediate(self.opcode.Op, op1.?.*, self.coerceImm(op2, 1), self.default_size),
-            .MI => machine.encodeRmImmediate(self.opcode.Op, op1.?.*, self.coerceImm(op2, 1), self.default_size),
-            .RM => machine.encodeRegRm(self.opcode.Op, op1.?.*, op2.?.*, self.default_size),
-            .RMI => machine.encodeRegRmImmediate(self.opcode.Op, op1.?.*, op2.?.*, self.coerceImm(op3, 2), self.default_size),
-            .MRI => machine.encodeRegRmImmediate(self.opcode.Op, op2.?.*, op1.?.*, self.coerceImm(op3, 2), self.default_size),
-            .MR => machine.encodeRegRm(self.opcode.Op, op2.?.*, op1.?.*, self.default_size),
-            .FD => machine.encodeMOffset(self.opcode.Op, op1.?.*, op2.?.*, self.default_size),
-            .TD => machine.encodeMOffset(self.opcode.Op, op2.?.*, op1.?.*, self.default_size),
-            .RVM => machine.encodeAvx(self.opcode.Avx, op1, op2, op3, null, null, self.disp_n, self.default_size),
-            .MVR => machine.encodeAvx(self.opcode.Avx, op3, op2, op1, null, null, self.disp_n, self.default_size),
-            .RMV => machine.encodeAvx(self.opcode.Avx, op1, op3, op2, null, null, self.disp_n, self.default_size),
-            .VM => machine.encodeAvx(self.opcode.Avx, null, op1, op2, null, null, self.disp_n, self.default_size),
-            .MV => machine.encodeAvx(self.opcode.Avx, null, op2, op1, null, null, self.disp_n, self.default_size),
-            .RVMI => machine.encodeAvx(self.opcode.Avx, op1, op2, op3, null, op4, self.disp_n, self.default_size),
-            .VMI => machine.encodeAvx(self.opcode.Avx, null, op1, op2, null, op3, self.disp_n, self.default_size),
-            .RVMR => machine.encodeAvx(self.opcode.Avx, op1, op2, op3, op4, null, self.disp_n, self.default_size),
-            .vRMI => machine.encodeAvx(self.opcode.Avx, op1, null, op2, null, op3, self.disp_n, self.default_size),
-            .vMRI => machine.encodeAvx(self.opcode.Avx, op2, null, op1, null, op3, self.disp_n, self.default_size),
-            .vRM => machine.encodeAvx(self.opcode.Avx, op1, null, op2, null, null, self.disp_n, self.default_size),
-            .vMR => machine.encodeAvx(self.opcode.Avx, op2, null, op1, null, null, self.disp_n, self.default_size),
-            .vM => machine.encodeAvx(self.opcode.Avx, null, null, op1, null, null, self.disp_n, self.default_size),
-            .vZO => machine.encodeAvx(self.opcode.Avx, null, null, null, null, null, self.disp_n, self.default_size),
+            .ZO    => machine.encodeRMI(self, null, null, null, self.overides),
+            .M     => machine.encodeRMI(self, null, op1, null, self.overides),
+            .MI    => machine.encodeRMI(self, null, op1, self.coerceImm(op2, 1), self.overides),
+            .RM    => machine.encodeRMI(self, op1, op2, null, self.overides),
+            .RMI   => machine.encodeRMI(self, op1, op2, self.coerceImm(op3, 2), self.overides),
+            .MRI   => machine.encodeRMI(self, op2, op1, self.coerceImm(op3, 2), self.overides),
+            .MR    => machine.encodeRMI(self, op2, op1, null, self.overides),
+            .I     => machine.encodeRMI(self, null, null, self.coerceImm(op1, 0), self.overides),
+            .I2    => machine.encodeRMI(self, null, null, self.coerceImm(op2, 1), self.overides),
+            .II    => machine.encodeImmImm(self, self.coerceImm(op1, 0), self.coerceImm(op2, 1), self.overides),
+            .O     => machine.encodeOI(self, op1, null, self.overides),
+            .O2    => machine.encodeOI(self, op2, null, self.overides),
+            .OI    => machine.encodeOI(self, op1, self.coerceImm(op2, 1), self.overides),
+            .D     => machine.encodeAddress(self, op1, self.overides),
+            .FD    => machine.encodeMOffset(self, op1, op2, self.overides),
+            .TD    => machine.encodeMOffset(self, op2, op1, self.overides),
+            .MSpec => machine.encodeMSpecial(self, op1, op2, self.overides),
+            .RVM   => machine.encodeAvx(self, op1, op2, op3, null, null, self.disp_n),
+            .MVR   => machine.encodeAvx(self, op3, op2, op1, null, null, self.disp_n),
+            .RMV   => machine.encodeAvx(self, op1, op3, op2, null, null, self.disp_n),
+            .VM    => machine.encodeAvx(self, null, op1, op2, null, null, self.disp_n),
+            .MV    => machine.encodeAvx(self, null, op2, op1, null, null, self.disp_n),
+            .RVMI  => machine.encodeAvx(self, op1, op2, op3, null, op4, self.disp_n),
+            .VMI   => machine.encodeAvx(self, null, op1, op2, null, op3, self.disp_n),
+            .RVMR  => machine.encodeAvx(self, op1, op2, op3, op4, null, self.disp_n),
+            .vRMI  => machine.encodeAvx(self, op1, null, op2, null, op3, self.disp_n),
+            .vMRI  => machine.encodeAvx(self, op2, null, op1, null, op3, self.disp_n),
+            .vRM   => machine.encodeAvx(self, op1, null, op2, null, null, self.disp_n),
+            .vMR   => machine.encodeAvx(self, op2, null, op1, null, null, self.disp_n),
+            .vM    => machine.encodeAvx(self, null, null, op1, null, null, self.disp_n),
+            .vZO   => machine.encodeAvx(self, null, null, null, null, null, self.disp_n),
         };
     }
 };
@@ -743,41 +814,47 @@ fn vec(
     signature: Signature,
     opcode: var,
     en: InstructionEncoding,
-    version_and_features: var
+    extra_opts: var
 ) InstructionItem {
-    return InstructionItem.create(mnem, signature, opcode, en, .ZO, version_and_features);
+    return InstructionItem.create(mnem, signature, opcode, en, .ZO, extra_opts);
 }
 
-const cpu = CpuVersion;
+const cpu = CpuFeature;
 const edge = OpcodeEdgeCase;
-const pre = InstructionPrefix;
 
 const No64 = OpcodeEdgeCase.No64;
 const No32 = OpcodeEdgeCase.No32;
 const Sign = OpcodeEdgeCase.Sign;
 const NoSign = OpcodeEdgeCase.NoSign;
 
+const Lock = InstructionPrefix.Lock;
+const Rep = InstructionPrefix.Rep;
+const Repe = InstructionPrefix.Repe;
+const Repne = InstructionPrefix.Repne;
+const Bnd = InstructionPrefix.Bnd;
+const Hle = InstructionPrefix.Hle;
+const HleNoLock = InstructionPrefix.HleNoLock;
+const Xrelease = InstructionPrefix.Xrelease;
+
+const _8086 = cpu._8086;
 const _186 = cpu._186;
 const _286 = cpu._286;
 const _386 = cpu._386;
 const _486 = cpu._486;
-const Pent = cpu.Pent;
-const x86_64 = cpu.x64;
+const x86_64 = cpu.x86_64;
+const P6 = cpu.P6;
+
 const _087 = cpu._087;
 const _187 = cpu._187;
 const _287 = cpu._287;
 const _387 = cpu._387;
-const VT_x = cpu.VT_x;
-const ABM = cpu.ABM;
-const BMI1 = cpu.BMI1;
-const BMI2 = cpu.BMI2;
-const TBM = cpu.TBM;
-const MMX = cpu.AVX;
+
+const MMX = cpu.MMX;
 const SSE = cpu.SSE;
 const SSE2 = cpu.SSE2;
 const SSE3 = cpu.SSE3;
 const SSSE3 = cpu.SSSE3;
-const SSE4_a = cpu.SSE4_a;
+const SSE4A = cpu.SSE4A;
 const SSE4_1 = cpu.SSE4_1;
 const SSE4_2 = cpu.SSE4_2;
 const AVX = cpu.AVX;
@@ -795,46 +872,9 @@ const AVX512_VBMI = cpu.AVX512_VBMI;
 const AVX512_VBMI2 = cpu.AVX512_VBMI2;
 const AVX512_VNNI = cpu.AVX512_VNNI;
 const AVX512_VPOPCNTDQ = cpu.AVX512_VPOPCNTDQ;
-
-const ADX = cpu.ADX;
-const AES = cpu.AES;
-const CLDEMOTE = cpu.CLDEMOTE;
-const CLFLUSHOPT = cpu.CLFLUSHOPT;
-const CET_IBT = cpu.CET_IBT;
-const CET_SS = cpu.CET_SS;
-const CLWB = cpu.CLWB;
 const FMA = cpu.FMA;
-const FSGSBASE = cpu.FSGSBASE;
-const FXSR = cpu.FXSR;
-const F16C = cpu.F16C;
-const SGX = cpu.SGX;
-const SMX = cpu.SMX;
 const GFNI = cpu.GFNI;
-const HLE = cpu.HLE;
-const INVPCID = cpu.INVPCID;
-const MOVBE = cpu.MOVBE;
-const MOVDIRI = cpu.MOVDIRI;
-const MOVDIR64B = cpu.MOVDIR64B;
-const MPX = cpu.MPX;
-const OSPKE = cpu.OSPKE;
-const PKRU = cpu.PKRU;
-const PCLMULQDQ = cpu.PCLMULQDQ;
-const PREFETCHW = cpu.PREFETCHW;
-const PTWRITE = cpu.PTWRITE;
-const RDPID = cpu.RDPID;
-const RDRAND = cpu.RDRAND;
-const RDSEED = cpu.RDSEED;
-const RTM = cpu.RTM;
-const SHA = cpu.SHA;
-const SMAP = cpu.SMAP;
-const TDX = cpu.TDX;
-const WAITPKG = cpu.WAITPKG;
 const VAES = cpu.VAES;
-const VPCLMULQDQ = cpu.VPCLMULQDQ;
-const XSAVE = cpu.XSAVE;
-const XSAVEC = cpu.XSAVEC;
-const XSAVEOPT = cpu.XSAVEOPT;
-const XSS = cpu.XSS;
 
 const nomem = x86.avx.TupleType.NoMem;
 const full = x86.avx.TupleType.Full;
@@ -868,874 +908,883 @@ const dup = x86.avx.TupleType.Movddup;
 // immediate size, we must place the version with the smaller immediate size
 // first. This insures that the shortest encoding is chosen when the operand
 // is an Immediate without a fixed size.
-//
-// TODO: string functions should support memory operand(s) to select 66 and/or 67
-// prefixes. eg:
-//      66 67 a7 -> cmps   WORD ds:[esi],WORD es:[edi]
-//      67 a7 -> cmps   DWORD ds:[esi],DWORD es:[edi]
-//      a7 -> cmps   DWORD ds:[rsi],DWORD es:[rdi]
-// OUTS / OUTSB / OUTSW / OUTSD
-// MOVS / MOVSB / MOVSW / MOVSD / MOVSQ
-// LODS / LODSB / LODSW / LODSD / LODSQ
-// CMPS / CMPSB / CMPSW / CMPSD / CMPSQ
-// STOS / STOSB / STOSW / STOSD / STOSQ
-// SCAS / SCASB / SCASW / SCASD / SCASQ
 pub const instruction_database = [_]InstructionItem {
 //
 // 8086 / 80186
 //
 
 // AAA
-    instr(.AAA,     ops0(),                     Op1(0x37),              .ZO, .ZO32Only,   .{No64} ),
+    instr(.AAA,     ops0(),                     Op1(0x37),              .ZO, .ZO,      .{_8086, No64} ),
 // AAD
-    instr(.AAD,     ops0(),                     Op2(0xD5, 0x0A),        .ZO, .ZO32Only,   .{No64} ),
-    instr(.AAD,     ops1(.imm8),                Op1(0xD5),              .I,  .ZO32Only,   .{No64} ),
+    instr(.AAD,     ops0(),                     Op2(0xD5, 0x0A),        .ZO, .ZO,      .{_8086, No64} ),
+    instr(.AAD,     ops1(.imm8),                Op1(0xD5),              .I,  .ZO,      .{_8086, No64} ),
 // AAM
-    instr(.AAM,     ops0(),                     Op2(0xD4, 0x0A),        .ZO, .ZO32Only,   .{No64} ),
-    instr(.AAM,     ops1(.imm8),                Op1(0xD4),              .I,  .ZO32Only,   .{No64} ),
+    instr(.AAM,     ops0(),                     Op2(0xD4, 0x0A),        .ZO, .ZO,      .{_8086, No64} ),
+    instr(.AAM,     ops1(.imm8),                Op1(0xD4),              .I,  .ZO,      .{_8086, No64} ),
 // AAS
-    instr(.AAS,     ops0(),                     Op1(0x3F),              .ZO, .ZO32Only,   .{No64} ),
-// ADD
-    instr(.ADD,     ops2(.reg_al, .imm8),       Op1(0x04),              .I2, .RM8,        .{} ),
-    instr(.ADD,     ops2(.rm8, .imm8),          Op1r(0x80, 0),          .MI, .RM8,        .{} ),
-    instr(.ADD,     ops2(.rm16, .imm8),         Op1r(0x83, 0),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.ADD,     ops2(.rm32, .imm8),         Op1r(0x83, 0),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.ADD,     ops2(.rm64, .imm8),         Op1r(0x83, 0),          .MI, .RM32_I8,    .{Sign} ),
-    //
-    instr(.ADD,     ops2(.reg_ax, .imm16),      Op1(0x05),              .I2, .RM32,       .{} ),
-    instr(.ADD,     ops2(.reg_eax, .imm32),     Op1(0x05),              .I2, .RM32,       .{} ),
-    instr(.ADD,     ops2(.reg_rax, .imm32),     Op1(0x05),              .I2, .RM32,       .{Sign} ),
-    //
-    instr(.ADD,     ops2(.rm16, .imm16),        Op1r(0x81, 0),          .MI, .RM32,       .{} ),
-    instr(.ADD,     ops2(.rm32, .imm32),        Op1r(0x81, 0),          .MI, .RM32,       .{} ),
-    instr(.ADD,     ops2(.rm64, .imm32),        Op1r(0x81, 0),          .MI, .RM32,       .{Sign} ),
-    //
-    instr(.ADD,     ops2(.rm8, .reg8),          Op1(0x00),              .MR, .RM8,        .{} ),
-    instr(.ADD,     ops2(.rm16, .reg16),        Op1(0x01),              .MR, .RM32,       .{} ),
-    instr(.ADD,     ops2(.rm32, .reg32),        Op1(0x01),              .MR, .RM32,       .{} ),
-    instr(.ADD,     ops2(.rm64, .reg64),        Op1(0x01),              .MR, .RM32,       .{} ),
-    //
-    instr(.ADD,     ops2(.reg8, .rm8),          Op1(0x02),              .RM, .RM8,        .{} ),
-    instr(.ADD,     ops2(.reg16, .rm16),        Op1(0x03),              .RM, .RM32,       .{} ),
-    instr(.ADD,     ops2(.reg32, .rm32),        Op1(0x03),              .RM, .RM32,       .{} ),
-    instr(.ADD,     ops2(.reg64, .rm64),        Op1(0x03),              .RM, .RM32,       .{} ),
+    instr(.AAS,     ops0(),                     Op1(0x3F),              .ZO, .ZO,      .{_8086, No64} ),
 // ADC
-    instr(.ADC,     ops2(.reg_al, .imm8),       Op1(0x14),              .I2, .RM8,        .{} ),
-    instr(.ADC,     ops2(.rm8, .imm8),          Op1r(0x80, 2),          .MI, .RM8,        .{} ),
-    instr(.ADC,     ops2(.rm16, .imm8),         Op1r(0x83, 2),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.ADC,     ops2(.rm32, .imm8),         Op1r(0x83, 2),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.ADC,     ops2(.rm64, .imm8),         Op1r(0x83, 2),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.ADC,     ops2(.reg_al, .imm8),       Op1(0x14),              .I2, .ZO,      .{_8086} ),
+    instr(.ADC,     ops2(.rm8, .imm8),          Op1r(0x80, 2),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm16, .imm8),         Op1r(0x83, 2),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm32, .imm8),         Op1r(0x83, 2),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm64, .imm8),         Op1r(0x83, 2),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.ADC,     ops2(.reg_ax, .imm16),      Op1(0x15),              .I2, .RM32,       .{} ),
-    instr(.ADC,     ops2(.reg_eax, .imm32),     Op1(0x15),              .I2, .RM32,       .{} ),
-    instr(.ADC,     ops2(.reg_rax, .imm32),     Op1(0x15),              .I2, .RM32,       .{Sign} ),
+    instr(.ADC,     ops2(.reg_ax, .imm16),      Op1(0x15),              .I2, .Op16,    .{_8086} ),
+    instr(.ADC,     ops2(.reg_eax, .imm32),     Op1(0x15),              .I2, .Op32,    .{_386} ),
+    instr(.ADC,     ops2(.reg_rax, .imm32),     Op1(0x15),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.ADC,     ops2(.rm16, .imm16),        Op1r(0x81, 2),          .MI, .RM32,       .{} ),
-    instr(.ADC,     ops2(.rm32, .imm32),        Op1r(0x81, 2),          .MI, .RM32,       .{} ),
-    instr(.ADC,     ops2(.rm64, .imm32),        Op1r(0x81, 2),          .MI, .RM32,       .{Sign} ),
+    instr(.ADC,     ops2(.rm16, .imm16),        Op1r(0x81, 2),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm32, .imm32),        Op1r(0x81, 2),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm64, .imm32),        Op1r(0x81, 2),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.ADC,     ops2(.rm8, .reg8),          Op1(0x10),              .MR, .RM8,        .{} ),
-    instr(.ADC,     ops2(.rm16, .reg16),        Op1(0x11),              .MR, .RM32,       .{} ),
-    instr(.ADC,     ops2(.rm32, .reg32),        Op1(0x11),              .MR, .RM32,       .{} ),
-    instr(.ADC,     ops2(.rm64, .reg64),        Op1(0x11),              .MR, .RM32,       .{} ),
+    instr(.ADC,     ops2(.reg8, .rm8),          Op1(0x12),              .RM, .ZO,      .{_8086} ),
+    instr(.ADC,     ops2(.reg16, .rm16),        Op1(0x13),              .RM, .Op16,    .{_8086} ),
+    instr(.ADC,     ops2(.reg32, .rm32),        Op1(0x13),              .RM, .Op32,    .{_386} ),
+    instr(.ADC,     ops2(.reg64, .rm64),        Op1(0x13),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.ADC,     ops2(.reg8, .rm8),          Op1(0x12),              .RM, .RM8,        .{} ),
-    instr(.ADC,     ops2(.reg16, .rm16),        Op1(0x13),              .RM, .RM32,       .{} ),
-    instr(.ADC,     ops2(.reg32, .rm32),        Op1(0x13),              .RM, .RM32,       .{} ),
-    instr(.ADC,     ops2(.reg64, .rm64),        Op1(0x13),              .RM, .RM32,       .{} ),
+    instr(.ADC,     ops2(.rm8, .reg8),          Op1(0x10),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm16, .reg16),        Op1(0x11),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm32, .reg32),        Op1(0x11),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.ADC,     ops2(.rm64, .reg64),        Op1(0x11),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
+// ADD
+    instr(.ADD,     ops2(.reg_al, .imm8),       Op1(0x04),              .I2, .ZO,      .{_8086} ),
+    instr(.ADD,     ops2(.rm8, .imm8),          Op1r(0x80, 0),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm16, .imm8),         Op1r(0x83, 0),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm32, .imm8),         Op1r(0x83, 0),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm64, .imm8),         Op1r(0x83, 0),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
+    //
+    instr(.ADD,     ops2(.reg_ax, .imm16),      Op1(0x05),              .I2, .Op16,    .{_8086} ),
+    instr(.ADD,     ops2(.reg_eax, .imm32),     Op1(0x05),              .I2, .Op32,    .{_386} ),
+    instr(.ADD,     ops2(.reg_rax, .imm32),     Op1(0x05),              .I2, .REX_W,   .{x86_64, Sign} ),
+    //
+    instr(.ADD,     ops2(.rm16, .imm16),        Op1r(0x81, 0),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm32, .imm32),        Op1r(0x81, 0),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm64, .imm32),        Op1r(0x81, 0),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
+    //
+    instr(.ADD,     ops2(.reg8, .rm8),          Op1(0x02),              .RM, .ZO,      .{_8086} ),
+    instr(.ADD,     ops2(.reg16, .rm16),        Op1(0x03),              .RM, .Op16,    .{_8086} ),
+    instr(.ADD,     ops2(.reg32, .rm32),        Op1(0x03),              .RM, .Op32,    .{_386} ),
+    instr(.ADD,     ops2(.reg64, .rm64),        Op1(0x03),              .RM, .REX_W,   .{x86_64} ),
+    //
+    instr(.ADD,     ops2(.rm8, .reg8),          Op1(0x00),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm16, .reg16),        Op1(0x01),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm32, .reg32),        Op1(0x01),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.ADD,     ops2(.rm64, .reg64),        Op1(0x01),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
 // AND
-    instr(.AND,     ops2(.reg_al, .imm8),       Op1(0x24),              .I2, .RM8,        .{} ),
-    instr(.AND,     ops2(.rm8, .imm8),          Op1r(0x80, 4),          .MI, .RM8,        .{} ),
-    instr(.AND,     ops2(.rm16, .imm8),         Op1r(0x83, 4),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.AND,     ops2(.rm32, .imm8),         Op1r(0x83, 4),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.AND,     ops2(.rm64, .imm8),         Op1r(0x83, 4),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.AND,     ops2(.reg_al, .imm8),       Op1(0x24),              .I2, .ZO,      .{_8086} ),
+    instr(.AND,     ops2(.rm8, .imm8),          Op1r(0x80, 4),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.AND,     ops2(.rm16, .imm8),         Op1r(0x83, 4),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.AND,     ops2(.rm32, .imm8),         Op1r(0x83, 4),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.AND,     ops2(.rm64, .imm8),         Op1r(0x83, 4),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.AND,     ops2(.reg_ax, .imm16),      Op1(0x25),              .I2, .RM32,       .{} ),
-    instr(.AND,     ops2(.reg_eax, .imm32),     Op1(0x25),              .I2, .RM32,       .{} ),
-    instr(.AND,     ops2(.reg_rax, .imm32),     Op1(0x25),              .I2, .RM32,       .{Sign} ),
+    instr(.AND,     ops2(.reg_ax, .imm16),      Op1(0x25),              .I2, .Op16,    .{_8086} ),
+    instr(.AND,     ops2(.reg_eax, .imm32),     Op1(0x25),              .I2, .Op32,    .{_386} ),
+    instr(.AND,     ops2(.reg_rax, .imm32),     Op1(0x25),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.AND,     ops2(.rm16, .imm16),        Op1r(0x81, 4),          .MI, .RM32,       .{} ),
-    instr(.AND,     ops2(.rm32, .imm32),        Op1r(0x81, 4),          .MI, .RM32,       .{} ),
-    instr(.AND,     ops2(.rm64, .imm32),        Op1r(0x81, 4),          .MI, .RM32,       .{Sign} ),
+    instr(.AND,     ops2(.rm16, .imm16),        Op1r(0x81, 4),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.AND,     ops2(.rm32, .imm32),        Op1r(0x81, 4),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.AND,     ops2(.rm64, .imm32),        Op1r(0x81, 4),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.AND,     ops2(.rm8, .reg8),          Op1(0x20),              .MR, .RM8,        .{} ),
-    instr(.AND,     ops2(.rm16, .reg16),        Op1(0x21),              .MR, .RM32,       .{} ),
-    instr(.AND,     ops2(.rm32, .reg32),        Op1(0x21),              .MR, .RM32,       .{} ),
-    instr(.AND,     ops2(.rm64, .reg64),        Op1(0x21),              .MR, .RM32,       .{} ),
+    instr(.AND,     ops2(.reg8, .rm8),          Op1(0x22),              .RM, .ZO,      .{_8086} ),
+    instr(.AND,     ops2(.reg16, .rm16),        Op1(0x23),              .RM, .Op16,    .{_8086} ),
+    instr(.AND,     ops2(.reg32, .rm32),        Op1(0x23),              .RM, .Op32,    .{_386} ),
+    instr(.AND,     ops2(.reg64, .rm64),        Op1(0x23),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.AND,     ops2(.reg8, .rm8),          Op1(0x22),              .RM, .RM8,        .{} ),
-    instr(.AND,     ops2(.reg16, .rm16),        Op1(0x23),              .RM, .RM32,       .{} ),
-    instr(.AND,     ops2(.reg32, .rm32),        Op1(0x23),              .RM, .RM32,       .{} ),
-    instr(.AND,     ops2(.reg64, .rm64),        Op1(0x23),              .RM, .RM32,       .{} ),
+    instr(.AND,     ops2(.rm8, .reg8),          Op1(0x20),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.AND,     ops2(.rm16, .reg16),        Op1(0x21),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.AND,     ops2(.rm32, .reg32),        Op1(0x21),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.AND,     ops2(.rm64, .reg64),        Op1(0x21),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
 // BOUND
-    instr(.BOUND,   ops2(.reg16, .rm16),        Op1(0x62),              .RM, .RM32,       .{No64, _186} ),
-    instr(.BOUND,   ops2(.reg32, .rm32),        Op1(0x62),              .RM, .RM32,       .{No64, _186} ),
+    instr(.BOUND,   ops2(.reg16, .rm16),        Op1(0x62),              .RM, .Op16,    .{_186, No64} ),
+    instr(.BOUND,   ops2(.reg32, .rm32),        Op1(0x62),              .RM, .Op32,    .{_186, No64} ),
 // CALL
-    instr(.CALL,    ops1(.imm16),               Op1(0xE8),              .I,  .RM32Strict, .{} ),
-    instr(.CALL,    ops1(.imm32),               Op1(0xE8),              .I,  .RM32Strict, .{} ),
+    instr(.CALL,    ops1(.imm16),               Op1(0xE8),              .I,  .Op16,    .{_8086, Bnd, No64} ),
+    instr(.CALL,    ops1(.imm32),               Op1(0xE8),              .I,  .Op32,    .{_386, Bnd} ),
     //
-    instr(.CALL,    ops1(.rm16),                Op1r(0xFF, 2),          .M,  .RM64Strict, .{} ),
-    instr(.CALL,    ops1(.rm32),                Op1r(0xFF, 2),          .M,  .RM64Strict, .{} ),
-    instr(.CALL,    ops1(.rm64),                Op1r(0xFF, 2),          .M,  .RM64Strict, .{} ),
+    instr(.CALL,    ops1(.rm16),                Op1r(0xFF, 2),          .M,  .Op16,    .{_8086, Bnd, No64} ),
+    instr(.CALL,    ops1(.rm32),                Op1r(0xFF, 2),          .M,  .Op32,    .{_386, Bnd, No64} ),
+    instr(.CALL,    ops1(.rm64),                Op1r(0xFF, 2),          .M,  .ZO,      .{x86_64, Bnd, No32} ),
     //
-    instr(.CALL,    ops1(.ptr16_16),            Op1r(0x9A, 4),          .D,  .RM32Only,   .{} ),
-    instr(.CALL,    ops1(.ptr16_32),            Op1r(0x9A, 4),          .D,  .RM32Only,   .{} ),
+    instr(.CALL,    ops1(.ptr16_16),            Op1r(0x9A, 4),          .D,  .Op16,    .{_8086, No64} ),
+    instr(.CALL,    ops1(.ptr16_32),            Op1r(0x9A, 4),          .D,  .Op32,    .{_386, No64} ),
     //
-    instr(.CALL,    ops1(.m16_16),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
-    instr(.CALL,    ops1(.m16_32),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
-    instr(.CALL,    ops1(.m16_64),              Op1r(0xFF, 3),          .M,  .RM32,       .{} ),
+    instr(.CALL,    ops1(.m16_16),              Op1r(0xFF, 3),          .M,  .Op16,    .{_8086} ),
+    instr(.CALL,    ops1(.m16_32),              Op1r(0xFF, 3),          .M,  .Op32,    .{_386} ),
+    instr(.CALL,    ops1(.m16_64),              Op1r(0xFF, 3),          .M,  .REX_W,   .{x86_64} ),
 // CBW
-    instr(.CBW,     ops0(),                     Op1(0x98),              .ZO16, .RM32,     .{} ),
-    instr(.CWDE,    ops0(),                     Op1(0x98),              .ZO32, .RM32,     .{_386} ),
-    instr(.CDQE,    ops0(),                     Op1(0x98),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.CBW,     ops0(),                     Op1(0x98),              .ZO, .Op16,    .{_8086} ),
+    instr(.CWDE,    ops0(),                     Op1(0x98),              .ZO, .Op32,    .{_386} ),
+    instr(.CDQE,    ops0(),                     Op1(0x98),              .ZO, .REX_W,   .{x86_64} ),
     //
-    instr(.CWD,     ops0(),                     Op1(0x99),              .ZO16, .RM32,     .{} ),
-    instr(.CDQ,     ops0(),                     Op1(0x99),              .ZO32, .RM32,     .{_386} ),
-    instr(.CQO,     ops0(),                     Op1(0x99),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.CWD,     ops0(),                     Op1(0x99),              .ZO, .Op16,    .{_8086} ),
+    instr(.CDQ,     ops0(),                     Op1(0x99),              .ZO, .Op32,    .{_386} ),
+    instr(.CQO,     ops0(),                     Op1(0x99),              .ZO, .REX_W,   .{x86_64} ),
 // CLC
-    instr(.CLC,     ops0(),                     Op1(0xF8),              .ZO, .ZO,         .{} ),
+    instr(.CLC,     ops0(),                     Op1(0xF8),              .ZO, .ZO,      .{_8086} ),
 // CLD
-    instr(.CLD,     ops0(),                     Op1(0xFC),              .ZO, .ZO,         .{} ),
+    instr(.CLD,     ops0(),                     Op1(0xFC),              .ZO, .ZO,      .{_8086} ),
 // CLI
-    instr(.CLI,     ops0(),                     Op1(0xFA),              .ZO, .ZO,         .{} ),
+    instr(.CLI,     ops0(),                     Op1(0xFA),              .ZO, .ZO,      .{_8086} ),
 // CMC
-    instr(.CMC,     ops0(),                     Op1(0xF5),              .ZO, .ZO,         .{} ),
+    instr(.CMC,     ops0(),                     Op1(0xF5),              .ZO, .ZO,      .{_8086} ),
 // CMP
-    instr(.CMP,     ops2(.reg_al, .imm8),       Op1(0x3C),              .I2, .RM8,        .{} ),
-    instr(.CMP,     ops2(.rm8, .imm8),          Op1r(0x80, 7),          .MI, .RM8,        .{} ),
-    instr(.CMP,     ops2(.rm16, .imm8),         Op1r(0x83, 7),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.CMP,     ops2(.rm32, .imm8),         Op1r(0x83, 7),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.CMP,     ops2(.rm64, .imm8),         Op1r(0x83, 7),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.CMP,     ops2(.reg_al, .imm8),       Op1(0x3C),              .I2, .ZO,      .{_8086} ),
+    instr(.CMP,     ops2(.rm8, .imm8),          Op1r(0x80, 7),          .MI, .ZO,      .{_8086} ),
+    instr(.CMP,     ops2(.rm16, .imm8),         Op1r(0x83, 7),          .MI, .Op16,    .{_8086, Sign} ),
+    instr(.CMP,     ops2(.rm32, .imm8),         Op1r(0x83, 7),          .MI, .Op32,    .{_386, Sign} ),
+    instr(.CMP,     ops2(.rm64, .imm8),         Op1r(0x83, 7),          .MI, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.CMP,     ops2(.reg_ax, .imm16),      Op1(0x3D),              .I2, .RM32,       .{} ),
-    instr(.CMP,     ops2(.reg_eax, .imm32),     Op1(0x3D),              .I2, .RM32,       .{} ),
-    instr(.CMP,     ops2(.reg_rax, .imm32),     Op1(0x3D),              .I2, .RM32,       .{Sign} ),
+    instr(.CMP,     ops2(.reg_ax, .imm16),      Op1(0x3D),              .I2, .Op16,    .{_8086} ),
+    instr(.CMP,     ops2(.reg_eax, .imm32),     Op1(0x3D),              .I2, .Op32,    .{_386} ),
+    instr(.CMP,     ops2(.reg_rax, .imm32),     Op1(0x3D),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.CMP,     ops2(.rm16, .imm16),        Op1r(0x81, 7),          .MI, .RM32,       .{} ),
-    instr(.CMP,     ops2(.rm32, .imm32),        Op1r(0x81, 7),          .MI, .RM32,       .{} ),
-    instr(.CMP,     ops2(.rm64, .imm32),        Op1r(0x81, 7),          .MI, .RM32,       .{Sign} ),
+    instr(.CMP,     ops2(.rm16, .imm16),        Op1r(0x81, 7),          .MI, .Op16,    .{_8086} ),
+    instr(.CMP,     ops2(.rm32, .imm32),        Op1r(0x81, 7),          .MI, .Op32,    .{_386} ),
+    instr(.CMP,     ops2(.rm64, .imm32),        Op1r(0x81, 7),          .MI, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.CMP,     ops2(.rm8, .reg8),          Op1(0x38),              .MR, .RM8,        .{} ),
-    instr(.CMP,     ops2(.rm16, .reg16),        Op1(0x39),              .MR, .RM32,       .{} ),
-    instr(.CMP,     ops2(.rm32, .reg32),        Op1(0x39),              .MR, .RM32,       .{} ),
-    instr(.CMP,     ops2(.rm64, .reg64),        Op1(0x39),              .MR, .RM32,       .{} ),
+    instr(.CMP,     ops2(.reg8, .rm8),          Op1(0x3A),              .RM, .ZO,      .{_8086} ),
+    instr(.CMP,     ops2(.reg16, .rm16),        Op1(0x3B),              .RM, .Op16,    .{_8086} ),
+    instr(.CMP,     ops2(.reg32, .rm32),        Op1(0x3B),              .RM, .Op32,    .{_386} ),
+    instr(.CMP,     ops2(.reg64, .rm64),        Op1(0x3B),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.CMP,     ops2(.reg8, .rm8),          Op1(0x3A),              .RM, .RM8,        .{} ),
-    instr(.CMP,     ops2(.reg16, .rm16),        Op1(0x3B),              .RM, .RM32,       .{} ),
-    instr(.CMP,     ops2(.reg32, .rm32),        Op1(0x3B),              .RM, .RM32,       .{} ),
-    instr(.CMP,     ops2(.reg64, .rm64),        Op1(0x3B),              .RM, .RM32,       .{} ),
+    instr(.CMP,     ops2(.rm8, .reg8),          Op1(0x38),              .MR, .ZO,      .{_8086} ),
+    instr(.CMP,     ops2(.rm16, .reg16),        Op1(0x39),              .MR, .Op16,    .{_8086} ),
+    instr(.CMP,     ops2(.rm32, .reg32),        Op1(0x39),              .MR, .Op32,    .{_386} ),
+    instr(.CMP,     ops2(.rm64, .reg64),        Op1(0x39),              .MR, .REX_W,   .{x86_64} ),
 // CMPS / CMPSB / CMPSW / CMPSD / CMPSQ
-    instr(.CMPS,    ops1(._void8),              Op1(0xA6),              .ZO, .RM8,        .{} ),
-    instr(.CMPS,    ops1(._void),               Op1(0xA7),              .ZO, .RM32,       .{} ),
+    instr(.CMPS,    ops2(.rm_mem8, .rm_mem8),   Op1(0xA6),              .MSpec, .ZO,   .{_8086, Repe, Repne} ),
+    instr(.CMPS,    ops2(.rm_mem16, .rm_mem16), Op1(0xA7),              .MSpec, .Op16, .{_8086, Repe, Repne} ),
+    instr(.CMPS,    ops2(.rm_mem32, .rm_mem32), Op1(0xA7),              .MSpec, .Op32, .{_386, Repe, Repne} ),
+    instr(.CMPS,    ops2(.rm_mem64, .rm_mem64), Op1(0xA7),              .MSpec, .REX_W,.{x86_64, Repe, Repne} ),
     //
-    instr(.CMPSB,   ops0(),                     Op1(0xA6),              .ZO,   .RM8,      .{} ),
-    instr(.CMPSW,   ops0(),                     Op1(0xA7),              .ZO16, .RM32,     .{} ),
-    // HACK: CMPSD is overloaded mnemonic (compare string) vs (compare scalar double precision)
-    // instr(.CMPSD,   ops0(),                     Op1(0xA7),              .ZO32, .RM32,     .{_386} ),
-    instr(.CMPSQ,   ops0(),                     Op1(0xA7),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.CMPSB,   ops0(),                     Op1(0xA6),              .ZO, .ZO,      .{_8086, Repe, Repne} ),
+    instr(.CMPSW,   ops0(),                     Op1(0xA7),              .ZO, .Op16,    .{_8086, Repe, Repne} ),
+    // instr(.CMPSD,   ops0(),                     Op1(0xA7),              .ZO, .Op32,    .{_386, Repe, Repne} ), // overloaded
+    instr(.CMPSQ,   ops0(),                     Op1(0xA7),              .ZO, .REX_W,   .{x86_64, No32, Repe, Repne} ),
 // DAA
-    instr(.DAA,     ops0(),                     Op1(0x27),              .ZO, .ZO32Only,   .{} ),
+    instr(.DAA,     ops0(),                     Op1(0x27),              .ZO, .ZO,      .{_8086, No64} ),
 // DAS
-    instr(.DAS,     ops0(),                     Op1(0x2F),              .ZO, .ZO32Only,   .{} ),
+    instr(.DAS,     ops0(),                     Op1(0x2F),              .ZO, .ZO,      .{_8086, No64} ),
 // DEC
-    instr(.DEC,     ops1(.reg16),               Op1(0x48),              .O,  .RM32,       .{No64} ),
-    instr(.DEC,     ops1(.reg32),               Op1(0x48),              .O,  .RM32,       .{No64} ),
-    instr(.DEC,     ops1(.rm8),                 Op1r(0xFE, 1),          .M,  .RM8,        .{} ),
-    instr(.DEC,     ops1(.rm16),                Op1r(0xFF, 1),          .M,  .RM32,       .{} ),
-    instr(.DEC,     ops1(.rm32),                Op1r(0xFF, 1),          .M,  .RM32,       .{} ),
-    instr(.DEC,     ops1(.rm64),                Op1r(0xFF, 1),          .M,  .RM32,       .{} ),
+    instr(.DEC,     ops1(.reg16),               Op1(0x48),              .O,  .Op16,    .{_8086, No64} ),
+    instr(.DEC,     ops1(.reg32),               Op1(0x48),              .O,  .Op32,    .{_386, No64} ),
+    instr(.DEC,     ops1(.rm8),                 Op1r(0xFE, 1),          .M,  .ZO,      .{_8086, Lock, Hle} ),
+    instr(.DEC,     ops1(.rm16),                Op1r(0xFF, 1),          .M,  .Op16,    .{_8086, Lock, Hle} ),
+    instr(.DEC,     ops1(.rm32),                Op1r(0xFF, 1),          .M,  .Op32,    .{_386, Lock, Hle} ),
+    instr(.DEC,     ops1(.rm64),                Op1r(0xFF, 1),          .M,  .REX_W,   .{x86_64, Lock, Hle} ),
 // DIV
-    instr(.DIV,     ops1(.rm8),                 Op1r(0xF6, 6),          .M,  .RM8,        .{} ),
-    instr(.DIV,     ops1(.rm16),                Op1r(0xF7, 6),          .M,  .RM32,       .{} ),
-    instr(.DIV,     ops1(.rm32),                Op1r(0xF7, 6),          .M,  .RM32,       .{} ),
-    instr(.DIV,     ops1(.rm64),                Op1r(0xF7, 6),          .M,  .RM32,       .{} ),
+    instr(.DIV,     ops1(.rm8),                 Op1r(0xF6, 6),          .M,  .ZO,      .{_8086} ),
+    instr(.DIV,     ops1(.rm16),                Op1r(0xF7, 6),          .M,  .Op16,    .{_8086} ),
+    instr(.DIV,     ops1(.rm32),                Op1r(0xF7, 6),          .M,  .Op32,    .{_386} ),
+    instr(.DIV,     ops1(.rm64),                Op1r(0xF7, 6),          .M,  .REX_W,   .{x86_64} ),
 // ENTER
-    instr(.ENTER,   ops2(.imm16, .imm8),        Op1(0xC8),              .II, .RM64_16,    .{_186} ),
-    instr(.ENTERW,  ops2(.imm16, .imm8),        Op1(0xC8),              .II16, .RM64_16,  .{_186} ),
+    instr(.ENTER,   ops2(.imm16, .imm8),        Op1(0xC8),              .II, .ZO,      .{_186} ),
+    instr(.ENTERW,  ops2(.imm16, .imm8),        Op1(0xC8),              .II, .Op16,    .{_186} ),
+    instr(.ENTERD,  ops2(.imm16, .imm8),        Op1(0xC8),              .II, .Op32,    .{_386, No64} ),
+    instr(.ENTERQ,  ops2(.imm16, .imm8),        Op1(0xC8),              .II, .ZO,      .{x86_64, No32} ),
 // HLT
-    instr(.HLT,     ops0(),                     Op1(0xF4),              .ZO, .ZO,         .{} ),
+    instr(.HLT,     ops0(),                     Op1(0xF4),              .ZO, .ZO,      .{_8086} ),
 // IDIV
-    instr(.IDIV,    ops1(.rm8),                 Op1r(0xF6, 7),          .M,  .RM8,        .{} ),
-    instr(.IDIV,    ops1(.rm16),                Op1r(0xF7, 7),          .M,  .RM32,       .{} ),
-    instr(.IDIV,    ops1(.rm32),                Op1r(0xF7, 7),          .M,  .RM32,       .{} ),
-    instr(.IDIV,    ops1(.rm64),                Op1r(0xF7, 7),          .M,  .RM32,       .{} ),
+    instr(.IDIV,    ops1(.rm8),                 Op1r(0xF6, 7),          .M,  .ZO,      .{_8086} ),
+    instr(.IDIV,    ops1(.rm16),                Op1r(0xF7, 7),          .M,  .Op16,    .{_8086} ),
+    instr(.IDIV,    ops1(.rm32),                Op1r(0xF7, 7),          .M,  .Op32,    .{_386} ),
+    instr(.IDIV,    ops1(.rm64),                Op1r(0xF7, 7),          .M,  .REX_W,   .{x86_64} ),
 // IMUL
-    instr(.IMUL,    ops1(.rm8),                 Op1r(0xF6, 5),          .M,  .RM8,        .{} ),
-    instr(.IMUL,    ops1(.rm16),                Op1r(0xF7, 5),          .M,  .RM32,       .{} ),
-    instr(.IMUL,    ops1(.rm32),                Op1r(0xF7, 5),          .M,  .RM32,       .{} ),
-    instr(.IMUL,    ops1(.rm64),                Op1r(0xF7, 5),          .M,  .RM32,       .{} ),
+    instr(.IMUL,    ops1(.rm8),                 Op1r(0xF6, 5),          .M,  .ZO,      .{_8086} ),
+    instr(.IMUL,    ops1(.rm16),                Op1r(0xF7, 5),          .M,  .Op16,    .{_8086} ),
+    instr(.IMUL,    ops1(.rm32),                Op1r(0xF7, 5),          .M,  .Op32,    .{_386} ),
+    instr(.IMUL,    ops1(.rm64),                Op1r(0xF7, 5),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.IMUL,    ops2(.reg16, .rm16),        Op2(0x0F, 0xAF),        .RM, .RM32,       .{} ),
-    instr(.IMUL,    ops2(.reg32, .rm32),        Op2(0x0F, 0xAF),        .RM, .RM32,       .{} ),
-    instr(.IMUL,    ops2(.reg64, .rm64),        Op2(0x0F, 0xAF),        .RM, .RM32,       .{} ),
+    instr(.IMUL,    ops2(.reg16, .rm16),        Op2(0x0F, 0xAF),        .RM, .Op16,    .{_8086} ),
+    instr(.IMUL,    ops2(.reg32, .rm32),        Op2(0x0F, 0xAF),        .RM, .Op32,    .{_386} ),
+    instr(.IMUL,    ops2(.reg64, .rm64),        Op2(0x0F, 0xAF),        .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.IMUL,    ops3(.reg16, .rm16, .imm8), Op1(0x6B),              .RMI, .RM32_I8,   .{Sign, _186} ),
-    instr(.IMUL,    ops3(.reg32, .rm32, .imm8), Op1(0x6B),              .RMI, .RM32_I8,   .{Sign, _386} ),
-    instr(.IMUL,    ops3(.reg64, .rm64, .imm8), Op1(0x6B),              .RMI, .RM32_I8,   .{Sign, x86_64} ),
+    instr(.IMUL,    ops3(.reg16, .rm16, .imm8), Op1(0x6B),              .RMI, .Op16,   .{_186, Sign} ),
+    instr(.IMUL,    ops3(.reg32, .rm32, .imm8), Op1(0x6B),              .RMI, .Op32,   .{_386, Sign} ),
+    instr(.IMUL,    ops3(.reg64, .rm64, .imm8), Op1(0x6B),              .RMI, .REX_W,  .{x86_64, Sign} ),
     //
-    instr(.IMUL,    ops3(.reg16, .rm16, .imm16),Op1(0x69),              .RMI, .RM32,      .{_186} ),
-    instr(.IMUL,    ops3(.reg32, .rm32, .imm32),Op1(0x69),              .RMI, .RM32,      .{_386} ),
-    instr(.IMUL,    ops3(.reg64, .rm64, .imm32),Op1(0x69),              .RMI, .RM32,      .{Sign, x86_64} ),
+    instr(.IMUL,    ops3(.reg16, .rm16, .imm16),Op1(0x69),              .RMI, .Op16,   .{_186} ),
+    instr(.IMUL,    ops3(.reg32, .rm32, .imm32),Op1(0x69),              .RMI, .Op32,   .{_386} ),
+    instr(.IMUL,    ops3(.reg64, .rm64, .imm32),Op1(0x69),              .RMI, .REX_W,  .{x86_64, Sign} ),
 // IN
-    instr(.IN,      ops2(.reg_al, .imm8),       Op1(0xE4),              .I2, .RM8,        .{} ),
-    instr(.IN,      ops2(.reg_ax, .imm8),       Op1(0xE5),              .I2, .RM32,       .{} ),
-    instr(.IN,      ops2(.reg_eax, .imm8),      Op1(0xE5),              .I2, .RM32,       .{} ),
-    instr(.IN,      ops2(.reg_al, .reg_dx),     Op1(0xEC),              .ZO, .RM8,        .{} ),
-    instr(.IN,      ops2(.reg_ax, .reg_dx),     Op1(0xED),              .ZO16, .RM32,     .{} ),
-    instr(.IN,      ops2(.reg_eax, .reg_dx),    Op1(0xED),              .ZO32, .RM32,     .{} ),
+    instr(.IN,      ops2(.reg_al, .imm8),       Op1(0xE4),              .I2, .ZO,      .{_8086} ),
+    instr(.IN,      ops2(.reg_ax, .imm8),       Op1(0xE5),              .I2, .Op16,    .{_8086} ),
+    instr(.IN,      ops2(.reg_eax, .imm8),      Op1(0xE5),              .I2, .Op32,    .{_386} ),
+    instr(.IN,      ops2(.reg_al, .reg_dx),     Op1(0xEC),              .ZO, .ZO,      .{_8086} ),
+    instr(.IN,      ops2(.reg_ax, .reg_dx),     Op1(0xED),              .ZO, .Op16,    .{_8086} ),
+    instr(.IN,      ops2(.reg_eax, .reg_dx),    Op1(0xED),              .ZO, .Op32,    .{_386} ),
 // INC
-    instr(.INC,     ops1(.reg16),               Op1(0x40),              .O,  .RM32,       .{No64} ),
-    instr(.INC,     ops1(.reg32),               Op1(0x40),              .O,  .RM32,       .{No64} ),
-    instr(.INC,     ops1(.rm8),                 Op1r(0xFE, 0),          .M,  .RM8,        .{} ),
-    instr(.INC,     ops1(.rm16),                Op1r(0xFF, 0),          .M,  .RM32,       .{} ),
-    instr(.INC,     ops1(.rm32),                Op1r(0xFF, 0),          .M,  .RM32,       .{} ),
-    instr(.INC,     ops1(.rm64),                Op1r(0xFF, 0),          .M,  .RM32,       .{} ),
+    instr(.INC,     ops1(.reg16),               Op1(0x40),              .O,  .Op16,    .{_8086, No64} ),
+    instr(.INC,     ops1(.reg32),               Op1(0x40),              .O,  .Op32,    .{_386, No64} ),
+    instr(.INC,     ops1(.rm8),                 Op1r(0xFE, 0),          .M,  .ZO,      .{_8086, Lock, Hle} ),
+    instr(.INC,     ops1(.rm16),                Op1r(0xFF, 0),          .M,  .Op16,    .{_8086, Lock, Hle} ),
+    instr(.INC,     ops1(.rm32),                Op1r(0xFF, 0),          .M,  .Op32,    .{_386, Lock, Hle} ),
+    instr(.INC,     ops1(.rm64),                Op1r(0xFF, 0),          .M,  .REX_W,   .{x86_64, Lock, Hle} ),
 // INS / INSB / INSW / INSD
-    instr(.INS,     ops1(._void8),              Op1(0x6C),              .ZO, .RM8,        .{_186} ),
-    instr(.INS,     ops1(._void),               Op1(0x6D),              .ZO, .RM32,       .{_186} ),
+    instr(.INS,     ops2(.rm_mem8, .reg_dx),    Op1(0x6C),              .MSpec, .ZO,   .{_186, Rep} ),
+    instr(.INS,     ops2(.rm_mem16, .reg_dx),   Op1(0x6D),              .MSpec, .Op16, .{_186, Rep} ),
+    instr(.INS,     ops2(.rm_mem32, .reg_dx),   Op1(0x6D),              .MSpec, .Op32, .{x86_64, Rep} ),
     //
-    instr(.INSB,    ops0(),                     Op1(0x6C),              .ZO,   .RM8,      .{_186} ),
-    instr(.INSW,    ops0(),                     Op1(0x6D),              .ZO16, .RM32,     .{_186} ),
-    instr(.INSD,    ops0(),                     Op1(0x6D),              .ZO32, .RM32,     .{_386} ),
+    instr(.INSB,    ops0(),                     Op1(0x6C),              .ZO, .ZO,      .{_186, Rep} ),
+    instr(.INSW,    ops0(),                     Op1(0x6D),              .ZO, .Op16,    .{_186, Rep} ),
+    instr(.INSD,    ops0(),                     Op1(0x6D),              .ZO, .Op32,    .{_386, Rep} ),
 // INT
-    instr(.INT3,    ops0(),                     Op1(0xCC),              .ZO, .ZO,         .{} ),
-    instr(.INT,     ops1(.imm8),                Op1(0xCD),              .I,  .RM8,        .{} ),
-    instr(.INTO,    ops0(),                     Op1(0xCE),              .ZO, .ZO32Only,   .{} ),
-    instr(.INT1,    ops0(),                     Op1(0xF1),              .ZO, .ZO,         .{} ),
+    instr(.INT3,    ops0(),                     Op1(0xCC),              .ZO, .ZO,      .{_8086} ),
+    instr(.INT,     ops1(.imm8),                Op1(0xCD),              .I,  .ZO,      .{_8086} ),
+    instr(.INTO,    ops0(),                     Op1(0xCE),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.INT1,    ops0(),                     Op1(0xF1),              .ZO, .ZO,      .{_386} ),
+    instr(.ICEBP,   ops0(),                     Op1(0xF1),              .ZO, .ZO,      .{_386} ),
 // IRET
-    instr(.IRET,    ops1(._void),               Op1(0xCF),              .ZO,   .RM32,     .{} ),
-    instr(.IRET,    ops0(),                     Op1(0xCF),              .ZO16, .RM32,     .{} ),
-    instr(.IRETD,   ops0(),                     Op1(0xCF),              .ZO32, .RM32,     .{_386} ),
-    instr(.IRETQ,   ops0(),                     Op1(0xCF),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.IRET,    ops0(),                     Op1(0xCF),              .ZO, .ZO,      .{_8086} ),
+    instr(.IRETW,   ops0(),                     Op1(0xCF),              .ZO, .Op16,    .{_8086} ),
+    instr(.IRETD,   ops0(),                     Op1(0xCF),              .ZO, .Op32,    .{_386, No64} ),
+    instr(.IRETQ,   ops0(),                     Op1(0xCF),              .ZO, .ZO,      .{x86_64, No32} ),
 // Jcc
-    instr(.JCXZ,    ops1(.imm8),                Op1(0xE3),              .I, .R_Over16,    .{Sign, No64} ),
-    instr(.JECXZ,   ops1(.imm8),                Op1(0xE3),              .I, .R_Over32,    .{Sign, _386} ),
-    instr(.JRCXZ,   ops1(.imm8),                Op1(0xE3),              .I, .RM8,         .{Sign, No32, x86_64} ),
+    instr(.JCXZ,    ops1(.imm8),                Op1(0xE3),              .I, .Addr16,   .{_8086, Sign, No64} ),
+    instr(.JECXZ,   ops1(.imm8),                Op1(0xE3),              .I, .Addr32,   .{_386, Sign} ),
+    instr(.JRCXZ,   ops1(.imm8),                Op1(0xE3),              .I, .Addr64,   .{x86_64, Sign, No32} ),
     //
-    instr(.JA,      ops1(.imm8),                Op1(0x77),              .I, .RM8,         .{Sign} ),
-    instr(.JA,      ops1(.imm16),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JA,      ops1(.imm32),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JAE,     ops1(.imm8),                Op1(0x73),              .I, .RM8,         .{Sign} ),
-    instr(.JAE,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JAE,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JB,      ops1(.imm8),                Op1(0x72),              .I, .RM8,         .{Sign} ),
-    instr(.JB,      ops1(.imm16),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JB,      ops1(.imm32),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JBE,     ops1(.imm8),                Op1(0x76),              .I, .RM8,         .{Sign} ),
-    instr(.JBE,     ops1(.imm16),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JBE,     ops1(.imm32),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JC,      ops1(.imm8),                Op1(0x72),              .I, .RM8,         .{Sign} ),
-    instr(.JC,      ops1(.imm16),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JC,      ops1(.imm32),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JE,      ops1(.imm8),                Op1(0x74),              .I, .RM8,         .{Sign} ),
-    instr(.JE,      ops1(.imm16),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JE,      ops1(.imm32),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JG,      ops1(.imm8),                Op1(0x7F),              .I, .RM8,         .{Sign} ),
-    instr(.JG,      ops1(.imm16),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JG,      ops1(.imm32),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JGE,     ops1(.imm8),                Op1(0x7D),              .I, .RM8,         .{Sign} ),
-    instr(.JGE,     ops1(.imm16),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JGE,     ops1(.imm32),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JL,      ops1(.imm8),                Op1(0x7C),              .I, .RM8,         .{Sign} ),
-    instr(.JL,      ops1(.imm16),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JL,      ops1(.imm32),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JLE,     ops1(.imm8),                Op1(0x7E),              .I, .RM8,         .{Sign} ),
-    instr(.JLE,     ops1(.imm16),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JLE,     ops1(.imm32),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNA,     ops1(.imm8),                Op1(0x76),              .I, .RM8,         .{Sign} ),
-    instr(.JNA,     ops1(.imm16),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNA,     ops1(.imm32),               Op2(0x0F, 0x86),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNAE,    ops1(.imm8),                Op1(0x72),              .I, .RM8,         .{Sign} ),
-    instr(.JNAE,    ops1(.imm16),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNAE,    ops1(.imm32),               Op2(0x0F, 0x82),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNB,     ops1(.imm8),                Op1(0x73),              .I, .RM8,         .{Sign} ),
-    instr(.JNB,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNB,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNBE,    ops1(.imm8),                Op1(0x77),              .I, .RM8,         .{Sign} ),
-    instr(.JNBE,    ops1(.imm16),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNBE,    ops1(.imm32),               Op2(0x0F, 0x87),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNC,     ops1(.imm8),                Op1(0x73),              .I, .RM8,         .{Sign} ),
-    instr(.JNC,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNC,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNE,     ops1(.imm8),                Op1(0x75),              .I, .RM8,         .{Sign} ),
-    instr(.JNE,     ops1(.imm16),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNE,     ops1(.imm32),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNG,     ops1(.imm8),                Op1(0x7E),              .I, .RM8,         .{Sign} ),
-    instr(.JNG,     ops1(.imm16),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNG,     ops1(.imm32),               Op2(0x0F, 0x8E),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNGE,    ops1(.imm8),                Op1(0x7C),              .I, .RM8,         .{Sign} ),
-    instr(.JNGE,    ops1(.imm16),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNGE,    ops1(.imm32),               Op2(0x0F, 0x8C),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNL,     ops1(.imm8),                Op1(0x7D),              .I, .RM8,         .{Sign} ),
-    instr(.JNL,     ops1(.imm16),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNL,     ops1(.imm32),               Op2(0x0F, 0x8D),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNLE,    ops1(.imm8),                Op1(0x7F),              .I, .RM8,         .{Sign} ),
-    instr(.JNLE,    ops1(.imm16),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNLE,    ops1(.imm32),               Op2(0x0F, 0x8F),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNO,     ops1(.imm8),                Op1(0x71),              .I, .RM8,         .{Sign} ),
-    instr(.JNO,     ops1(.imm16),               Op2(0x0F, 0x81),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNO,     ops1(.imm32),               Op2(0x0F, 0x81),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNP,     ops1(.imm8),                Op1(0x7B),              .I, .RM8,         .{Sign} ),
-    instr(.JNP,     ops1(.imm16),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNP,     ops1(.imm32),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNS,     ops1(.imm8),                Op1(0x79),              .I, .RM8,         .{Sign} ),
-    instr(.JNS,     ops1(.imm16),               Op2(0x0F, 0x89),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNS,     ops1(.imm32),               Op2(0x0F, 0x89),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNZ,     ops1(.imm8),                Op1(0x75),              .I, .RM8,         .{Sign} ),
-    instr(.JNZ,     ops1(.imm16),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JNZ,     ops1(.imm32),               Op2(0x0F, 0x85),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JO,      ops1(.imm8),                Op1(0x70),              .I, .RM8,         .{Sign} ),
-    instr(.JO,      ops1(.imm16),               Op2(0x0F, 0x80),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JO,      ops1(.imm32),               Op2(0x0F, 0x80),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JP,      ops1(.imm8),                Op1(0x7A),              .I, .RM8,         .{Sign} ),
-    instr(.JP,      ops1(.imm16),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JP,      ops1(.imm32),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JPE,     ops1(.imm8),                Op1(0x7A),              .I, .RM8,         .{Sign} ),
-    instr(.JPE,     ops1(.imm16),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JPE,     ops1(.imm32),               Op2(0x0F, 0x8A),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JPO,     ops1(.imm8),                Op1(0x7B),              .I, .RM8,         .{Sign} ),
-    instr(.JPO,     ops1(.imm16),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JPO,     ops1(.imm32),               Op2(0x0F, 0x8B),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JS,      ops1(.imm8),                Op1(0x78),              .I, .RM8,         .{Sign} ),
-    instr(.JS,      ops1(.imm16),               Op2(0x0F, 0x88),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JS,      ops1(.imm32),               Op2(0x0F, 0x88),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JZ,      ops1(.imm8),                Op1(0x74),              .I, .RM8,         .{Sign} ),
-    instr(.JZ,      ops1(.imm16),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{Sign} ),
-    instr(.JZ,      ops1(.imm32),               Op2(0x0F, 0x84),        .I, .RM32Strict,  .{Sign} ),
+    instr(.JA,      ops1(.imm8),                Op1(0x77),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JA,      ops1(.imm16),               Op2(0x0F, 0x87),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JA,      ops1(.imm32),               Op2(0x0F, 0x87),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JAE,     ops1(.imm8),                Op1(0x73),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JAE,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JAE,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JB,      ops1(.imm8),                Op1(0x72),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JB,      ops1(.imm16),               Op2(0x0F, 0x82),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JB,      ops1(.imm32),               Op2(0x0F, 0x82),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JBE,     ops1(.imm8),                Op1(0x76),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JBE,     ops1(.imm16),               Op2(0x0F, 0x86),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JBE,     ops1(.imm32),               Op2(0x0F, 0x86),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JC,      ops1(.imm8),                Op1(0x72),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JC,      ops1(.imm16),               Op2(0x0F, 0x82),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JC,      ops1(.imm32),               Op2(0x0F, 0x82),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JE,      ops1(.imm8),                Op1(0x74),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JE,      ops1(.imm16),               Op2(0x0F, 0x84),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JE,      ops1(.imm32),               Op2(0x0F, 0x84),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JG,      ops1(.imm8),                Op1(0x7F),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JG,      ops1(.imm16),               Op2(0x0F, 0x8F),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JG,      ops1(.imm32),               Op2(0x0F, 0x8F),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JGE,     ops1(.imm8),                Op1(0x7D),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JGE,     ops1(.imm16),               Op2(0x0F, 0x8D),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JGE,     ops1(.imm32),               Op2(0x0F, 0x8D),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JL,      ops1(.imm8),                Op1(0x7C),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JL,      ops1(.imm16),               Op2(0x0F, 0x8C),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JL,      ops1(.imm32),               Op2(0x0F, 0x8C),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JLE,     ops1(.imm8),                Op1(0x7E),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JLE,     ops1(.imm16),               Op2(0x0F, 0x8E),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JLE,     ops1(.imm32),               Op2(0x0F, 0x8E),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNA,     ops1(.imm8),                Op1(0x76),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNA,     ops1(.imm16),               Op2(0x0F, 0x86),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNA,     ops1(.imm32),               Op2(0x0F, 0x86),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNAE,    ops1(.imm8),                Op1(0x72),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNAE,    ops1(.imm16),               Op2(0x0F, 0x82),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNAE,    ops1(.imm32),               Op2(0x0F, 0x82),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNB,     ops1(.imm8),                Op1(0x73),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNB,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNB,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNBE,    ops1(.imm8),                Op1(0x77),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNBE,    ops1(.imm16),               Op2(0x0F, 0x87),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNBE,    ops1(.imm32),               Op2(0x0F, 0x87),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNC,     ops1(.imm8),                Op1(0x73),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNC,     ops1(.imm16),               Op2(0x0F, 0x83),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNC,     ops1(.imm32),               Op2(0x0F, 0x83),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNE,     ops1(.imm8),                Op1(0x75),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNE,     ops1(.imm16),               Op2(0x0F, 0x85),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNE,     ops1(.imm32),               Op2(0x0F, 0x85),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNG,     ops1(.imm8),                Op1(0x7E),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNG,     ops1(.imm16),               Op2(0x0F, 0x8E),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNG,     ops1(.imm32),               Op2(0x0F, 0x8E),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNGE,    ops1(.imm8),                Op1(0x7C),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNGE,    ops1(.imm16),               Op2(0x0F, 0x8C),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNGE,    ops1(.imm32),               Op2(0x0F, 0x8C),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNL,     ops1(.imm8),                Op1(0x7D),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNL,     ops1(.imm16),               Op2(0x0F, 0x8D),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNL,     ops1(.imm32),               Op2(0x0F, 0x8D),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNLE,    ops1(.imm8),                Op1(0x7F),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNLE,    ops1(.imm16),               Op2(0x0F, 0x8F),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNLE,    ops1(.imm32),               Op2(0x0F, 0x8F),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNO,     ops1(.imm8),                Op1(0x71),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNO,     ops1(.imm16),               Op2(0x0F, 0x81),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNO,     ops1(.imm32),               Op2(0x0F, 0x81),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNP,     ops1(.imm8),                Op1(0x7B),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNP,     ops1(.imm16),               Op2(0x0F, 0x8B),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNP,     ops1(.imm32),               Op2(0x0F, 0x8B),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNS,     ops1(.imm8),                Op1(0x79),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNS,     ops1(.imm16),               Op2(0x0F, 0x89),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNS,     ops1(.imm32),               Op2(0x0F, 0x89),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JNZ,     ops1(.imm8),                Op1(0x75),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JNZ,     ops1(.imm16),               Op2(0x0F, 0x85),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JNZ,     ops1(.imm32),               Op2(0x0F, 0x85),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JO,      ops1(.imm8),                Op1(0x70),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JO,      ops1(.imm16),               Op2(0x0F, 0x80),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JO,      ops1(.imm32),               Op2(0x0F, 0x80),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JP,      ops1(.imm8),                Op1(0x7A),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JP,      ops1(.imm16),               Op2(0x0F, 0x8A),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JP,      ops1(.imm32),               Op2(0x0F, 0x8A),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JPE,     ops1(.imm8),                Op1(0x7A),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JPE,     ops1(.imm16),               Op2(0x0F, 0x8A),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JPE,     ops1(.imm32),               Op2(0x0F, 0x8A),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JPO,     ops1(.imm8),                Op1(0x7B),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JPO,     ops1(.imm16),               Op2(0x0F, 0x8B),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JPO,     ops1(.imm32),               Op2(0x0F, 0x8B),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JS,      ops1(.imm8),                Op1(0x78),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JS,      ops1(.imm16),               Op2(0x0F, 0x88),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JS,      ops1(.imm32),               Op2(0x0F, 0x88),        .I, .Op32,     .{_386, Sign, Bnd} ),
+    instr(.JZ,      ops1(.imm8),                Op1(0x74),              .I, .ZO,       .{_8086, Sign, Bnd} ),
+    instr(.JZ,      ops1(.imm16),               Op2(0x0F, 0x84),        .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JZ,      ops1(.imm32),               Op2(0x0F, 0x84),        .I, .Op32,     .{_386, Sign, Bnd} ),
 // JMP
-    instr(.JMP,     ops1(.imm8),                Op1(0xEB),              .I, .RM8,         .{Sign} ),
-    instr(.JMP,     ops1(.imm16),               Op1(0xE9),              .I, .RM32Strict,  .{Sign} ),
-    instr(.JMP,     ops1(.imm32),               Op1(0xE9),              .I, .RM32Strict,  .{Sign} ),
+    instr(.JMP,     ops1(.imm8),                Op1(0xEB),              .I, .ZO,       .{_8086, Sign} ),
+    instr(.JMP,     ops1(.imm16),               Op1(0xE9),              .I, .Op16,     .{_8086, Sign, Bnd, No64} ),
+    instr(.JMP,     ops1(.imm32),               Op1(0xE9),              .I, .Op32,     .{_386, Sign, Bnd} ),
     //
-    instr(.JMP,     ops1(.rm16),                Op1r(0xFF, 4),          .M, .RM64Strict,  .{} ),
-    instr(.JMP,     ops1(.rm32),                Op1r(0xFF, 4),          .M, .RM64Strict,  .{} ),
-    instr(.JMP,     ops1(.rm64),                Op1r(0xFF, 4),          .M, .RM64Strict,  .{} ),
+    instr(.JMP,     ops1(.rm16),                Op1r(0xFF, 4),          .M, .Op16,     .{_8086, Bnd, No64} ),
+    instr(.JMP,     ops1(.rm32),                Op1r(0xFF, 4),          .M, .Op32,     .{_386, Bnd, No64} ),
+    instr(.JMP,     ops1(.rm64),                Op1r(0xFF, 4),          .M, .ZO,       .{x86_64, Bnd, No32} ),
     //
-    instr(.JMP,     ops1(.ptr16_16),            Op1r(0xEA, 4),          .D, .RM32Only,    .{} ),
-    instr(.JMP,     ops1(.ptr16_32),            Op1r(0xEA, 4),          .D, .RM32Only,    .{} ),
+    instr(.JMP,     ops1(.ptr16_16),            Op1r(0xEA, 4),          .D, .Op16,     .{_8086, No64} ),
+    instr(.JMP,     ops1(.ptr16_32),            Op1r(0xEA, 4),          .D, .Op32,     .{_386, No64} ),
     //
-    instr(.JMP,     ops1(.m16_16),              Op1r(0xFF, 5),          .M, .RM32,        .{} ),
-    instr(.JMP,     ops1(.m16_32),              Op1r(0xFF, 5),          .M, .RM32,        .{} ),
-    instr(.JMP,     ops1(.m16_64),              Op1r(0xFF, 5),          .M, .RM32,        .{} ),
+    instr(.JMP,     ops1(.m16_16),              Op1r(0xFF, 5),          .M, .Op16,     .{_8086} ),
+    instr(.JMP,     ops1(.m16_32),              Op1r(0xFF, 5),          .M, .Op32,     .{_386} ),
+    instr(.JMP,     ops1(.m16_64),              Op1r(0xFF, 5),          .M, .REX_W,    .{x86_64} ),
 // LAHF
-    instr(.LAHF,    ops0(),                     Op1(0x9F),              .ZO, .ZO,         .{cpu.FeatLAHF} ),
+    instr(.LAHF,    ops0(),                     Op1(0x9F),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.LAHF,    ops0(),                     Op1(0x9F),              .ZO, .ZO,      .{_8086, cpu.LAHF_SAHF, No32} ),
 // SAHF
-    instr(.SAHF,    ops0(),                     Op1(0x9E),              .ZO, .ZO,         .{cpu.FeatLAHF} ),
+    instr(.SAHF,    ops0(),                     Op1(0x9E),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.SAHF,    ops0(),                     Op1(0x9E),              .ZO, .ZO,      .{_8086, cpu.LAHF_SAHF, No32} ),
 //  LDS / LSS / LES / LFS / LGS
-    instr(.LDS,     ops2(.reg16, .m16_16),      Op1(0xC5),              .RM, .RM32Only,   .{No64} ),
-    instr(.LDS,     ops2(.reg32, .m16_32),      Op1(0xC5),              .RM, .RM32Only,   .{No64} ),
+    instr(.LDS,     ops2(.reg16, .m16_16),      Op1(0xC5),              .RM, .Op16,    .{_8086, No64} ),
+    instr(.LDS,     ops2(.reg32, .m16_32),      Op1(0xC5),              .RM, .Op32,    .{_386, No64} ),
     //
-    instr(.LSS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB2),        .RM, .RM32,       .{_386} ),
-    instr(.LSS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB2),        .RM, .RM32,       .{_386} ),
-    instr(.LSS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB2),        .RM, .RM32,       .{x86_64} ),
+    instr(.LSS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB2),        .RM, .Op16,    .{_386} ),
+    instr(.LSS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB2),        .RM, .Op32,    .{_386} ),
+    instr(.LSS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB2),        .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.LES,     ops2(.reg16, .m16_16),      Op1(0xC4),              .RM, .RM32Only,   .{No64} ),
-    instr(.LES,     ops2(.reg32, .m16_32),      Op1(0xC4),              .RM, .RM32Only,   .{No64} ),
+    instr(.LES,     ops2(.reg16, .m16_16),      Op1(0xC4),              .RM, .Op16,    .{_8086, No64} ),
+    instr(.LES,     ops2(.reg32, .m16_32),      Op1(0xC4),              .RM, .Op32,    .{_386, No64} ),
     //
-    instr(.LFS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB4),        .RM, .RM32,       .{_386} ),
-    instr(.LFS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB4),        .RM, .RM32,       .{_386} ),
-    instr(.LFS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB4),        .RM, .RM32,       .{x86_64} ),
+    instr(.LFS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB4),        .RM, .Op16,    .{_386} ),
+    instr(.LFS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB4),        .RM, .Op32,    .{_386} ),
+    instr(.LFS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB4),        .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.LGS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB5),        .RM, .RM32,       .{_386} ),
-    instr(.LGS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB5),        .RM, .RM32,       .{_386} ),
-    instr(.LGS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB5),        .RM, .RM32,       .{x86_64} ),
+    instr(.LGS,     ops2(.reg16, .m16_16),      Op2(0x0F, 0xB5),        .RM, .Op16,    .{_386} ),
+    instr(.LGS,     ops2(.reg32, .m16_32),      Op2(0x0F, 0xB5),        .RM, .Op32,    .{_386} ),
+    instr(.LGS,     ops2(.reg64, .m16_64),      Op2(0x0F, 0xB5),        .RM, .REX_W,   .{x86_64} ),
     //
 // LEA
-    instr(.LEA,     ops2(.reg16, .rm_mem16),    Op1(0x8D),              .RM, .RM32,       .{} ),
-    instr(.LEA,     ops2(.reg32, .rm_mem32),    Op1(0x8D),              .RM, .RM32,       .{} ),
-    instr(.LEA,     ops2(.reg64, .rm_mem64),    Op1(0x8D),              .RM, .RM32,       .{} ),
+    instr(.LEA,     ops2(.reg16, .rm_mem16),    Op1(0x8D),              .RM, .Op16,    .{_8086} ),
+    instr(.LEA,     ops2(.reg32, .rm_mem32),    Op1(0x8D),              .RM, .Op32,    .{_386} ),
+    instr(.LEA,     ops2(.reg64, .rm_mem64),    Op1(0x8D),              .RM, .REX_W,   .{x86_64} ),
 // LEAVE
-    instr(.LEAVE,   ops0(),                     Op1(0xC9),              .ZODef, .RM64_16, .{_186} ),
-    instr(.LEAVEW,  ops0(),                     Op1(0xC9),              .ZO16,  .RM64_16, .{_186} ),
-    instr(.LEAVED,  ops0(),                     Op1(0xC9),              .ZO32,  .RM64_16, .{No64, _186} ),
+    instr(.LEAVE,   ops0(),                     Op1(0xC9),              .ZO, .ZO,      .{_186} ),
+    instr(.LEAVEW,  ops0(),                     Op1(0xC9),              .ZO, .Op16,    .{_186} ),
+    instr(.LEAVED,  ops0(),                     Op1(0xC9),              .ZO, .Op32,    .{_386, No64} ),
+    instr(.LEAVEQ,  ops0(),                     Op1(0xC9),              .ZO, .ZO,      .{x86_64, No32} ),
 // LOCK
-    instr(.LOCK,    ops0(),                     Op1(0xF0),              .ZO, .ZO,         .{} ),
+    instr(.LOCK,    ops0(),                     Op1(0xF0),              .ZO, .ZO,      .{_8086} ),
 // LODS / LODSB / LODSW / LODSD / LODSQ
-    instr(.LODS,    ops1(._void8),              Op1(0xAC),              .ZO, .RM8,        .{} ),
-    instr(.LODS,    ops1(._void),               Op1(0xAD),              .ZO, .RM32,       .{} ),
+    instr(.LODS,    ops2(.reg_al, .rm_mem8),    Op1(0xAC),              .MSpec, .ZO,   .{_8086, Rep} ),
+    instr(.LODS,    ops2(.reg_ax, .rm_mem16),   Op1(0xAD),              .MSpec, .Op16, .{_8086, Rep} ),
+    instr(.LODS,    ops2(.reg_eax, .rm_mem32),  Op1(0xAD),              .MSpec, .Op32, .{_386, Rep} ),
+    instr(.LODS,    ops2(.reg_rax, .rm_mem64),  Op1(0xAD),              .MSpec, .REX_W,.{x86_64, Rep} ),
     //
-    instr(.LODSB,   ops0(),                     Op1(0xAC),              .ZO,   .RM8,      .{} ),
-    instr(.LODSW,   ops0(),                     Op1(0xAD),              .ZO16, .RM32,     .{} ),
-    instr(.LODSD,   ops0(),                     Op1(0xAD),              .ZO32, .RM32,     .{_386} ),
-    instr(.LODSQ,   ops0(),                     Op1(0xAD),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.LODSB,   ops0(),                     Op1(0xAC),              .ZO, .ZO,      .{_8086, Rep} ),
+    instr(.LODSW,   ops0(),                     Op1(0xAD),              .ZO, .Op16,    .{_8086, Rep} ),
+    instr(.LODSD,   ops0(),                     Op1(0xAD),              .ZO, .Op32,    .{_386, Rep} ),
+    instr(.LODSQ,   ops0(),                     Op1(0xAD),              .ZO, .REX_W,   .{x86_64, No32, Rep} ),
 // LOOP
-    instr(.LOOP,    ops1(.imm8),                Op1(0xE2),              .I, .RM8,         .{Sign} ),
-    instr(.LOOPE,   ops1(.imm8),                Op1(0xE1),              .I, .RM8,         .{Sign} ),
-    instr(.LOOPNE,  ops1(.imm8),                Op1(0xE0),              .I, .RM8,         .{Sign} ),
+    instr(.LOOP,    ops1(.imm8),                Op1(0xE2),              .I, .ZO,       .{_8086, Sign} ),
+    instr(.LOOPE,   ops1(.imm8),                Op1(0xE1),              .I, .ZO,       .{_8086, Sign} ),
+    instr(.LOOPNE,  ops1(.imm8),                Op1(0xE0),              .I, .ZO,       .{_8086, Sign} ),
     //
-    instr(.LOOPW,   ops1(.imm8),                Op1(0xE2),              .I, .R_Over16,    .{Sign, No64, _386} ),
-    instr(.LOOPEW,  ops1(.imm8),                Op1(0xE1),              .I, .R_Over16,    .{Sign, No64, _386} ),
-    instr(.LOOPNEW, ops1(.imm8),                Op1(0xE0),              .I, .R_Over16,    .{Sign, No64, _386} ),
+    instr(.LOOPW,   ops1(.imm8),                Op1(0xE2),              .I, .Addr16,   .{_386, Sign, No64} ),
+    instr(.LOOPEW,  ops1(.imm8),                Op1(0xE1),              .I, .Addr16,   .{_386, Sign, No64} ),
+    instr(.LOOPNEW, ops1(.imm8),                Op1(0xE0),              .I, .Addr16,   .{_386, Sign, No64} ),
     //
-    instr(.LOOPD,   ops1(.imm8),                Op1(0xE2),              .I, .R_Over32,    .{Sign, _386} ),
-    instr(.LOOPED,  ops1(.imm8),                Op1(0xE1),              .I, .R_Over32,    .{Sign, _386} ),
-    instr(.LOOPNED, ops1(.imm8),                Op1(0xE0),              .I, .R_Over32,    .{Sign, _386} ),
+    instr(.LOOPD,   ops1(.imm8),                Op1(0xE2),              .I, .Addr32,   .{_386, Sign} ),
+    instr(.LOOPED,  ops1(.imm8),                Op1(0xE1),              .I, .Addr32,   .{_386, Sign} ),
+    instr(.LOOPNED, ops1(.imm8),                Op1(0xE0),              .I, .Addr32,   .{_386, Sign} ),
 // MOV
-    instr(.MOV,     ops2(.rm8,  .reg8),         Op1(0x88),              .MR, .RM8,        .{} ),
-    instr(.MOV,     ops2(.rm16, .reg16),        Op1(0x89),              .MR, .RM32,       .{} ),
-    instr(.MOV,     ops2(.rm32, .reg32),        Op1(0x89),              .MR, .RM32,       .{} ),
-    instr(.MOV,     ops2(.rm64, .reg64),        Op1(0x89),              .MR, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg8,  .rm8),         Op1(0x8A),              .RM, .ZO,      .{_8086} ),
+    instr(.MOV,     ops2(.reg16, .rm16),        Op1(0x8B),              .RM, .Op16,    .{_8086} ),
+    instr(.MOV,     ops2(.reg32, .rm32),        Op1(0x8B),              .RM, .Op32,    .{_386} ),
+    instr(.MOV,     ops2(.reg64, .rm64),        Op1(0x8B),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.MOV,     ops2(.reg8,  .rm8),         Op1(0x8A),              .RM, .RM8,        .{} ),
-    instr(.MOV,     ops2(.reg16, .rm16),        Op1(0x8B),              .RM, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg32, .rm32),        Op1(0x8B),              .RM, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg64, .rm64),        Op1(0x8B),              .RM, .RM32,       .{} ),
+    instr(.MOV,     ops2(.rm8,  .reg8),         Op1(0x88),              .MR, .ZO,      .{_8086, Xrelease} ),
+    instr(.MOV,     ops2(.rm16, .reg16),        Op1(0x89),              .MR, .Op16,    .{_8086, Xrelease} ),
+    instr(.MOV,     ops2(.rm32, .reg32),        Op1(0x89),              .MR, .Op32,    .{_386, Xrelease} ),
+    instr(.MOV,     ops2(.rm64, .reg64),        Op1(0x89),              .MR, .REX_W,   .{x86_64, Xrelease} ),
     //
-    instr(.MOV,     ops2(.rm16, .reg_seg),      Op1(0x8C),              .MR, .RM32_RM,    .{} ),
-    instr(.MOV,     ops2(.rm32, .reg_seg),      Op1(0x8C),              .MR, .RM32_RM,    .{} ),
-    instr(.MOV,     ops2(.rm64, .reg_seg),      Op1(0x8C),              .MR, .RM32_RM,    .{} ),
+    instr(.MOV,     ops2(.rm16, .reg_seg),      Op1(0x8C),              .MR, .Op16,    .{_8086} ),
+    instr(.MOV,     ops2(.rm32, .reg_seg),      Op1(0x8C),              .MR, .Op32,    .{_386} ),
+    instr(.MOV,     ops2(.rm64, .reg_seg),      Op1(0x8C),              .MR, .REX_W,   .{x86_64} ),
     //
-    instr(.MOV,     ops2(.reg_seg, .rm16),      Op1(0x8E),              .RM, .RM32_RM,    .{} ),
-    instr(.MOV,     ops2(.reg_seg, .rm32),      Op1(0x8E),              .RM, .RM32_RM,    .{} ),
-    instr(.MOV,     ops2(.reg_seg, .rm64),      Op1(0x8E),              .RM, .RM32_RM,    .{} ),
-    // TODO: CHECK, not 100% sure how moffs is supposed to behave in all cases
-    instr(.MOV,     ops2(.reg_al, .moffs8),     Op1(0xA0),              .FD, .RM8,        .{} ),
-    instr(.MOV,     ops2(.reg_ax, .moffs16),    Op1(0xA1),              .FD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg_eax, .moffs32),   Op1(0xA1),              .FD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg_rax, .moffs64),   Op1(0xA1),              .FD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.moffs8, .reg_al),     Op1(0xA2),              .TD, .RM8,        .{} ),
-    instr(.MOV,     ops2(.moffs16, .reg_ax),    Op1(0xA3),              .TD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.moffs32, .reg_eax),   Op1(0xA3),              .TD, .RM32,       .{} ),
-    instr(.MOV,     ops2(.moffs64, .reg_rax),   Op1(0xA3),              .TD, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg_seg, .rm16),      Op1(0x8E),              .RM, .Op16,    .{_8086} ),
+    instr(.MOV,     ops2(.reg_seg, .rm32),      Op1(0x8E),              .RM, .Op32,    .{_386} ),
+    instr(.MOV,     ops2(.reg_seg, .rm64),      Op1(0x8E),              .RM, .REX_W,   .{x86_64} ),
+    instr(.MOV,     ops2(.reg_al, .moffs8),     Op1(0xA0),              .FD, .ZO,      .{_8086} ),
+    instr(.MOV,     ops2(.reg_ax, .moffs16),    Op1(0xA1),              .FD, .Op16,    .{_8086} ),
+    instr(.MOV,     ops2(.reg_eax, .moffs32),   Op1(0xA1),              .FD, .Op32,    .{_386} ),
+    instr(.MOV,     ops2(.reg_rax, .moffs64),   Op1(0xA1),              .FD, .REX_W,   .{x86_64} ),
+    instr(.MOV,     ops2(.moffs8, .reg_al),     Op1(0xA2),              .TD, .ZO,      .{_8086} ),
+    instr(.MOV,     ops2(.moffs16, .reg_ax),    Op1(0xA3),              .TD, .Op16,    .{_8086} ),
+    instr(.MOV,     ops2(.moffs32, .reg_eax),   Op1(0xA3),              .TD, .Op32,    .{_386} ),
+    instr(.MOV,     ops2(.moffs64, .reg_rax),   Op1(0xA3),              .TD, .REX_W,   .{x86_64} ),
     //
-    instr(.MOV,     ops2(.reg8, .imm8),         Op1(0xB0),              .OI, .RM8,        .{} ),
-    instr(.MOV,     ops2(.reg16, .imm16),       Op1(0xB8),              .OI, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg32, .imm32),       Op1(0xB8),              .OI, .RM32,       .{} ),
-    instr(.MOV,     ops2(.reg64, .imm32),       Op1(0xB8),              .OI, .RM64,       .{NoSign} ),
-    instr(.MOV,     ops2(.reg64, .imm64),       Op1(0xB8),              .OI, .RM32,       .{} ),
+    instr(.MOV,     ops2(.reg8, .imm8),         Op1(0xB0),              .OI, .ZO,      .{_8086} ),
+    instr(.MOV,     ops2(.reg16, .imm16),       Op1(0xB8),              .OI, .Op16,    .{_8086} ),
+    instr(.MOV,     ops2(.reg32, .imm32),       Op1(0xB8),              .OI, .Op32,    .{_386} ),
+    instr(.MOV,     ops2(.reg64, .imm32),       Op1(0xB8),              .OI, .ZO,      .{x86_64, NoSign, No32} ),
+    instr(.MOV,     ops2(.reg64, .imm64),       Op1(0xB8),              .OI, .REX_W,   .{x86_64} ),
     //
-    instr(.MOV,     ops2(.rm8, .imm8),          Op1r(0xC6, 0),          .MI, .RM8,        .{} ),
-    instr(.MOV,     ops2(.rm16, .imm16),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
-    instr(.MOV,     ops2(.rm32, .imm32),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
-    instr(.MOV,     ops2(.rm64, .imm32),        Op1r(0xC7, 0),          .MI, .RM32,       .{} ),
+    instr(.MOV,     ops2(.rm8, .imm8),          Op1r(0xC6, 0),          .MI, .ZO,      .{_8086, Xrelease} ),
+    instr(.MOV,     ops2(.rm16, .imm16),        Op1r(0xC7, 0),          .MI, .Op16,    .{_8086, Xrelease} ),
+    instr(.MOV,     ops2(.rm32, .imm32),        Op1r(0xC7, 0),          .MI, .Op32,    .{_386, Xrelease} ),
+    instr(.MOV,     ops2(.rm64, .imm32),        Op1r(0xC7, 0),          .MI, .REX_W,   .{x86_64, Xrelease} ),
     // 386 MOV to/from Control Registers
-    instr(.MOV,     ops2(.reg32, .reg_cr),      Op2(0x0F, 0x20),        .MR, .RM32_RM,    .{No64, _386} ),
-    instr(.MOV,     ops2(.reg64, .reg_cr),      Op2(0x0F, 0x20),        .MR, .RM64_RM,    .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg32, .reg_cr),      Op2(0x0F, 0x20),        .MR, .ZO,      .{_386, No64} ),
+    instr(.MOV,     ops2(.reg64, .reg_cr),      Op2(0x0F, 0x20),        .MR, .ZO,      .{x86_64, No32} ),
     //
-    instr(.MOV,     ops2(.reg_cr, .reg32),      Op2(0x0F, 0x22),        .RM, .RM32_RM,    .{No64, _386} ),
-    instr(.MOV,     ops2(.reg_cr, .reg64),      Op2(0x0F, 0x22),        .RM, .RM64_RM,    .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg_cr, .reg32),      Op2(0x0F, 0x22),        .RM, .ZO,      .{_386, No64} ),
+    instr(.MOV,     ops2(.reg_cr, .reg64),      Op2(0x0F, 0x22),        .RM, .ZO,      .{x86_64, No32} ),
     // 386 MOV to/from Debug Registers
-    instr(.MOV,     ops2(.reg32, .reg_dr),      Op2(0x0F, 0x21),        .MR, .RM32_RM,    .{No64, _386} ),
-    instr(.MOV,     ops2(.reg64, .reg_dr),      Op2(0x0F, 0x21),        .MR, .RM64_RM,    .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg32, .reg_dr),      Op2(0x0F, 0x21),        .MR, .ZO,      .{_386, No64} ),
+    instr(.MOV,     ops2(.reg64, .reg_dr),      Op2(0x0F, 0x21),        .MR, .ZO,      .{x86_64, No32} ),
     //
-    instr(.MOV,     ops2(.reg_dr, .reg32),      Op2(0x0F, 0x23),        .RM, .RM32_RM,    .{No64, _386} ),
-    instr(.MOV,     ops2(.reg_dr, .reg64),      Op2(0x0F, 0x23),        .RM, .RM64_RM,    .{No32, x86_64} ),
+    instr(.MOV,     ops2(.reg_dr, .reg32),      Op2(0x0F, 0x23),        .RM, .ZO,      .{_386, No64} ),
+    instr(.MOV,     ops2(.reg_dr, .reg64),      Op2(0x0F, 0x23),        .RM, .ZO,      .{x86_64, No32} ),
 // MOVS / MOVSB / MOVSW / MOVSD / MOVSQ
-    instr(.MOVS,    ops1(._void8),              Op1(0xA4),              .ZO, .RM8,        .{} ),
-    instr(.MOVS,    ops1(._void),               Op1(0xA5),              .ZO, .RM32,       .{} ),
+    instr(.MOVS,    ops2(.rm_mem8, .rm_mem8),   Op1(0xA4),              .MSpec, .ZO,   .{_8086, Rep} ),
+    instr(.MOVS,    ops2(.rm_mem16, .rm_mem16), Op1(0xA5),              .MSpec, .Op16, .{_8086, Rep} ),
+    instr(.MOVS,    ops2(.rm_mem32, .rm_mem32), Op1(0xA5),              .MSpec, .Op32, .{_386, Rep} ),
+    instr(.MOVS,    ops2(.rm_mem64, .rm_mem64), Op1(0xA5),              .MSpec, .REX_W,.{x86_64, Rep} ),
     //
-    instr(.MOVSB,   ops0(),                     Op1(0xA4),              .ZO,   .RM8,      .{} ),
-    instr(.MOVSW,   ops0(),                     Op1(0xA5),              .ZO16, .RM32,     .{} ),
-    // instr(.MOVSD,   ops0(),                     Op1(0xA5),              .ZO32, .RM32,     .{_386} ), // overloaded
-    instr(.MOVSQ,   ops0(),                     Op1(0xA5),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.MOVSB,   ops0(),                     Op1(0xA4),              .ZO, .ZO,      .{_8086, Rep} ),
+    instr(.MOVSW,   ops0(),                     Op1(0xA5),              .ZO, .Op16,    .{_8086, Rep} ),
+    // instr(.MOVSD,   ops0(),                     Op1(0xA5),              .ZO, .Op32,    .{_386, Rep} ), // overloaded
+    instr(.MOVSQ,   ops0(),                     Op1(0xA5),              .ZO, .REX_W,   .{x86_64, No32, Rep} ),
 // MUL
-    instr(.MUL,     ops1(.rm8),                 Op1r(0xF6, 4),          .M,  .RM8,        .{} ),
-    instr(.MUL,     ops1(.rm16),                Op1r(0xF7, 4),          .M,  .RM32,       .{} ),
-    instr(.MUL,     ops1(.rm32),                Op1r(0xF7, 4),          .M,  .RM32,       .{} ),
-    instr(.MUL,     ops1(.rm64),                Op1r(0xF7, 4),          .M,  .RM32,       .{} ),
+    instr(.MUL,     ops1(.rm8),                 Op1r(0xF6, 4),          .M,  .ZO,      .{_8086} ),
+    instr(.MUL,     ops1(.rm16),                Op1r(0xF7, 4),          .M,  .Op16,    .{_8086} ),
+    instr(.MUL,     ops1(.rm32),                Op1r(0xF7, 4),          .M,  .Op32,    .{_386} ),
+    instr(.MUL,     ops1(.rm64),                Op1r(0xF7, 4),          .M,  .REX_W,   .{x86_64} ),
 // NEG
-    instr(.NEG,     ops1(.rm8),                 Op1r(0xF6, 3),          .M,  .RM8,        .{} ),
-    instr(.NEG,     ops1(.rm16),                Op1r(0xF7, 3),          .M,  .RM32,       .{} ),
-    instr(.NEG,     ops1(.rm32),                Op1r(0xF7, 3),          .M,  .RM32,       .{} ),
-    instr(.NEG,     ops1(.rm64),                Op1r(0xF7, 3),          .M,  .RM32,       .{} ),
+    instr(.NEG,     ops1(.rm8),                 Op1r(0xF6, 3),          .M,  .ZO,      .{_8086, Lock, Hle} ),
+    instr(.NEG,     ops1(.rm16),                Op1r(0xF7, 3),          .M,  .Op16,    .{_8086, Lock, Hle} ),
+    instr(.NEG,     ops1(.rm32),                Op1r(0xF7, 3),          .M,  .Op32,    .{_386, Lock, Hle} ),
+    instr(.NEG,     ops1(.rm64),                Op1r(0xF7, 3),          .M,  .REX_W,   .{x86_64, Lock, Hle} ),
 // NOP
-    instr(.NOP,     ops0(),                     Op1(0x90),              .ZO, .ZO,         .{} ),
-    instr(.NOP,     ops1(.rm16),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
-    instr(.NOP,     ops1(.rm32),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
-    instr(.NOP,     ops1(.rm64),                Op2r(0x0F, 0x1F, 0),    .M,  .RM32,       .{cpu.P6} ),
+    instr(.NOP,     ops0(),                     Op1(0x90),              .ZO, .ZO,      .{_8086} ),
+    instr(.NOP,     ops1(.rm16),                Op2r(0x0F, 0x1F, 0),    .M,  .Op16,    .{P6} ),
+    instr(.NOP,     ops1(.rm32),                Op2r(0x0F, 0x1F, 0),    .M,  .Op32,    .{P6} ),
+    instr(.NOP,     ops1(.rm64),                Op2r(0x0F, 0x1F, 0),    .M,  .REX_W,   .{x86_64} ),
 // NOT
-    instr(.NOT,     ops1(.rm8),                 Op1r(0xF6, 2),          .M,  .RM8,        .{} ),
-    instr(.NOT,     ops1(.rm16),                Op1r(0xF7, 2),          .M,  .RM32,       .{} ),
-    instr(.NOT,     ops1(.rm32),                Op1r(0xF7, 2),          .M,  .RM32,       .{} ),
-    instr(.NOT,     ops1(.rm64),                Op1r(0xF7, 2),          .M,  .RM32,       .{} ),
+    instr(.NOT,     ops1(.rm8),                 Op1r(0xF6, 2),          .M,  .ZO,      .{_8086, Lock, Hle} ),
+    instr(.NOT,     ops1(.rm16),                Op1r(0xF7, 2),          .M,  .Op16,    .{_8086, Lock, Hle} ),
+    instr(.NOT,     ops1(.rm32),                Op1r(0xF7, 2),          .M,  .Op32,    .{_386, Lock, Hle} ),
+    instr(.NOT,     ops1(.rm64),                Op1r(0xF7, 2),          .M,  .REX_W,   .{x86_64, Lock, Hle} ),
 // OR
-    instr(.OR,      ops2(.reg_al, .imm8),       Op1(0x0C),              .I2, .RM8,        .{} ),
-    instr(.OR,      ops2(.rm8, .imm8),          Op1r(0x80, 1),          .MI, .RM8,        .{} ),
-    instr(.OR,      ops2(.rm16, .imm8),         Op1r(0x83, 1),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.OR,      ops2(.rm32, .imm8),         Op1r(0x83, 1),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.OR,      ops2(.rm64, .imm8),         Op1r(0x83, 1),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.OR,      ops2(.reg_al, .imm8),       Op1(0x0C),              .I2, .ZO,      .{_8086} ),
+    instr(.OR,      ops2(.rm8, .imm8),          Op1r(0x80, 1),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.OR,      ops2(.rm16, .imm8),         Op1r(0x83, 1),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.OR,      ops2(.rm32, .imm8),         Op1r(0x83, 1),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.OR,      ops2(.rm64, .imm8),         Op1r(0x83, 1),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.OR,      ops2(.reg_ax, .imm16),      Op1(0x0D),              .I2, .RM32,       .{} ),
-    instr(.OR,      ops2(.reg_eax, .imm32),     Op1(0x0D),              .I2, .RM32,       .{} ),
-    instr(.OR,      ops2(.reg_rax, .imm32),     Op1(0x0D),              .I2, .RM32,       .{Sign} ),
+    instr(.OR,      ops2(.reg_ax, .imm16),      Op1(0x0D),              .I2, .Op16,    .{_8086} ),
+    instr(.OR,      ops2(.reg_eax, .imm32),     Op1(0x0D),              .I2, .Op32,    .{_386} ),
+    instr(.OR,      ops2(.reg_rax, .imm32),     Op1(0x0D),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.OR,      ops2(.rm16, .imm16),        Op1r(0x81, 1),          .MI, .RM32,       .{} ),
-    instr(.OR,      ops2(.rm32, .imm32),        Op1r(0x81, 1),          .MI, .RM32,       .{} ),
-    instr(.OR,      ops2(.rm64, .imm32),        Op1r(0x81, 1),          .MI, .RM32,       .{Sign} ),
+    instr(.OR,      ops2(.rm16, .imm16),        Op1r(0x81, 1),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.OR,      ops2(.rm32, .imm32),        Op1r(0x81, 1),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.OR,      ops2(.rm64, .imm32),        Op1r(0x81, 1),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.OR,      ops2(.rm8, .reg8),          Op1(0x08),              .MR, .RM8,        .{} ),
-    instr(.OR,      ops2(.rm16, .reg16),        Op1(0x09),              .MR, .RM32,       .{} ),
-    instr(.OR,      ops2(.rm32, .reg32),        Op1(0x09),              .MR, .RM32,       .{} ),
-    instr(.OR,      ops2(.rm64, .reg64),        Op1(0x09),              .MR, .RM32,       .{} ),
+    instr(.OR,      ops2(.reg8, .rm8),          Op1(0x0A),              .RM, .ZO,      .{_8086} ),
+    instr(.OR,      ops2(.reg16, .rm16),        Op1(0x0B),              .RM, .Op16,    .{_8086} ),
+    instr(.OR,      ops2(.reg32, .rm32),        Op1(0x0B),              .RM, .Op32,    .{_386} ),
+    instr(.OR,      ops2(.reg64, .rm64),        Op1(0x0B),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.OR,      ops2(.reg8, .rm8),          Op1(0x0A),              .RM, .RM8,        .{} ),
-    instr(.OR,      ops2(.reg16, .rm16),        Op1(0x0B),              .RM, .RM32,       .{} ),
-    instr(.OR,      ops2(.reg32, .rm32),        Op1(0x0B),              .RM, .RM32,       .{} ),
-    instr(.OR,      ops2(.reg64, .rm64),        Op1(0x0B),              .RM, .RM32,       .{} ),
+    instr(.OR,      ops2(.rm8, .reg8),          Op1(0x08),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.OR,      ops2(.rm16, .reg16),        Op1(0x09),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.OR,      ops2(.rm32, .reg32),        Op1(0x09),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.OR,      ops2(.rm64, .reg64),        Op1(0x09),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
 // OUT
-    instr(.OUT,     ops2(.imm8, .reg_al),       Op1(0xE6),              .I, .ZO,          .{} ),
-    instr(.OUT,     ops2(.imm8, .reg_ax),       Op1(0xE7),              .I, .RM32,        .{} ),
-    instr(.OUT,     ops2(.imm8, .reg_eax),      Op1(0xE7),              .I, .RM32,        .{} ),
-    instr(.OUT,     ops2(.reg_dx, .reg_al),     Op1(0xEE),              .ZO, .ZO,         .{} ),
-    instr(.OUT,     ops2(.reg_dx, .reg_ax),     Op1(0xEF),              .ZO16, .RM32,     .{} ),
-    instr(.OUT,     ops2(.reg_dx, .reg_eax),    Op1(0xEF),              .ZO32, .RM32,     .{} ),
+    instr(.OUT,     ops2(.imm8, .reg_al),       Op1(0xE6),              .I, .ZO,       .{_8086} ),
+    instr(.OUT,     ops2(.imm8, .reg_ax),       Op1(0xE7),              .I, .Op16,     .{_8086} ),
+    instr(.OUT,     ops2(.imm8, .reg_eax),      Op1(0xE7),              .I, .Op32,     .{_386} ),
+    instr(.OUT,     ops2(.reg_dx, .reg_al),     Op1(0xEE),              .ZO, .ZO,      .{_8086} ),
+    instr(.OUT,     ops2(.reg_dx, .reg_ax),     Op1(0xEF),              .ZO, .Op16,    .{_8086} ),
+    instr(.OUT,     ops2(.reg_dx, .reg_eax),    Op1(0xEF),              .ZO, .Op32,    .{_386} ),
 // OUTS / OUTSB / OUTSW / OUTSD
-    instr(.OUTS,    ops1(._void8),              Op1(0x6E),              .ZO, .RM8,        .{_186} ),
-    instr(.OUTS,    ops1(._void),               Op1(0x6F),              .ZO, .RM32,       .{_186} ),
+    instr(.OUTS,    ops2(.reg_dx, .rm_mem8),    Op1(0x6E),              .MSpec, .ZO,   .{_186, Rep} ),
+    instr(.OUTS,    ops2(.reg_dx, .rm_mem16),   Op1(0x6F),              .MSpec, .Op16, .{_186, Rep} ),
+    instr(.OUTS,    ops2(.reg_dx, .rm_mem32),   Op1(0x6F),              .MSpec, .Op32, .{x86_64, Rep} ),
     //
-    instr(.OUTSB,   ops0(),                     Op1(0x6E),              .ZO,   .RM8,      .{_186} ),
-    instr(.OUTSW,   ops0(),                     Op1(0x6F),              .ZO16, .RM32,     .{_186} ),
-    instr(.OUTSD,   ops0(),                     Op1(0x6F),              .ZO32, .RM32,     .{_386} ),
+    instr(.OUTSB,   ops0(),                     Op1(0x6E),              .ZO, .ZO,      .{_186, Rep} ),
+    instr(.OUTSW,   ops0(),                     Op1(0x6F),              .ZO, .Op16,    .{_186, Rep} ),
+    instr(.OUTSD,   ops0(),                     Op1(0x6F),              .ZO, .Op32,    .{_386, Rep} ),
 // POP
-    instr(.POP,     ops1(.reg16),               Op1(0x58),              .O,  .RM64_16,    .{} ),
-    instr(.POP,     ops1(.reg32),               Op1(0x58),              .O,  .RM64_16,    .{} ),
-    instr(.POP,     ops1(.reg64),               Op1(0x58),              .O,  .RM64_16,    .{} ),
+    instr(.POP,     ops1(.reg16),               Op1(0x58),              .O,  .Op16,    .{_8086} ),
+    instr(.POP,     ops1(.reg32),               Op1(0x58),              .O,  .Op32,    .{_386, No64} ),
+    instr(.POP,     ops1(.reg64),               Op1(0x58),              .O,  .ZO,      .{x86_64, No32} ),
     //
-    instr(.POP,     ops1(.rm16),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
-    instr(.POP,     ops1(.rm32),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
-    instr(.POP,     ops1(.rm64),                Op1r(0x8F, 0),          .M,  .RM64_16,    .{} ),
+    instr(.POP,     ops1(.rm16),                Op1r(0x8F, 0),          .M,  .Op16,    .{_8086} ),
+    instr(.POP,     ops1(.rm32),                Op1r(0x8F, 0),          .M,  .Op32,    .{_386, No64} ),
+    instr(.POP,     ops1(.rm64),                Op1r(0x8F, 0),          .M,  .ZO,      .{x86_64, No32} ),
     //
-    instr(.POP,     ops1(.reg_ds),              Op1(0x1F),              .ZODef, .ZO32Only,.{} ),
-    instr(.POP,     ops1(.reg_es),              Op1(0x07),              .ZODef, .ZO32Only,.{} ),
-    instr(.POP,     ops1(.reg_ss),              Op1(0x17),              .ZODef, .ZO32Only,.{} ),
-    instr(.POP,     ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO,         .{} ),
-    instr(.POP,     ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO,         .{} ),
+    instr(.POP,     ops1(.reg_ds),              Op1(0x1F),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.POP,     ops1(.reg_es),              Op1(0x07),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.POP,     ops1(.reg_ss),              Op1(0x17),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.POP,     ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO,      .{_386} ),
+    instr(.POP,     ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO,      .{_386} ),
     //
-    instr(.POPW,    ops1(.reg_ds),              Op1(0x1F),              .ZO16, .ZO32Only, .{} ),
-    instr(.POPW,    ops1(.reg_es),              Op1(0x07),              .ZO16, .ZO32Only, .{} ),
-    instr(.POPW,    ops1(.reg_ss),              Op1(0x17),              .ZO16, .ZO32Only, .{} ),
-    instr(.POPW,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO16, .ZO64_16,  .{} ),
-    instr(.POPW,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO16, .ZO64_16,  .{} ),
+    instr(.POPW,    ops1(.reg_ds),              Op1(0x1F),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.POPW,    ops1(.reg_es),              Op1(0x07),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.POPW,    ops1(.reg_ss),              Op1(0x17),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.POPW,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .Op16,    .{_386} ),
+    instr(.POPW,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .Op16,    .{_386} ),
     //
-    instr(.POPD,    ops1(.reg_ds),              Op1(0x1F),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.POPD,    ops1(.reg_es),              Op1(0x07),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.POPD,    ops1(.reg_ss),              Op1(0x17),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.POPD,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO32, .ZO64_16,  .{No64} ),
-    instr(.POPD,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO32, .ZO64_16,  .{No64} ),
+    instr(.POPD,    ops1(.reg_ds),              Op1(0x1F),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.POPD,    ops1(.reg_es),              Op1(0x07),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.POPD,    ops1(.reg_ss),              Op1(0x17),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.POPD,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .Op32,    .{_386, No64} ),
+    instr(.POPD,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .Op32,    .{_386, No64} ),
     //
-    instr(.POPQ,    ops1(.reg_ds),              Op1(0x1F),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.POPQ,    ops1(.reg_es),              Op1(0x07),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.POPQ,    ops1(.reg_ss),              Op1(0x17),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.POPQ,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO64, .ZO64_16,  .{No32} ),
-    instr(.POPQ,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO64, .ZO64_16,  .{No32} ),
+    instr(.POPQ,    ops1(.reg_fs),              Op2(0x0F, 0xA1),        .ZO, .ZO,      .{_386, No32} ),
+    instr(.POPQ,    ops1(.reg_gs),              Op2(0x0F, 0xA9),        .ZO, .ZO,      .{_386, No32} ),
 // POPA
-    instr(.POPA,    ops0(),                     Op1(0x60),              .ZODef, .RM32,    .{No64, _186} ),
-    instr(.POPAW,   ops0(),                     Op1(0x60),              .ZO16,  .RM32,    .{No64, _186} ),
-    instr(.POPAD,   ops0(),                     Op1(0x60),              .ZO32,  .RM32,    .{No64, _386} ),
+    instr(.POPA,    ops0(),                     Op1(0x60),              .ZO, .ZO,      .{_186, No64} ),
+    instr(.POPAW,   ops0(),                     Op1(0x60),              .ZO, .Op16,    .{_186, No64} ),
+    instr(.POPAD,   ops0(),                     Op1(0x60),              .ZO, .Op32,    .{_386, No64} ),
 // POPF / POPFD / POPFQ
-    instr(.POPF,    ops1(._void),               Op1(0x9D),              .ZO, .RM64_16,    .{} ),
-    //
-    instr(.POPF,    ops0(),                     Op1(0x9D),              .ZODef, .RM64_16, .{} ),
-    instr(.POPFW,   ops0(),                     Op1(0x9D),              .ZO16,  .RM64_16, .{} ),
-    instr(.POPFD,   ops0(),                     Op1(0x9D),              .ZO32,  .RM32Only,.{_386} ),
-    instr(.POPFQ,   ops0(),                     Op1(0x9D),              .ZO64,  .RM64_16, .{x86_64} ),
+    instr(.POPF,    ops0(),                     Op1(0x9D),              .ZO, .ZO,      .{_8086} ),
+    instr(.POPFW,   ops0(),                     Op1(0x9D),              .ZO, .Op16,    .{_8086} ),
+    instr(.POPFD,   ops0(),                     Op1(0x9D),              .ZO, .Op32,    .{_386, No64} ),
+    instr(.POPFQ,   ops0(),                     Op1(0x9D),              .ZO, .ZO,      .{x86_64, No32} ),
 // PUSH
-    instr(.PUSH,    ops1(.imm8),                Op1(0x6A),              .I,  .RM8 ,       .{_186} ),
-    instr(.PUSH,    ops1(.imm16),               Op1(0x68),              .I,  .RM32,       .{_186} ),
-    instr(.PUSH,    ops1(.imm32),               Op1(0x68),              .I,  .RM32,       .{_386} ),
+    instr(.PUSH,    ops1(.imm8),                Op1(0x6A),              .I,  .ZO,     .{_186} ),
+    instr(.PUSH,    ops1(.imm16),               Op1(0x68),              .I,  .Op16,    .{_186} ),
+    instr(.PUSH,    ops1(.imm32),               Op1(0x68),              .I,  .Op32,    .{_386} ),
     //
-    instr(.PUSH,    ops1(.reg16),               Op1(0x50),              .O,  .RM64_16,    .{} ),
-    instr(.PUSH,    ops1(.reg32),               Op1(0x50),              .O,  .RM64_16,    .{} ),
-    instr(.PUSH,    ops1(.reg64),               Op1(0x50),              .O,  .RM64_16,    .{} ),
+    instr(.PUSH,    ops1(.reg16),               Op1(0x50),              .O,  .Op16,    .{_8086} ),
+    instr(.PUSH,    ops1(.reg32),               Op1(0x50),              .O,  .Op32,    .{_386, No64} ),
+    instr(.PUSH,    ops1(.reg64),               Op1(0x50),              .O,  .ZO,      .{x86_64, No32} ),
     //
-    instr(.PUSH,    ops1(.rm16),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
-    instr(.PUSH,    ops1(.rm32),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
-    instr(.PUSH,    ops1(.rm64),                Op1r(0xFF, 6),          .M,  .RM64_16,    .{} ),
+    instr(.PUSH,    ops1(.rm16),                Op1r(0xFF, 6),          .M,  .Op16,    .{_8086} ),
+    instr(.PUSH,    ops1(.rm32),                Op1r(0xFF, 6),          .M,  .Op32,    .{_386, No64} ),
+    instr(.PUSH,    ops1(.rm64),                Op1r(0xFF, 6),          .M,  .ZO,      .{x86_64, No32} ),
     //
-    instr(.PUSH,    ops1(.reg_cs),              Op1(0x0E),              .ZODef, .ZO32Only,.{} ),
-    instr(.PUSH,    ops1(.reg_ss),              Op1(0x16),              .ZODef, .ZO32Only,.{} ),
-    instr(.PUSH,    ops1(.reg_ds),              Op1(0x1E),              .ZODef, .ZO32Only,.{} ),
-    instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZODef, .ZO32Only,.{} ),
-    instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO,         .{} ),
-    instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO,         .{} ),
+    instr(.PUSH,    ops1(.reg_cs),              Op1(0x0E),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.PUSH,    ops1(.reg_ss),              Op1(0x16),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.PUSH,    ops1(.reg_ds),              Op1(0x1E),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.PUSH,    ops1(.reg_es),              Op1(0x06),              .ZO, .ZO,      .{_8086, No64} ),
+    instr(.PUSH,    ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO,      .{_386} ),
+    instr(.PUSH,    ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO,      .{_386} ),
     //
-    instr(.PUSHW,   ops1(.reg_cs),              Op1(0x0E),              .ZO16, .ZO32Only, .{} ),
-    instr(.PUSHW,   ops1(.reg_ss),              Op1(0x16),              .ZO16, .ZO32Only, .{} ),
-    instr(.PUSHW,   ops1(.reg_ds),              Op1(0x1E),              .ZO16, .ZO32Only, .{} ),
-    instr(.PUSHW,   ops1(.reg_es),              Op1(0x06),              .ZO16, .ZO32Only, .{} ),
-    instr(.PUSHW,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO16, .ZO64_16,  .{} ),
-    instr(.PUSHW,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO16, .ZO64_16,  .{} ),
+    instr(.PUSHW,   ops1(.reg_cs),              Op1(0x0E),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.PUSHW,   ops1(.reg_ss),              Op1(0x16),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.PUSHW,   ops1(.reg_ds),              Op1(0x1E),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.PUSHW,   ops1(.reg_es),              Op1(0x06),              .ZO, .Op16,    .{_8086, No64} ),
+    instr(.PUSHW,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .Op16,    .{_386} ),
+    instr(.PUSHW,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .Op16,    .{_386} ),
     //
-    instr(.PUSHD,   ops1(.reg_cs),              Op1(0x0E),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.PUSHD,   ops1(.reg_ss),              Op1(0x16),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.PUSHD,   ops1(.reg_ds),              Op1(0x1E),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.PUSHD,   ops1(.reg_es),              Op1(0x06),              .ZO32, .ZO32Only, .{No64} ),
-    instr(.PUSHD,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO32, .ZO64_16,  .{No64} ),
-    instr(.PUSHD,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO32, .ZO64_16,  .{No64} ),
+    instr(.PUSHD,   ops1(.reg_cs),              Op1(0x0E),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.PUSHD,   ops1(.reg_ss),              Op1(0x16),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.PUSHD,   ops1(.reg_ds),              Op1(0x1E),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.PUSHD,   ops1(.reg_es),              Op1(0x06),              .ZO, .Op32,    .{_8086, No64} ),
+    instr(.PUSHD,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .Op32,    .{_386, No64} ),
+    instr(.PUSHD,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .Op32,    .{_386, No64} ),
     //
-    instr(.PUSHQ,   ops1(.reg_cs),              Op1(0x0E),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.PUSHQ,   ops1(.reg_ss),              Op1(0x16),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.PUSHQ,   ops1(.reg_ds),              Op1(0x1E),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.PUSHQ,   ops1(.reg_es),              Op1(0x06),              .ZO64, .ZO32Only, .{No32} ),
-    instr(.PUSHQ,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO64, .ZO64_16,  .{No32} ),
-    instr(.PUSHQ,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO64, .ZO64_16,  .{No32} ),
+    instr(.PUSHQ,   ops1(.reg_fs),              Op2(0x0F, 0xA0),        .ZO, .ZO,      .{_386, No32} ),
+    instr(.PUSHQ,   ops1(.reg_gs),              Op2(0x0F, 0xA8),        .ZO, .ZO,      .{_386, No32} ),
 // PUSHA
-    instr(.PUSHA,   ops0(),                     Op1(0x60),              .ZODef, .RM32,    .{No64, _186} ),
-    instr(.PUSHAW,  ops0(),                     Op1(0x60),              .ZO16,  .RM32,    .{No64, _186} ),
-    instr(.PUSHAD,  ops0(),                     Op1(0x60),              .ZO32,  .RM32,    .{No64, _386} ),
+    instr(.PUSHA,   ops0(),                     Op1(0x60),              .ZO, .ZO,      .{_186, No64} ),
+    instr(.PUSHAW,  ops0(),                     Op1(0x60),              .ZO, .Op16,    .{_186, No64} ),
+    instr(.PUSHAD,  ops0(),                     Op1(0x60),              .ZO, .Op32,    .{_386, No64} ),
 // PUSHF / PUSHFW / PUSHFD / PUSHFQ
-    instr(.PUSHF,    ops1(._void),              Op1(0x9C),              .ZO, .RM64_16,    .{} ),
-    //
-    instr(.PUSHF,    ops0(),                    Op1(0x9C),              .ZODef, .RM64_16, .{} ),
-    instr(.PUSHFW,   ops0(),                    Op1(0x9C),              .ZO16,  .RM64_16, .{} ),
-    instr(.PUSHFD,   ops0(),                    Op1(0x9C),              .ZODef, .RM32Only,.{_386} ),
-    instr(.PUSHFQ,   ops0(),                    Op1(0x9C),              .ZO64,  .RM64_16, .{x86_64} ),
+    instr(.PUSHF,    ops0(),                    Op1(0x9C),              .ZO, .ZO,      .{_8086} ),
+    instr(.PUSHFW,   ops0(),                    Op1(0x9C),              .ZO, .Op16,    .{_8086} ),
+    instr(.PUSHFD,   ops0(),                    Op1(0x9C),              .ZO, .Op32,    .{_386, No64} ),
+    instr(.PUSHFQ,   ops0(),                    Op1(0x9C),              .ZO, .ZO,      .{x86_64, No32} ),
 //  RCL / RCR / ROL / ROR
-    instr(.RCL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 2),          .M,  .RM8,        .{} ),
-    instr(.RCL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 2),          .M,  .RM8,        .{} ),
-    instr(.RCL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 2),          .MI, .RM8,        .{_186} ),
-    instr(.RCL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 2),          .M,  .RM32_I8,    .{} ),
-    instr(.RCL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 2),          .M,  .RM32_I8,    .{} ),
-    instr(.RCL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 2),          .M,  .RM32_I8,    .{} ),
-    instr(.RCL,     ops2(.rm16, .imm8),         Op1r(0xC1, 2),          .MI, .RM32_I8,    .{_186} ),
-    instr(.RCL,     ops2(.rm32, .imm8),         Op1r(0xC1, 2),          .MI, .RM32_I8,    .{_386} ),
-    instr(.RCL,     ops2(.rm64, .imm8),         Op1r(0xC1, 2),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.RCL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 2),          .M,  .RM32,       .{} ),
-    instr(.RCL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 2),          .M,  .RM32,       .{} ),
-    instr(.RCL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 2),          .M,  .RM32,       .{} ),
+    instr(.RCL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 2),          .M,  .ZO,      .{_8086} ),
+    instr(.RCL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 2),          .M,  .ZO,      .{_8086} ),
+    instr(.RCL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 2),          .MI, .ZO,      .{_186} ),
+    instr(.RCL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 2),          .M,  .Op16,    .{_8086} ),
+    instr(.RCL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 2),          .M,  .Op32,    .{_386} ),
+    instr(.RCL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 2),          .M,  .REX_W,   .{x86_64} ),
+    instr(.RCL,     ops2(.rm16, .imm8),         Op1r(0xC1, 2),          .MI, .Op16,    .{_186} ),
+    instr(.RCL,     ops2(.rm32, .imm8),         Op1r(0xC1, 2),          .MI, .Op32,    .{_386} ),
+    instr(.RCL,     ops2(.rm64, .imm8),         Op1r(0xC1, 2),          .MI, .REX_W,   .{x86_64} ),
+    instr(.RCL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 2),          .M,  .Op16,    .{_8086} ),
+    instr(.RCL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 2),          .M,  .Op32,    .{_386} ),
+    instr(.RCL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 2),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.RCR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 3),          .M,  .RM8,        .{} ),
-    instr(.RCR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 3),          .M,  .RM8,        .{} ),
-    instr(.RCR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 3),          .MI, .RM8,        .{_186} ),
-    instr(.RCR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 3),          .M,  .RM32_I8,    .{} ),
-    instr(.RCR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 3),          .M,  .RM32_I8,    .{} ),
-    instr(.RCR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 3),          .M,  .RM32_I8,    .{} ),
-    instr(.RCR,     ops2(.rm16, .imm8),         Op1r(0xC1, 3),          .MI, .RM32_I8,    .{_186} ),
-    instr(.RCR,     ops2(.rm32, .imm8),         Op1r(0xC1, 3),          .MI, .RM32_I8,    .{_386} ),
-    instr(.RCR,     ops2(.rm64, .imm8),         Op1r(0xC1, 3),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.RCR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 3),          .M,  .RM32,       .{} ),
-    instr(.RCR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 3),          .M,  .RM32,       .{} ),
-    instr(.RCR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 3),          .M,  .RM32,       .{} ),
+    instr(.RCR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 3),          .M,  .ZO,      .{_8086} ),
+    instr(.RCR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 3),          .M,  .ZO,      .{_8086} ),
+    instr(.RCR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 3),          .MI, .ZO,      .{_186} ),
+    instr(.RCR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 3),          .M,  .Op16,    .{_8086} ),
+    instr(.RCR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 3),          .M,  .Op32,    .{_386} ),
+    instr(.RCR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 3),          .M,  .REX_W,   .{x86_64} ),
+    instr(.RCR,     ops2(.rm16, .imm8),         Op1r(0xC1, 3),          .MI, .Op16,    .{_186} ),
+    instr(.RCR,     ops2(.rm32, .imm8),         Op1r(0xC1, 3),          .MI, .Op32,    .{_386} ),
+    instr(.RCR,     ops2(.rm64, .imm8),         Op1r(0xC1, 3),          .MI, .REX_W,   .{x86_64} ),
+    instr(.RCR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 3),          .M,  .Op16,    .{_8086} ),
+    instr(.RCR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 3),          .M,  .Op32,    .{_386} ),
+    instr(.RCR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 3),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.ROL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 0),          .M,  .RM8,        .{} ),
-    instr(.ROL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 0),          .M,  .RM8,        .{} ),
-    instr(.ROL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 0),          .MI, .RM8,        .{_186} ),
-    instr(.ROL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 0),          .M,  .RM32_I8,    .{} ),
-    instr(.ROL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 0),          .M,  .RM32_I8,    .{} ),
-    instr(.ROL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 0),          .M,  .RM32_I8,    .{} ),
-    instr(.ROL,     ops2(.rm16, .imm8),         Op1r(0xC1, 0),          .MI, .RM32_I8,    .{_186} ),
-    instr(.ROL,     ops2(.rm32, .imm8),         Op1r(0xC1, 0),          .MI, .RM32_I8,    .{_386} ),
-    instr(.ROL,     ops2(.rm64, .imm8),         Op1r(0xC1, 0),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.ROL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 0),          .M,  .RM32,       .{} ),
-    instr(.ROL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 0),          .M,  .RM32,       .{} ),
-    instr(.ROL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 0),          .M,  .RM32,       .{} ),
+    instr(.ROL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 0),          .M,  .ZO,      .{_8086} ),
+    instr(.ROL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 0),          .M,  .ZO,      .{_8086} ),
+    instr(.ROL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 0),          .MI, .ZO,      .{_186} ),
+    instr(.ROL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 0),          .M,  .Op16,    .{_8086} ),
+    instr(.ROL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 0),          .M,  .Op32,    .{_386} ),
+    instr(.ROL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 0),          .M,  .REX_W,   .{x86_64} ),
+    instr(.ROL,     ops2(.rm16, .imm8),         Op1r(0xC1, 0),          .MI, .Op16,    .{_186} ),
+    instr(.ROL,     ops2(.rm32, .imm8),         Op1r(0xC1, 0),          .MI, .Op32,    .{_386} ),
+    instr(.ROL,     ops2(.rm64, .imm8),         Op1r(0xC1, 0),          .MI, .REX_W,   .{x86_64} ),
+    instr(.ROL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 0),          .M,  .Op16,    .{_8086} ),
+    instr(.ROL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 0),          .M,  .Op32,    .{_386} ),
+    instr(.ROL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 0),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.ROR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 1),          .M,  .RM8,        .{} ),
-    instr(.ROR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 1),          .M,  .RM8,        .{} ),
-    instr(.ROR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 1),          .MI, .RM8,        .{_186} ),
-    instr(.ROR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 1),          .M,  .RM32_I8,    .{} ),
-    instr(.ROR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 1),          .M,  .RM32_I8,    .{} ),
-    instr(.ROR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 1),          .M,  .RM32_I8,    .{} ),
-    instr(.ROR,     ops2(.rm16, .imm8),         Op1r(0xC1, 1),          .MI, .RM32_I8,    .{_186} ),
-    instr(.ROR,     ops2(.rm32, .imm8),         Op1r(0xC1, 1),          .MI, .RM32_I8,    .{_386} ),
-    instr(.ROR,     ops2(.rm64, .imm8),         Op1r(0xC1, 1),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.ROR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 1),          .M,  .RM32,       .{} ),
-    instr(.ROR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 1),          .M,  .RM32,       .{} ),
-    instr(.ROR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 1),          .M,  .RM32,       .{} ),
+    instr(.ROR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 1),          .M,  .ZO,      .{_8086} ),
+    instr(.ROR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 1),          .M,  .ZO,      .{_8086} ),
+    instr(.ROR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 1),          .MI, .ZO,      .{_186} ),
+    instr(.ROR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 1),          .M,  .Op16,    .{_8086} ),
+    instr(.ROR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 1),          .M,  .Op32,    .{_386} ),
+    instr(.ROR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 1),          .M,  .REX_W,   .{x86_64} ),
+    instr(.ROR,     ops2(.rm16, .imm8),         Op1r(0xC1, 1),          .MI, .Op16,    .{_186} ),
+    instr(.ROR,     ops2(.rm32, .imm8),         Op1r(0xC1, 1),          .MI, .Op32,    .{_386} ),
+    instr(.ROR,     ops2(.rm64, .imm8),         Op1r(0xC1, 1),          .MI, .REX_W,   .{x86_64} ),
+    instr(.ROR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 1),          .M,  .Op16,    .{_8086} ),
+    instr(.ROR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 1),          .M,  .Op32,    .{_386} ),
+    instr(.ROR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 1),          .M,  .REX_W,   .{x86_64} ),
 // REP / REPE / REPZ / REPNE / REPNZ
-    instr(.REP,     ops0(),                     Op1(0xF3),              .ZO, .ZO,         .{} ),
-    instr(.REPE,    ops0(),                     Op1(0xF3),              .ZO, .ZO,         .{} ),
-    instr(.REPZ,    ops0(),                     Op1(0xF3),              .ZO, .ZO,         .{} ),
-    instr(.REPNE,   ops0(),                     Op1(0xF2),              .ZO, .ZO,         .{} ),
-    instr(.REPNZ,   ops0(),                     Op1(0xF2),              .ZO, .ZO,         .{} ),
+    instr(.REP,     ops0(),                     Op1(0xF3),              .ZO, .ZO,      .{_8086} ),
+    instr(.REPE,    ops0(),                     Op1(0xF3),              .ZO, .ZO,      .{_8086} ),
+    instr(.REPZ,    ops0(),                     Op1(0xF3),              .ZO, .ZO,      .{_8086} ),
+    instr(.REPNE,   ops0(),                     Op1(0xF2),              .ZO, .ZO,      .{_8086} ),
+    instr(.REPNZ,   ops0(),                     Op1(0xF2),              .ZO, .ZO,      .{_8086} ),
 //  RET
-    instr(.RET,     ops0(),                     Op1(0xC3),              .ZO, .ZO,         .{} ),
-    instr(.RET,     ops1(.imm16),               Op1(0xC2),              .I,  .RM16,       .{} ),
+    instr(.RET,     ops0(),                     Op1(0xC3),              .ZO, .ZO,      .{_8086, Bnd} ),
+    instr(.RET,     ops1(.imm16),               Op1(0xC2),              .I,  .ZO,      .{_8086, Bnd} ),
+    instr(.RETW,    ops0(),                     Op1(0xC3),              .ZO, .Op16,    .{_8086, Bnd} ),
+    instr(.RETW,    ops1(.imm16),               Op1(0xC2),              .I,  .Op16,    .{_8086, Bnd} ),
+    instr(.RETD,    ops0(),                     Op1(0xC3),              .ZO, .Op32,    .{_386, Bnd, No64} ),
+    instr(.RETD,    ops1(.imm16),               Op1(0xC2),              .I,  .Op32,    .{_386, Bnd, No64} ),
+    instr(.RETQ,    ops0(),                     Op1(0xC3),              .ZO, .ZO,      .{x86_64, Bnd, No32} ),
+    instr(.RETQ,    ops1(.imm16),               Op1(0xC2),              .I,  .ZO,      .{x86_64, Bnd, No32} ),
 //  RETF
-    instr(.RETF,    ops0(),                     Op1(0xCB),              .ZO, .ZO,         .{} ),
-    instr(.RETF,    ops1(.imm16),               Op1(0xCA),              .I,  .RM16,       .{} ),
+    instr(.RETF,    ops0(),                     Op1(0xCB),              .ZO, .ZO,      .{_8086} ),
+    instr(.RETF,    ops1(.imm16),               Op1(0xCA),              .I,  .ZO,      .{_8086} ),
+    instr(.RETFW,   ops0(),                     Op1(0xCB),              .ZO, .Op16,    .{_8086} ),
+    instr(.RETFW,   ops1(.imm16),               Op1(0xCA),              .I,  .Op16,    .{_8086} ),
+    instr(.RETFD,   ops0(),                     Op1(0xCB),              .ZO, .Op32,    .{_386, No64} ),
+    instr(.RETFD,   ops1(.imm16),               Op1(0xCA),              .I,  .Op32,    .{_386, No64} ),
+    instr(.RETFQ,   ops0(),                     Op1(0xCB),              .ZO, .ZO,      .{x86_64, No32} ),
+    instr(.RETFQ,   ops1(.imm16),               Op1(0xCA),              .I,  .ZO,      .{x86_64, No32} ),
 //  RETN
-    instr(.RETN,    ops0(),                     Op1(0xC3),              .ZO, .ZO,         .{} ),
-    instr(.RETN,    ops1(.imm16),               Op1(0xC2),              .I,  .RM16,       .{} ),
+    instr(.RETN,    ops0(),                     Op1(0xC3),              .ZO, .ZO,      .{_8086, Bnd} ),
+    instr(.RETN,    ops1(.imm16),               Op1(0xC2),              .I,  .ZO,      .{_8086, Bnd} ),
+    instr(.RETNW,   ops0(),                     Op1(0xC3),              .ZO, .Op16,    .{_8086, Bnd} ),
+    instr(.RETNW,   ops1(.imm16),               Op1(0xC2),              .I,  .Op16,    .{_8086, Bnd} ),
+    instr(.RETND,   ops0(),                     Op1(0xC3),              .ZO, .Op32,    .{_386, Bnd, No64} ),
+    instr(.RETND,   ops1(.imm16),               Op1(0xC2),              .I,  .Op32,    .{_386, Bnd, No64} ),
+    instr(.RETNQ,   ops0(),                     Op1(0xC3),              .ZO, .ZO,      .{x86_64, Bnd, No32} ),
+    instr(.RETNQ,   ops1(.imm16),               Op1(0xC2),              .I,  .ZO,      .{x86_64, Bnd, No32} ),
 //  SAL / SAR / SHL / SHR
-    instr(.SAL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 4),          .M,  .RM8,        .{} ),
-    instr(.SAL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 4),          .M,  .RM8,        .{} ),
-    instr(.SAL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 4),          .MI, .RM8,        .{_186} ),
-    instr(.SAL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
-    instr(.SAL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
-    instr(.SAL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
-    instr(.SAL,     ops2(.rm16, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{_186} ),
-    instr(.SAL,     ops2(.rm32, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{_386} ),
-    instr(.SAL,     ops2(.rm64, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.SAL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
-    instr(.SAL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
-    instr(.SAL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    instr(.SAL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 4),          .M,  .ZO,      .{_8086} ),
+    instr(.SAL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 4),          .M,  .ZO,      .{_8086} ),
+    instr(.SAL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 4),          .MI, .ZO,      .{_186} ),
+    instr(.SAL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 4),          .M,  .Op16,    .{_8086} ),
+    instr(.SAL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 4),          .M,  .Op32,    .{_386} ),
+    instr(.SAL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 4),          .M,  .REX_W,   .{x86_64} ),
+    instr(.SAL,     ops2(.rm16, .imm8),         Op1r(0xC1, 4),          .MI, .Op16,    .{_186} ),
+    instr(.SAL,     ops2(.rm32, .imm8),         Op1r(0xC1, 4),          .MI, .Op32,    .{_386} ),
+    instr(.SAL,     ops2(.rm64, .imm8),         Op1r(0xC1, 4),          .MI, .REX_W,   .{x86_64} ),
+    instr(.SAL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 4),          .M,  .Op16,    .{_8086} ),
+    instr(.SAL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 4),          .M,  .Op32,    .{_386} ),
+    instr(.SAL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 4),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.SAR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 7),          .M,  .RM8,        .{} ),
-    instr(.SAR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 7),          .M,  .RM8,        .{} ),
-    instr(.SAR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 7),          .MI, .RM8,        .{_186} ),
-    instr(.SAR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 7),          .M,  .RM32_I8,    .{} ),
-    instr(.SAR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 7),          .M,  .RM32_I8,    .{} ),
-    instr(.SAR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 7),          .M,  .RM32_I8,    .{} ),
-    instr(.SAR,     ops2(.rm16, .imm8),         Op1r(0xC1, 7),          .MI, .RM32_I8,    .{_186} ),
-    instr(.SAR,     ops2(.rm32, .imm8),         Op1r(0xC1, 7),          .MI, .RM32_I8,    .{_386} ),
-    instr(.SAR,     ops2(.rm64, .imm8),         Op1r(0xC1, 7),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.SAR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 7),          .M,  .RM32,       .{} ),
-    instr(.SAR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 7),          .M,  .RM32,       .{} ),
-    instr(.SAR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 7),          .M,  .RM32,       .{} ),
+    instr(.SAR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 7),          .M,  .ZO,      .{_8086} ),
+    instr(.SAR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 7),          .M,  .ZO,      .{_8086} ),
+    instr(.SAR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 7),          .MI, .ZO,      .{_186} ),
+    instr(.SAR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 7),          .M,  .Op16,    .{_8086} ),
+    instr(.SAR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 7),          .M,  .Op32,    .{_386} ),
+    instr(.SAR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 7),          .M,  .REX_W,   .{x86_64} ),
+    instr(.SAR,     ops2(.rm16, .imm8),         Op1r(0xC1, 7),          .MI, .Op16,    .{_186} ),
+    instr(.SAR,     ops2(.rm32, .imm8),         Op1r(0xC1, 7),          .MI, .Op32,    .{_386} ),
+    instr(.SAR,     ops2(.rm64, .imm8),         Op1r(0xC1, 7),          .MI, .REX_W,   .{x86_64} ),
+    instr(.SAR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 7),          .M,  .Op16,    .{_8086} ),
+    instr(.SAR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 7),          .M,  .Op32,    .{_386} ),
+    instr(.SAR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 7),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.SHL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 4),          .M,  .RM8,        .{} ),
-    instr(.SHL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 4),          .M,  .RM8,        .{} ),
-    instr(.SHL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 4),          .MI, .RM8,        .{_186} ),
-    instr(.SHL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
-    instr(.SHL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
-    instr(.SHL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 4),          .M,  .RM32_I8,    .{} ),
-    instr(.SHL,     ops2(.rm16, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{_186} ),
-    instr(.SHL,     ops2(.rm32, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{_386} ),
-    instr(.SHL,     ops2(.rm64, .imm8),         Op1r(0xC1, 4),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.SHL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
-    instr(.SHL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
-    instr(.SHL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 4),          .M,  .RM32,       .{} ),
+    instr(.SHL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 4),          .M,  .ZO,      .{_8086} ),
+    instr(.SHL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 4),          .M,  .ZO,      .{_8086} ),
+    instr(.SHL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 4),          .MI, .ZO,      .{_186} ),
+    instr(.SHL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 4),          .M,  .Op16,    .{_8086} ),
+    instr(.SHL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 4),          .M,  .Op32,    .{_386} ),
+    instr(.SHL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 4),          .M,  .REX_W,   .{x86_64} ),
+    instr(.SHL,     ops2(.rm16, .imm8),         Op1r(0xC1, 4),          .MI, .Op16,    .{_186} ),
+    instr(.SHL,     ops2(.rm32, .imm8),         Op1r(0xC1, 4),          .MI, .Op32,    .{_386} ),
+    instr(.SHL,     ops2(.rm64, .imm8),         Op1r(0xC1, 4),          .MI, .REX_W,   .{x86_64} ),
+    instr(.SHL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 4),          .M,  .Op16,    .{_8086} ),
+    instr(.SHL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 4),          .M,  .Op32,    .{_386} ),
+    instr(.SHL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 4),          .M,  .REX_W,   .{x86_64} ),
     //
-    instr(.SHR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 5),          .M,  .RM8,        .{} ),
-    instr(.SHR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 5),          .M,  .RM8,        .{} ),
-    instr(.SHR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 5),          .MI, .RM8,        .{_186} ),
-    instr(.SHR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 5),          .M,  .RM32_I8,    .{} ),
-    instr(.SHR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 5),          .M,  .RM32_I8,    .{} ),
-    instr(.SHR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 5),          .M,  .RM32_I8,    .{} ),
-    instr(.SHR,     ops2(.rm16, .imm8),         Op1r(0xC1, 5),          .MI, .RM32_I8,    .{_186} ),
-    instr(.SHR,     ops2(.rm32, .imm8),         Op1r(0xC1, 5),          .MI, .RM32_I8,    .{_386} ),
-    instr(.SHR,     ops2(.rm64, .imm8),         Op1r(0xC1, 5),          .MI, .RM32_I8,    .{x86_64} ),
-    instr(.SHR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 5),          .M,  .RM32,       .{} ),
-    instr(.SHR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 5),          .M,  .RM32,       .{} ),
-    instr(.SHR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 5),          .M,  .RM32,       .{} ),
+    instr(.SHR,     ops2(.rm8, .imm_1),         Op1r(0xD0, 5),          .M,  .ZO,      .{_8086} ),
+    instr(.SHR,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 5),          .M,  .ZO,      .{_8086} ),
+    instr(.SHR,     ops2(.rm8,  .imm8),         Op1r(0xC0, 5),          .MI, .ZO,      .{_186} ),
+    instr(.SHR,     ops2(.rm16, .imm_1),        Op1r(0xD1, 5),          .M,  .Op16,    .{_8086} ),
+    instr(.SHR,     ops2(.rm32, .imm_1),        Op1r(0xD1, 5),          .M,  .Op32,    .{_386} ),
+    instr(.SHR,     ops2(.rm64, .imm_1),        Op1r(0xD1, 5),          .M,  .REX_W,   .{x86_64} ),
+    instr(.SHR,     ops2(.rm16, .imm8),         Op1r(0xC1, 5),          .MI, .Op16,    .{_186} ),
+    instr(.SHR,     ops2(.rm32, .imm8),         Op1r(0xC1, 5),          .MI, .Op32,    .{_386} ),
+    instr(.SHR,     ops2(.rm64, .imm8),         Op1r(0xC1, 5),          .MI, .REX_W,   .{x86_64} ),
+    instr(.SHR,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 5),          .M,  .Op16,    .{_8086} ),
+    instr(.SHR,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 5),          .M,  .Op32,    .{_386} ),
+    instr(.SHR,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 5),          .M,  .REX_W,   .{x86_64} ),
 // SBB
-    instr(.SBB,     ops2(.reg_al, .imm8),       Op1(0x1C),              .I2, .RM8,        .{} ),
-    instr(.SBB,     ops2(.rm8, .imm8),          Op1r(0x80, 3),          .MI, .RM8,        .{} ),
-    instr(.SBB,     ops2(.rm16, .imm8),         Op1r(0x83, 3),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.SBB,     ops2(.rm32, .imm8),         Op1r(0x83, 3),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.SBB,     ops2(.rm64, .imm8),         Op1r(0x83, 3),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.SBB,     ops2(.reg_al, .imm8),       Op1(0x1C),              .I2, .ZO,      .{_8086} ),
+    instr(.SBB,     ops2(.rm8, .imm8),          Op1r(0x80, 3),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm16, .imm8),         Op1r(0x83, 3),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm32, .imm8),         Op1r(0x83, 3),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm64, .imm8),         Op1r(0x83, 3),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.SBB,     ops2(.reg_ax, .imm16),      Op1(0x1D),              .I2, .RM32,       .{} ),
-    instr(.SBB,     ops2(.reg_eax, .imm32),     Op1(0x1D),              .I2, .RM32,       .{} ),
-    instr(.SBB,     ops2(.reg_rax, .imm32),     Op1(0x1D),              .I2, .RM32,       .{Sign} ),
+    instr(.SBB,     ops2(.reg_ax, .imm16),      Op1(0x1D),              .I2, .Op16,    .{_8086} ),
+    instr(.SBB,     ops2(.reg_eax, .imm32),     Op1(0x1D),              .I2, .Op32,    .{_386} ),
+    instr(.SBB,     ops2(.reg_rax, .imm32),     Op1(0x1D),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.SBB,     ops2(.rm16, .imm16),        Op1r(0x81, 3),          .MI, .RM32,       .{} ),
-    instr(.SBB,     ops2(.rm32, .imm32),        Op1r(0x81, 3),          .MI, .RM32,       .{} ),
-    instr(.SBB,     ops2(.rm64, .imm32),        Op1r(0x81, 3),          .MI, .RM32,       .{Sign} ),
+    instr(.SBB,     ops2(.rm16, .imm16),        Op1r(0x81, 3),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm32, .imm32),        Op1r(0x81, 3),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm64, .imm32),        Op1r(0x81, 3),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.SBB,     ops2(.rm8, .reg8),          Op1(0x18),              .MR, .RM8,        .{} ),
-    instr(.SBB,     ops2(.rm16, .reg16),        Op1(0x19),              .MR, .RM32,       .{} ),
-    instr(.SBB,     ops2(.rm32, .reg32),        Op1(0x19),              .MR, .RM32,       .{} ),
-    instr(.SBB,     ops2(.rm64, .reg64),        Op1(0x19),              .MR, .RM32,       .{} ),
+    instr(.SBB,     ops2(.reg8, .rm8),          Op1(0x1A),              .RM, .ZO,      .{_8086} ),
+    instr(.SBB,     ops2(.reg16, .rm16),        Op1(0x1B),              .RM, .Op16,    .{_8086} ),
+    instr(.SBB,     ops2(.reg32, .rm32),        Op1(0x1B),              .RM, .Op32,    .{_386} ),
+    instr(.SBB,     ops2(.reg64, .rm64),        Op1(0x1B),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.SBB,     ops2(.reg8, .rm8),          Op1(0x1A),              .RM, .RM8,        .{} ),
-    instr(.SBB,     ops2(.reg16, .rm16),        Op1(0x1B),              .RM, .RM32,       .{} ),
-    instr(.SBB,     ops2(.reg32, .rm32),        Op1(0x1B),              .RM, .RM32,       .{} ),
-    instr(.SBB,     ops2(.reg64, .rm64),        Op1(0x1B),              .RM, .RM32,       .{} ),
+    instr(.SBB,     ops2(.rm8, .reg8),          Op1(0x18),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm16, .reg16),        Op1(0x19),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm32, .reg32),        Op1(0x19),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.SBB,     ops2(.rm64, .reg64),        Op1(0x19),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
 // SCAS / SCASB / SCASW / SCASD / SCASQ
-    instr(.SCAS,    ops1(._void8),              Op1(0xAE),              .ZO, .RM8,        .{} ),
-    instr(.SCAS,    ops1(._void),               Op1(0xAF),              .ZO, .RM32,       .{} ),
+    instr(.SCAS,    ops2(.rm_mem8, .reg_al),    Op1(0xAE),              .MSpec, .ZO,   .{_8086, Repe, Repne} ),
+    instr(.SCAS,    ops2(.rm_mem16, .reg_ax),   Op1(0xAF),              .MSpec, .Op16, .{_8086, Repe, Repne} ),
+    instr(.SCAS,    ops2(.rm_mem32, .reg_eax),  Op1(0xAF),              .MSpec, .Op32, .{_386, Repe, Repne} ),
+    instr(.SCAS,    ops2(.rm_mem64, .reg_rax),  Op1(0xAF),              .MSpec, .REX_W,.{x86_64, Repe, Repne} ),
     //
-    instr(.SCASB,   ops0(),                     Op1(0xAE),              .ZO,   .RM8,      .{} ),
-    instr(.SCASW,   ops0(),                     Op1(0xAF),              .ZO16, .RM32,     .{} ),
-    instr(.SCASD,   ops0(),                     Op1(0xAF),              .ZO32, .RM32,     .{_386} ),
-    instr(.SCASQ,   ops0(),                     Op1(0xAF),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.SCASB,   ops0(),                     Op1(0xAE),              .ZO, .ZO,      .{_8086, Repe, Repne} ),
+    instr(.SCASW,   ops0(),                     Op1(0xAF),              .ZO, .Op16,    .{_8086, Repe, Repne} ),
+    instr(.SCASD,   ops0(),                     Op1(0xAF),              .ZO, .Op32,    .{_386, Repe, Repne} ),
+    instr(.SCASQ,   ops0(),                     Op1(0xAF),              .ZO, .REX_W,   .{x86_64, No32, Repe, Repne} ),
 // STC
-    instr(.STC,     ops0(),                     Op1(0xF9),              .ZO, .ZO,         .{} ),
+    instr(.STC,     ops0(),                     Op1(0xF9),              .ZO, .ZO,      .{_8086} ),
 // STD
-    instr(.STD,     ops0(),                     Op1(0xFD),              .ZO, .ZO,         .{} ),
+    instr(.STD,     ops0(),                     Op1(0xFD),              .ZO, .ZO,      .{_8086} ),
 // STI
-    instr(.STI,     ops0(),                     Op1(0xFB),              .ZO, .ZO,         .{} ),
+    instr(.STI,     ops0(),                     Op1(0xFB),              .ZO, .ZO,      .{_8086} ),
 // STOS / STOSB / STOSW / STOSD / STOSQ
-    instr(.STOS,    ops1(._void8),              Op1(0xAA),              .ZO, .RM8,        .{} ),
-    instr(.STOS,    ops1(._void),               Op1(0xAB),              .ZO, .RM32,       .{} ),
+    instr(.STOS,    ops2(.rm_mem8, .reg_al),    Op1(0xAA),              .MSpec, .ZO,   .{_8086, Rep} ),
+    instr(.STOS,    ops2(.rm_mem16, .reg_ax),   Op1(0xAB),              .MSpec, .Op16, .{_8086, Rep} ),
+    instr(.STOS,    ops2(.rm_mem32, .reg_eax),  Op1(0xAB),              .MSpec, .Op32, .{_386, Rep} ),
+    instr(.STOS,    ops2(.rm_mem64, .reg_rax),  Op1(0xAB),              .MSpec, .REX_W,.{x86_64, Rep} ),
     //
-    instr(.STOSB,   ops0(),                     Op1(0xAA),              .ZO,   .RM8,      .{} ),
-    instr(.STOSW,   ops0(),                     Op1(0xAB),              .ZO16, .RM32,     .{} ),
-    instr(.STOSD,   ops0(),                     Op1(0xAB),              .ZO32, .RM32,     .{_386} ),
-    instr(.STOSQ,   ops0(),                     Op1(0xAB),              .ZO64, .RM32,     .{x86_64} ),
+    instr(.STOSB,   ops0(),                     Op1(0xAA),              .ZO, .ZO,      .{_8086, Rep} ),
+    instr(.STOSW,   ops0(),                     Op1(0xAB),              .ZO, .Op16,    .{_8086, Rep} ),
+    instr(.STOSD,   ops0(),                     Op1(0xAB),              .ZO, .Op32,    .{_386, Rep} ),
+    instr(.STOSQ,   ops0(),                     Op1(0xAB),              .ZO, .REX_W,   .{x86_64, Rep} ),
 // SUB
-    instr(.SUB,     ops2(.reg_al, .imm8),       Op1(0x2C),              .I2, .RM8,        .{} ),
-    instr(.SUB,     ops2(.rm8, .imm8),          Op1r(0x80, 5),          .MI, .RM8,        .{} ),
-    instr(.SUB,     ops2(.rm16, .imm8),         Op1r(0x83, 5),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.SUB,     ops2(.rm32, .imm8),         Op1r(0x83, 5),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.SUB,     ops2(.rm64, .imm8),         Op1r(0x83, 5),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.SUB,     ops2(.reg_al, .imm8),       Op1(0x2C),              .I2, .ZO,      .{_8086} ),
+    instr(.SUB,     ops2(.rm8, .imm8),          Op1r(0x80, 5),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm16, .imm8),         Op1r(0x83, 5),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm32, .imm8),         Op1r(0x83, 5),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm64, .imm8),         Op1r(0x83, 5),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.SUB,     ops2(.reg_ax, .imm16),      Op1(0x2D),              .I2, .RM32,       .{} ),
-    instr(.SUB,     ops2(.reg_eax, .imm32),     Op1(0x2D),              .I2, .RM32,       .{} ),
-    instr(.SUB,     ops2(.reg_rax, .imm32),     Op1(0x2D),              .I2, .RM32,       .{Sign} ),
+    instr(.SUB,     ops2(.reg_ax, .imm16),      Op1(0x2D),              .I2, .Op16,    .{_8086} ),
+    instr(.SUB,     ops2(.reg_eax, .imm32),     Op1(0x2D),              .I2, .Op32,    .{_386} ),
+    instr(.SUB,     ops2(.reg_rax, .imm32),     Op1(0x2D),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.SUB,     ops2(.rm16, .imm16),        Op1r(0x81, 5),          .MI, .RM32,       .{} ),
-    instr(.SUB,     ops2(.rm32, .imm32),        Op1r(0x81, 5),          .MI, .RM32,       .{} ),
-    instr(.SUB,     ops2(.rm64, .imm32),        Op1r(0x81, 5),          .MI, .RM32,       .{Sign} ),
+    instr(.SUB,     ops2(.rm16, .imm16),        Op1r(0x81, 5),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm32, .imm32),        Op1r(0x81, 5),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm64, .imm32),        Op1r(0x81, 5),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.SUB,     ops2(.rm8, .reg8),          Op1(0x28),              .MR, .RM8,        .{} ),
-    instr(.SUB,     ops2(.rm16, .reg16),        Op1(0x29),              .MR, .RM32,       .{} ),
-    instr(.SUB,     ops2(.rm32, .reg32),        Op1(0x29),              .MR, .RM32,       .{} ),
-    instr(.SUB,     ops2(.rm64, .reg64),        Op1(0x29),              .MR, .RM32,       .{} ),
+    instr(.SUB,     ops2(.reg8, .rm8),          Op1(0x2A),              .RM, .ZO,      .{_8086} ),
+    instr(.SUB,     ops2(.reg16, .rm16),        Op1(0x2B),              .RM, .Op16,    .{_8086} ),
+    instr(.SUB,     ops2(.reg32, .rm32),        Op1(0x2B),              .RM, .Op32,    .{_386} ),
+    instr(.SUB,     ops2(.reg64, .rm64),        Op1(0x2B),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.SUB,     ops2(.reg8, .rm8),          Op1(0x2A),              .RM, .RM8,        .{} ),
-    instr(.SUB,     ops2(.reg16, .rm16),        Op1(0x2B),              .RM, .RM32,       .{} ),
-    instr(.SUB,     ops2(.reg32, .rm32),        Op1(0x2B),              .RM, .RM32,       .{} ),
-    instr(.SUB,     ops2(.reg64, .rm64),        Op1(0x2B),              .RM, .RM32,       .{} ),
+    instr(.SUB,     ops2(.rm8, .reg8),          Op1(0x28),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm16, .reg16),        Op1(0x29),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm32, .reg32),        Op1(0x29),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.SUB,     ops2(.rm64, .reg64),        Op1(0x29),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
 // TEST
-    instr(.TEST,    ops2(.reg_al, .imm8),       Op1(0xA8),              .I2, .RM8,        .{} ),
-    instr(.TEST,    ops2(.reg_ax, .imm16),      Op1(0xA9),              .I2, .RM32,       .{} ),
-    instr(.TEST,    ops2(.reg_eax, .imm32),     Op1(0xA9),              .I2, .RM32,       .{} ),
-    instr(.TEST,    ops2(.reg_rax, .imm32),     Op1(0xA9),              .I2, .RM32,       .{Sign} ),
+    instr(.TEST,    ops2(.reg_al, .imm8),       Op1(0xA8),              .I2, .ZO,      .{_8086} ),
+    instr(.TEST,    ops2(.reg_ax, .imm16),      Op1(0xA9),              .I2, .Op16,    .{_8086} ),
+    instr(.TEST,    ops2(.reg_eax, .imm32),     Op1(0xA9),              .I2, .Op32,    .{_386} ),
+    instr(.TEST,    ops2(.reg_rax, .imm32),     Op1(0xA9),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.TEST,    ops2(.rm8, .imm8),          Op1r(0xF6, 0),          .MI, .RM8,        .{} ),
-    instr(.TEST,    ops2(.rm16, .imm16),        Op1r(0xF7, 0),          .MI, .RM32,       .{} ),
-    instr(.TEST,    ops2(.rm32, .imm32),        Op1r(0xF7, 0),          .MI, .RM32,       .{} ),
-    instr(.TEST,    ops2(.rm64, .imm32),        Op1r(0xF7, 0),          .MI, .RM32,       .{} ),
+    instr(.TEST,    ops2(.rm8, .imm8),          Op1r(0xF6, 0),          .MI, .ZO,      .{_8086} ),
+    instr(.TEST,    ops2(.rm16, .imm16),        Op1r(0xF7, 0),          .MI, .Op16,    .{_8086} ),
+    instr(.TEST,    ops2(.rm32, .imm32),        Op1r(0xF7, 0),          .MI, .Op32,    .{_386} ),
+    instr(.TEST,    ops2(.rm64, .imm32),        Op1r(0xF7, 0),          .MI, .REX_W,   .{x86_64} ),
     //
-    instr(.TEST,    ops2(.rm8,  .reg8),         Op1(0x84),              .MR, .RM8,        .{} ),
-    instr(.TEST,    ops2(.rm16, .reg16),        Op1(0x85),              .MR, .RM32,       .{} ),
-    instr(.TEST,    ops2(.rm32, .reg32),        Op1(0x85),              .MR, .RM32,       .{} ),
-    instr(.TEST,    ops2(.rm64, .reg64),        Op1(0x85),              .MR, .RM32,       .{} ),
+    instr(.TEST,    ops2(.rm8,  .reg8),         Op1(0x84),              .MR, .ZO,      .{_8086} ),
+    instr(.TEST,    ops2(.rm16, .reg16),        Op1(0x85),              .MR, .Op16,    .{_8086} ),
+    instr(.TEST,    ops2(.rm32, .reg32),        Op1(0x85),              .MR, .Op32,    .{_386} ),
+    instr(.TEST,    ops2(.rm64, .reg64),        Op1(0x85),              .MR, .REX_W,   .{x86_64} ),
 // WAIT
-    instr(.WAIT,    ops0(),                     Op1(0x9B),              .ZO, .ZO,         .{} ),
+    instr(.WAIT,    ops0(),                     Op1(0x9B),              .ZO, .ZO,      .{_8086} ),
 // XCHG
-    instr(.XCHG,    ops2(.reg_ax, .reg16),      Op1(0x90),              .O2, .RM32,       .{} ),
-    instr(.XCHG,    ops2(.reg16, .reg_ax),      Op1(0x90),              .O,  .RM32,       .{} ),
-    instr(.XCHG,    ops2(.reg_eax, .reg32),     Op1(0x90),              .O2, .RM32,       .{edge.XCHG_EAX} ),
-    instr(.XCHG,    ops2(.reg32, .reg_eax),     Op1(0x90),              .O,  .RM32,       .{edge.XCHG_EAX} ),
-    instr(.XCHG,    ops2(.reg_rax, .reg64),     Op1(0x90),              .O2, .RM32,       .{} ),
-    instr(.XCHG,    ops2(.reg64, .reg_rax),     Op1(0x90),              .O,  .RM32,       .{} ),
+    instr(.XCHG,    ops2(.reg_ax, .reg16),      Op1(0x90),              .O2, .Op16,    .{_8086} ),
+    instr(.XCHG,    ops2(.reg16, .reg_ax),      Op1(0x90),              .O,  .Op16,    .{_8086} ),
+    instr(.XCHG,    ops2(.reg_eax, .reg32),     Op1(0x90),              .O2, .Op32,    .{_386, edge.XCHG_EAX} ),
+    instr(.XCHG,    ops2(.reg32, .reg_eax),     Op1(0x90),              .O,  .Op32,    .{_386, edge.XCHG_EAX} ),
+    instr(.XCHG,    ops2(.reg_rax, .reg64),     Op1(0x90),              .O2, .REX_W,   .{x86_64} ),
+    instr(.XCHG,    ops2(.reg64, .reg_rax),     Op1(0x90),              .O,  .REX_W,   .{x86_64} ),
     //
-    instr(.XCHG,    ops2(.rm8, .reg8),          Op1(0x86),              .MR, .RM8,        .{pre.Lock} ),
-    instr(.XCHG,    ops2(.reg8, .rm8),          Op1(0x86),              .RM, .RM8,        .{pre.Lock} ),
-    instr(.XCHG,    ops2(.rm16, .reg16),        Op1(0x87),              .MR, .RM32,       .{pre.Lock} ),
-    instr(.XCHG,    ops2(.reg16, .rm16),        Op1(0x87),              .RM, .RM32,       .{pre.Lock} ),
-    instr(.XCHG,    ops2(.rm32, .reg32),        Op1(0x87),              .MR, .RM32,       .{pre.Lock} ),
-    instr(.XCHG,    ops2(.reg32, .rm32),        Op1(0x87),              .RM, .RM32,       .{pre.Lock} ),
-    instr(.XCHG,    ops2(.rm64, .reg64),        Op1(0x87),              .MR, .RM32,       .{pre.Lock} ),
-    instr(.XCHG,    ops2(.reg64, .rm64),        Op1(0x87),              .RM, .RM32,       .{pre.Lock} ),
+    instr(.XCHG,    ops2(.reg8, .rm8),          Op1(0x86),              .RM, .ZO,      .{_8086, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.rm8, .reg8),          Op1(0x86),              .MR, .ZO,      .{_8086, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.reg16, .rm16),        Op1(0x87),              .RM, .Op16,    .{_8086, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.rm16, .reg16),        Op1(0x87),              .MR, .Op16,    .{_8086, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.reg32, .rm32),        Op1(0x87),              .RM, .Op32,    .{_386, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.rm32, .reg32),        Op1(0x87),              .MR, .Op32,    .{_386, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.reg64, .rm64),        Op1(0x87),              .RM, .REX_W,   .{x86_64, Lock, HleNoLock} ),
+    instr(.XCHG,    ops2(.rm64, .reg64),        Op1(0x87),              .MR, .REX_W,   .{x86_64, Lock, HleNoLock} ),
 // XLAT / XLATB
-    instr(.XLAT,    ops1(._void),               Op1(0xD7),              .ZO, .RM32,       .{} ),
+    instr(.XLAT,    ops2(.reg_al, .rm_mem8),    Op1(0xD7),              .MSpec, .ZO,   .{_8086} ),
     //
-    instr(.XLAT,    ops0(),                     Op1(0xD7),              .ZO, .ZO,         .{} ),
-    instr(.XLATB,   ops0(),                     Op1(0xD7),              .ZO, .ZO,         .{} ),
-    // instr(.XLATB,   ops0(),                     Op1(0xD7),              .ZO64, .RM32,     .{} ),
+    instr(.XLATB,   ops0(),                     Op1(0xD7),              .ZO, .ZO,      .{_8086} ),
 // XOR
-    instr(.XOR,     ops2(.reg_al, .imm8),       Op1(0x34),              .I2, .RM8,        .{} ),
-    instr(.XOR,     ops2(.rm8, .imm8),          Op1r(0x80, 6),          .MI, .RM8,        .{} ),
-    instr(.XOR,     ops2(.rm16, .imm8),         Op1r(0x83, 6),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.XOR,     ops2(.rm32, .imm8),         Op1r(0x83, 6),          .MI, .RM32_I8,    .{Sign} ),
-    instr(.XOR,     ops2(.rm64, .imm8),         Op1r(0x83, 6),          .MI, .RM32_I8,    .{Sign} ),
+    instr(.XOR,     ops2(.reg_al, .imm8),       Op1(0x34),              .I2, .ZO,      .{_8086} ),
+    instr(.XOR,     ops2(.rm8, .imm8),          Op1r(0x80, 6),          .MI, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm16, .imm8),         Op1r(0x83, 6),          .MI, .Op16,    .{_8086, Sign, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm32, .imm8),         Op1r(0x83, 6),          .MI, .Op32,    .{_386, Sign, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm64, .imm8),         Op1r(0x83, 6),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.XOR,     ops2(.reg_ax, .imm16),      Op1(0x35),              .I2, .RM32,       .{} ),
-    instr(.XOR,     ops2(.reg_eax, .imm32),     Op1(0x35),              .I2, .RM32,       .{} ),
-    instr(.XOR,     ops2(.reg_rax, .imm32),     Op1(0x35),              .I2, .RM32,       .{Sign} ),
+    instr(.XOR,     ops2(.reg_ax, .imm16),      Op1(0x35),              .I2, .Op16,    .{_8086} ),
+    instr(.XOR,     ops2(.reg_eax, .imm32),     Op1(0x35),              .I2, .Op32,    .{_386} ),
+    instr(.XOR,     ops2(.reg_rax, .imm32),     Op1(0x35),              .I2, .REX_W,   .{x86_64, Sign} ),
     //
-    instr(.XOR,     ops2(.rm16, .imm16),        Op1r(0x81, 6),          .MI, .RM32,       .{} ),
-    instr(.XOR,     ops2(.rm32, .imm32),        Op1r(0x81, 6),          .MI, .RM32,       .{} ),
-    instr(.XOR,     ops2(.rm64, .imm32),        Op1r(0x81, 6),          .MI, .RM32,       .{Sign} ),
+    instr(.XOR,     ops2(.rm16, .imm16),        Op1r(0x81, 6),          .MI, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm32, .imm32),        Op1r(0x81, 6),          .MI, .Op32,    .{_386, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm64, .imm32),        Op1r(0x81, 6),          .MI, .REX_W,   .{x86_64, Sign, Lock, Hle} ),
     //
-    instr(.XOR,     ops2(.rm8, .reg8),          Op1(0x30),              .MR, .RM8,        .{} ),
-    instr(.XOR,     ops2(.rm16, .reg16),        Op1(0x31),              .MR, .RM32,       .{} ),
-    instr(.XOR,     ops2(.rm32, .reg32),        Op1(0x31),              .MR, .RM32,       .{} ),
-    instr(.XOR,     ops2(.rm64, .reg64),        Op1(0x31),              .MR, .RM32,       .{} ),
+    instr(.XOR,     ops2(.reg8, .rm8),          Op1(0x32),              .RM, .ZO,      .{_8086} ),
+    instr(.XOR,     ops2(.reg16, .rm16),        Op1(0x33),              .RM, .Op16,    .{_8086} ),
+    instr(.XOR,     ops2(.reg32, .rm32),        Op1(0x33),              .RM, .Op32,    .{_386} ),
+    instr(.XOR,     ops2(.reg64, .rm64),        Op1(0x33),              .RM, .REX_W,   .{x86_64} ),
     //
-    instr(.XOR,     ops2(.reg8, .rm8),          Op1(0x32),              .RM, .RM8,        .{} ),
-    instr(.XOR,     ops2(.reg16, .rm16),        Op1(0x33),              .RM, .RM32,       .{} ),
-    instr(.XOR,     ops2(.reg32, .rm32),        Op1(0x33),              .RM, .RM32,       .{} ),
-    instr(.XOR,     ops2(.reg64, .rm64),        Op1(0x33),              .RM, .RM32,       .{} ),
+    instr(.XOR,     ops2(.rm8, .reg8),          Op1(0x30),              .MR, .ZO,      .{_8086, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm16, .reg16),        Op1(0x31),              .MR, .Op16,    .{_8086, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm32, .reg32),        Op1(0x31),              .MR, .Op32,    .{_386, Lock, Hle} ),
+    instr(.XOR,     ops2(.rm64, .reg64),        Op1(0x31),              .MR, .REX_W,   .{x86_64, Lock, Hle} ),
+
 //
 // x87 -- 8087 / 80287 / 80387
 //
-
 // F2XM1
     instr(.F2XM1,   ops0(),                   Op2(0xD9, 0xF0),       .ZO, .ZO,    .{_087} ),
 // FABS
@@ -1760,7 +1809,7 @@ pub const instruction_database = [_]InstructionItem {
     instr(.FCHS,    ops0(),                   Op2(0xD9, 0xE0),       .ZO, .ZO,    .{_087} ),
     instr(.FCHS,    ops1(.reg_st0),           Op2(0xD9, 0xE0),       .ZO, .ZO,    .{_087} ),
 // FCLEX / FNCLEX
-    instr(.FCLEX,   ops0(),               compOp2(0x9B, 0xDB, 0xE2), .ZO, .ZO,    .{_087} ),
+    instr(.FCLEX,   ops0(),               compOp2(.FWAIT, 0xDB,0xE2),.ZO, .ZO,    .{_087} ),
     instr(.FNCLEX,  ops0(),                   Op2(0xDB, 0xE2),       .ZO, .ZO,    .{_087} ),
 // FCOM / FCOMP / FCOMPP
     instr(.FCOM,    ops1(.rm_mem32),          Op1r(0xD8, 2),         .M, .ZO,     .{_087} ),
@@ -1821,7 +1870,7 @@ pub const instruction_database = [_]InstructionItem {
 // FINCSTP
     instr(.FINCSTP, ops0(),                   Op2(0xD9, 0xF7),       .ZO, .ZO,    .{_087} ),
 // FINIT / FNINIT
-    instr(.FINIT,   ops0(),               compOp2(0x9B, 0xDB, 0xE3), .ZO, .ZO,    .{_087} ),
+    instr(.FINIT,   ops0(),               compOp2(.FWAIT, 0xDB,0xE3),.ZO, .ZO,    .{_087} ),
     instr(.FNINIT,  ops0(),                   Op2(0xDB, 0xE3),       .ZO, .ZO,    .{_087} ),
 // FIST
     instr(.FIST,    ops1(.rm_mem16),          Op1r(0xDF, 2),         .M, .ZO,     .{_087} ),
@@ -1846,8 +1895,8 @@ pub const instruction_database = [_]InstructionItem {
     instr(.FLDZ,    ops0(),                   Op2(0xD9, 0xEE),       .ZO, .ZO,    .{_087} ),
 // FLDENV
     instr(.FLDENV,  ops1(.rm_mem),            Op1r(0xD9, 4),         .M, .ZO,     .{_087} ),
-    // instr(.FLDENVW, ops1(.rm_mem),            Op1r(0xD9, 4),         .M, .ZO,     .{_087} ),
-    // instr(.FLDENVD, ops1(.rm_mem),            Op1r(0xD9, 4),         .M, .ZO,     .{_387} ),
+    instr(.FLDENVW, ops1(.rm_mem),            Op1r(0xD9, 4),         .M, .Op16,   .{_087} ),
+    instr(.FLDENVD, ops1(.rm_mem),            Op1r(0xD9, 4),         .M, .Op32,   .{_387} ),
 // FMUL / FMULP / FIMUL
     instr(.FMUL,    ops1(.rm_mem32),          Op1r(0xD8, 1),         .M, .ZO,     .{_087} ),
     instr(.FMUL,    ops1(.rm_mem64),          Op1r(0xDC, 1),         .M, .ZO,     .{_087} ),
@@ -1873,9 +1922,15 @@ pub const instruction_database = [_]InstructionItem {
     instr(.FRNDINT, ops0(),                   Op2(0xD9, 0xFC),       .ZO, .ZO,    .{_087} ),
 // FRSTOR
     instr(.FRSTOR,  ops1(.rm_mem),            Op1r(0xDD, 4),         .M, .ZO,     .{_087} ),
+    instr(.FRSTORW, ops1(.rm_mem),            Op1r(0xDD, 4),         .M, .Op16,   .{_087} ),
+    instr(.FRSTORD, ops1(.rm_mem),            Op1r(0xDD, 4),         .M, .Op32,   .{_387} ),
 // FSAVE / FNSAVE
-    instr(.FSAVE,   ops1(.rm_mem),        compOp1r(0x9B, 0xDD, 6),   .M, .ZO,     .{_087} ),
+    instr(.FSAVE,   ops1(.rm_mem),        compOp1r(.FWAIT, 0xDD, 6), .M, .ZO,     .{_087} ),
+    instr(.FSAVEW,  ops1(.rm_mem),        compOp1r(.FWAIT, 0xDD, 6), .M, .Op16,   .{_087} ),
+    instr(.FSAVED,  ops1(.rm_mem),        compOp1r(.FWAIT, 0xDD, 6), .M, .Op32,   .{_387} ),
     instr(.FNSAVE,  ops1(.rm_mem),            Op1r(0xDD, 6),         .M, .ZO,     .{_087} ),
+    instr(.FNSAVEW, ops1(.rm_mem),            Op1r(0xDD, 6),         .M, .Op16,   .{_087} ),
+    instr(.FNSAVED, ops1(.rm_mem),            Op1r(0xDD, 6),         .M, .Op32,   .{_387} ),
 // FSCALE
     instr(.FSCALE,  ops0(),                   Op2(0xD9, 0xFD),       .ZO, .ZO,    .{_087} ),
 // FSQRT
@@ -1891,17 +1946,21 @@ pub const instruction_database = [_]InstructionItem {
     instr(.FSTP,    ops1(.reg_st),            Op2(0xDD, 0xD8),       .O, .ZO,     .{_087} ),
     instr(.FSTP,    ops2(.reg_st0, .reg_st),  Op2(0xDD, 0xD8),       .O2, .ZO,    .{_087} ),
 // FSTCW / FNSTCW
-    instr(.FSTCW,   ops1(.rm_mem),        compOp1r(0x9B, 0xD9, 7),   .M, .ZO,     .{_087} ),
-    instr(.FSTCW,   ops1(.rm_mem16),      compOp1r(0x9B, 0xD9, 7),   .M, .ZO,     .{_087} ),
+    instr(.FSTCW,   ops1(.rm_mem),        compOp1r(.FWAIT, 0xD9, 7), .M, .ZO,     .{_087} ),
+    instr(.FSTCW,   ops1(.rm_mem16),      compOp1r(.FWAIT, 0xD9, 7), .M, .ZO,     .{_087} ),
     instr(.FNSTCW,  ops1(.rm_mem),            Op1r(0xD9, 7),         .M, .ZO,     .{_087} ),
     instr(.FNSTCW,  ops1(.rm_mem16),          Op1r(0xD9, 7),         .M, .ZO,     .{_087} ),
 // FSTENV / FNSTENV
-    instr(.FSTENV,  ops1(.rm_mem),        compOp1r(0x9B, 0xD9, 6),   .M, .ZO,     .{_087} ),
+    instr(.FSTENV,  ops1(.rm_mem),        compOp1r(.FWAIT, 0xD9, 6), .M, .ZO,     .{_087} ),
+    instr(.FSTENVW, ops1(.rm_mem),        compOp1r(.FWAIT, 0xD9, 6), .M, .Op16,   .{_087} ),
+    instr(.FSTENVD, ops1(.rm_mem),        compOp1r(.FWAIT, 0xD9, 6), .M, .Op32,   .{_387} ),
     instr(.FNSTENV, ops1(.rm_mem),            Op1r(0xD9, 6),         .M, .ZO,     .{_087} ),
+    instr(.FNSTENVW,ops1(.rm_mem),            Op1r(0xD9, 6),         .M, .Op16,   .{_087} ),
+    instr(.FNSTENVD,ops1(.rm_mem),            Op1r(0xD9, 6),         .M, .Op32,   .{_387} ),
 // FSTSW / FNSTSW
-    instr(.FSTSW,   ops1(.rm_mem),        compOp1r(0x9B, 0xDD, 7),   .M, .ZO,     .{_087} ),
-    instr(.FSTSW,   ops1(.rm_mem16),      compOp1r(0x9B, 0xDD, 7),   .M, .ZO,     .{_087} ),
-    instr(.FSTSW,   ops1(.reg_ax),        compOp2(0x9B, 0xDF, 0xE0), .ZO, .ZO,    .{_087} ),
+    instr(.FSTSW,   ops1(.rm_mem),        compOp1r(.FWAIT, 0xDD, 7), .M, .ZO,     .{_087} ),
+    instr(.FSTSW,   ops1(.rm_mem16),      compOp1r(.FWAIT, 0xDD, 7), .M, .ZO,     .{_087} ),
+    instr(.FSTSW,   ops1(.reg_ax),        compOp2(.FWAIT, 0xDF,0xE0),.ZO, .ZO,    .{_087} ),
     instr(.FNSTSW,  ops1(.rm_mem),            Op1r(0xDD, 7),         .M, .ZO,     .{_087} ),
     instr(.FNSTSW,  ops1(.rm_mem16),          Op1r(0xDD, 7),         .M, .ZO,     .{_087} ),
     instr(.FNSTSW,  ops1(.reg_ax),            Op2(0xDF, 0xE0),       .ZO, .ZO,    .{_087} ),
@@ -1970,487 +2029,475 @@ pub const instruction_database = [_]InstructionItem {
     instr(.FUCOMP,  ops0(),                   Op2(0xDD, 0xE9),       .ZO, .ZO,    .{_387} ),
     //
     instr(.FUCOMPP, ops0(),                   Op2(0xDA, 0xE9),       .ZO, .ZO,    .{_387} ),
-    //
-    // TODO: need to also handle:
-    // * FLDENVW
-    // * FSAVEW
-    // * FRSTORW
-    // * FSTENVW
-    // * FLDENVD
-    // * FSAVED
-    // * FRSTORD
-    // * FSTENVD
 
 //
 // x87 -- Pentium Pro / P6
 //
 // FCMOVcc
-    instr(.FCMOVB,   ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xC0),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVB,   ops1(.reg_st),            Op2(0xDA, 0xC0),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVB,   ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xC0),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVB,   ops1(.reg_st),            Op2(0xDA, 0xC0),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVE,   ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xC8),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVE,   ops1(.reg_st),            Op2(0xDA, 0xC8),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVE,   ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xC8),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVE,   ops1(.reg_st),            Op2(0xDA, 0xC8),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVBE,  ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xD0),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVBE,  ops1(.reg_st),            Op2(0xDA, 0xD0),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVBE,  ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xD0),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVBE,  ops1(.reg_st),            Op2(0xDA, 0xD0),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVU,   ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xD8),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVU,   ops1(.reg_st),            Op2(0xDA, 0xD8),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVU,   ops2(.reg_st0, .reg_st),  Op2(0xDA, 0xD8),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVU,   ops1(.reg_st),            Op2(0xDA, 0xD8),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVNB,  ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xC0),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVNB,  ops1(.reg_st),            Op2(0xDB, 0xC0),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVNB,  ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xC0),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVNB,  ops1(.reg_st),            Op2(0xDB, 0xC0),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVNE,  ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xC8),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVNE,  ops1(.reg_st),            Op2(0xDB, 0xC8),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVNE,  ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xC8),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVNE,  ops1(.reg_st),            Op2(0xDB, 0xC8),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVNBE, ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xD0),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVNBE, ops1(.reg_st),            Op2(0xDB, 0xD0),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVNBE, ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xD0),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVNBE, ops1(.reg_st),            Op2(0xDB, 0xD0),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
     //
-    instr(.FCMOVNU,  ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xD8),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCMOVNU,  ops1(.reg_st),            Op2(0xDB, 0xD8),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCMOVNU,  ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xD8),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCMOVNU,  ops1(.reg_st),            Op2(0xDB, 0xD8),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
 // FCOMI
-    instr(.FCOMI,    ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xF0),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCOMI,    ops1(.reg_st),            Op2(0xDB, 0xF0),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCOMI,    ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xF0),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCOMI,    ops1(.reg_st),            Op2(0xDB, 0xF0),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
 // FCOMIP
-    instr(.FCOMIP,   ops2(.reg_st0, .reg_st),  Op2(0xDF, 0xF0),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FCOMIP,   ops1(.reg_st),            Op2(0xDF, 0xF0),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FCOMIP,   ops2(.reg_st0, .reg_st),  Op2(0xDF, 0xF0),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FCOMIP,   ops1(.reg_st),            Op2(0xDF, 0xF0),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
 // FUCOMI
-    instr(.FUCOMI,   ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xE8),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FUCOMI,   ops1(.reg_st),            Op2(0xDB, 0xE8),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FUCOMI,   ops2(.reg_st0, .reg_st),  Op2(0xDB, 0xE8),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FUCOMI,   ops1(.reg_st),            Op2(0xDB, 0xE8),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
 // FUCOMIP
-    instr(.FUCOMIP,  ops2(.reg_st0, .reg_st),  Op2(0xDF, 0xE8),       .O2, .ZO,    .{cpu.P6} ),
-    instr(.FUCOMIP,  ops1(.reg_st),            Op2(0xDF, 0xE8),       .O,  .ZO,    .{cpu.P6} ),
+    instr(.FUCOMIP,  ops2(.reg_st0, .reg_st),  Op2(0xDF, 0xE8),       .O2, .ZO,   .{cpu.CMOV, cpu.FPU} ),
+    instr(.FUCOMIP,  ops1(.reg_st),            Op2(0xDF, 0xE8),       .O,  .ZO,   .{cpu.CMOV, cpu.FPU} ),
 
 //
 //  x87 - other
-// FFREEP - undocumented instruction, present since 80286
-    instr(.FFREEP,   ops1(.reg_st),            Op2(0xDF, 0xC0),       .O, .ZO,     .{_287} ),
-// FISTTP
-    instr(.FISTTP,   ops1(.rm_mem16),          Op1r(0xDF, 1),         .M, .ZO,     .{SSE3} ),
-    instr(.FISTTP,   ops1(.rm_mem32),          Op1r(0xDB, 1),         .M, .ZO,     .{SSE3} ),
-    instr(.FISTTP,   ops1(.rm_mem64),          Op1r(0xDD, 1),         .M, .ZO,     .{SSE3} ),
+// FISTTP - same as FSTP but won't cause a stack underflow exception
+    instr(.FISTTP,   ops1(.rm_mem16),          Op1r(0xDF, 1),         .M, .ZO,    .{SSE3} ),
+    instr(.FISTTP,   ops1(.rm_mem32),          Op1r(0xDB, 1),         .M, .ZO,    .{SSE3} ),
+    instr(.FISTTP,   ops1(.rm_mem64),          Op1r(0xDD, 1),         .M, .ZO,    .{SSE3} ),
 
 //
 // 80286
 //
     // NOTES: might want to handle operands like `r32/m16` better
-    instr(.ARPL,    ops2(.rm16, .reg16),        Op1(0x63),              .MR, .RM16,       .{No64, _286} ),
+    instr(.ARPL,    ops2(.rm16, .reg16),        Op1(0x63),              .MR, .ZO,     .{No64, _286} ),
     //
-    instr(.CLTS,    ops0(),                     Op2(0x0F, 0x06),        .ZO, .ZO,         .{_286} ),
+    instr(.CLTS,    ops0(),                     Op2(0x0F, 0x06),        .ZO, .ZO,     .{_286} ),
     //
-    instr(.LAR,     ops2(.reg16, .rm16),        Op2(0x0F, 0x02),        .RM, .RM32,       .{_286} ),
-    instr(.LAR,     ops2(.reg32, .rm32),        Op2(0x0F, 0x02),        .RM, .RM32,       .{_386} ),
-    instr(.LAR,     ops2(.reg64, .rm64),        Op2(0x0F, 0x02),        .RM, .RM32,       .{x86_64} ),
+    instr(.LAR,     ops2(.reg16, .rm16),        Op2(0x0F, 0x02),        .RM, .Op16,   .{_286} ),
+    instr(.LAR,     ops2(.reg32, .rm32),        Op2(0x0F, 0x02),        .RM, .Op32,   .{_386} ),
+    instr(.LAR,     ops2(.reg64, .rm64),        Op2(0x0F, 0x02),        .RM, .REX_W,  .{x86_64} ),
     //
-    instr(.LGDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 2),    .M,  .ZO,         .{No64, _286} ),
-    instr(.LGDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 2),    .M,  .ZO,         .{No32, _286} ),
+    instr(.LGDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 2),    .M,  .ZO,     .{No64, _286} ),
+    instr(.LGDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 2),    .M,  .ZO,     .{No32, _286} ),
     //
-    instr(.LIDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 3),    .M,  .ZO,         .{No64, _286} ),
-    instr(.LIDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 3),    .M,  .ZO,         .{No32, _286} ),
+    instr(.LIDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 3),    .M,  .ZO,     .{No64, _286} ),
+    instr(.LIDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 3),    .M,  .ZO,     .{No32, _286} ),
     //
-    instr(.LLDT,    ops1(.rm16),                Op2r(0x0F, 0x00, 2),    .M,  .RM16,       .{_286} ),
+    instr(.LLDT,    ops1(.rm16),                Op2r(0x0F, 0x00, 2),    .M,  .ZO,     .{_286} ),
     //
-    instr(.LMSW,    ops1(.rm16),                Op2r(0x0F, 0x01, 6),    .M,  .RM16,       .{_286} ),
+    instr(.LMSW,    ops1(.rm16),                Op2r(0x0F, 0x01, 6),    .M,  .ZO,     .{_286} ),
     //
-    // instr(.LOADALL, ops1(.rm16),                Op2r(0x0F, 0x01, 6),    .M, .RM16,        .{_286, _386} ), // undocumented
+    // instr(.LOADALL, ops1(.rm16),                Op2r(0x0F, 0x01, 6),    .M, .ZO,      .{_286, _386} ), // undocumented
     //
-    instr(.LSL,     ops2(.reg16, .rm16),        Op2(0x0F, 0x03),        .RM, .RM32,       .{_286} ),
-    instr(.LSL,     ops2(.reg32, .rm32),        Op2(0x0F, 0x03),        .RM, .RM32,       .{_386} ),
-    instr(.LSL,     ops2(.reg64, .rm64),        Op2(0x0F, 0x03),        .RM, .RM32,       .{x86_64} ),
+    instr(.LSL,     ops2(.reg16, .rm16),        Op2(0x0F, 0x03),        .RM, .Op16,   .{_286} ),
+    instr(.LSL,     ops2(.reg32, .rm32),        Op2(0x0F, 0x03),        .RM, .Op32,   .{_386} ),
+    instr(.LSL,     ops2(.reg64, .rm64),        Op2(0x0F, 0x03),        .RM, .REX_W,  .{x86_64} ),
     //
-    instr(.LTR,     ops1(.rm16),                Op2r(0x0F, 0x00, 3),    .M,  .RM16,       .{_286} ),
+    instr(.LTR,     ops1(.rm16),                Op2r(0x0F, 0x00, 3),    .M,  .ZO,     .{_286} ),
     //
-    instr(.SGDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 0),    .M,  .ZO,         .{_286} ),
+    instr(.SGDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 0),    .M,  .ZO,     .{_286} ),
     //
-    instr(.SIDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 1),    .M,  .ZO,         .{_286} ),
+    instr(.SIDT,    ops1(.rm_mem),              Op2r(0x0F, 0x01, 1),    .M,  .ZO,     .{_286} ),
     //
-    instr(.SLDT,    ops1(.rm_mem16),            Op2r(0x0F, 0x00, 0),    .M,  .RM16,       .{_286} ),
-    instr(.SLDT,    ops1(.rm_reg16),            Op2r(0x0F, 0x00, 0),    .M,  .RM32,       .{_286} ),
-    instr(.SLDT,    ops1(.reg16),               Op2r(0x0F, 0x00, 0),    .M,  .RM32,       .{_286} ),
-    instr(.SLDT,    ops1(.reg32),               Op2r(0x0F, 0x00, 0),    .M,  .RM32,       .{_386} ),
-    instr(.SLDT,    ops1(.reg64),               Op2r(0x0F, 0x00, 0),    .M,  .RM32,       .{x86_64} ),
+    instr(.SLDT,    ops1(.rm_mem16),            Op2r(0x0F, 0x00, 0),    .M,  .ZO,     .{_286} ),
+    instr(.SLDT,    ops1(.rm_reg16),            Op2r(0x0F, 0x00, 0),    .M,  .Op16,   .{_286} ),
+    instr(.SLDT,    ops1(.rm_reg32),            Op2r(0x0F, 0x00, 0),    .M,  .Op32,   .{_386} ),
+    instr(.SLDT,    ops1(.rm_reg64),            Op2r(0x0F, 0x00, 0),    .M,  .REX_W,  .{x86_64} ),
     //
-    instr(.SMSW,    ops1(.rm_mem16),            Op2r(0x0F, 0x01, 4),    .M,  .RM16,       .{_286} ),
-    instr(.SMSW,    ops1(.rm_reg16),            Op2r(0x0F, 0x01, 4),    .M,  .RM32,       .{_286} ),
-    instr(.SMSW,    ops1(.reg16),               Op2r(0x0F, 0x01, 4),    .M,  .RM32,       .{_286} ),
-    instr(.SMSW,    ops1(.reg32),               Op2r(0x0F, 0x01, 4),    .M,  .RM32,       .{_386} ),
-    instr(.SMSW,    ops1(.reg64),               Op2r(0x0F, 0x01, 4),    .M,  .RM32,       .{x86_64} ),
+    instr(.SMSW,    ops1(.rm_mem16),            Op2r(0x0F, 0x01, 4),    .M,  .ZO,     .{_286} ),
+    instr(.SMSW,    ops1(.rm_reg16),            Op2r(0x0F, 0x01, 4),    .M,  .Op16,   .{_286} ),
+    instr(.SMSW,    ops1(.rm_reg32),            Op2r(0x0F, 0x01, 4),    .M,  .Op32,   .{_386} ),
+    instr(.SMSW,    ops1(.rm_reg64),            Op2r(0x0F, 0x01, 4),    .M,  .REX_W,  .{x86_64} ),
     //
-    instr(.STR,     ops1(.rm_mem16),            Op2r(0x0F, 0x00, 1),    .M,  .RM16,       .{_286} ),
-    instr(.STR,     ops1(.rm_reg16),            Op2r(0x0F, 0x00, 1),    .M,  .RM32,       .{_286} ),
-    instr(.STR,     ops1(.reg16),               Op2r(0x0F, 0x00, 1),    .M,  .RM32,       .{_286} ),
-    instr(.STR,     ops1(.reg32),               Op2r(0x0F, 0x00, 1),    .M,  .RM32,       .{_386} ),
-    instr(.STR,     ops1(.reg64),               Op2r(0x0F, 0x00, 1),    .M,  .RM32,       .{x86_64} ),
+    instr(.STR,     ops1(.rm_mem16),            Op2r(0x0F, 0x00, 1),    .M,  .ZO,     .{_286} ),
+    instr(.STR,     ops1(.rm_reg16),            Op2r(0x0F, 0x00, 1),    .M,  .Op16,   .{_286} ),
+    instr(.STR,     ops1(.rm_reg32),            Op2r(0x0F, 0x00, 1),    .M,  .Op32,   .{_386} ),
+    instr(.STR,     ops1(.rm_reg64),            Op2r(0x0F, 0x00, 1),    .M,  .REX_W,  .{x86_64} ),
     //
-    instr(.VERR,    ops1(.rm16),                Op2r(0x0F, 0x00, 4),    .M,  .RM16,       .{_286} ),
-    instr(.VERW,    ops1(.rm16),                Op2r(0x0F, 0x00, 5),    .M,  .RM16,       .{_286} ),
+    instr(.VERR,    ops1(.rm16),                Op2r(0x0F, 0x00, 4),    .M,  .ZO,     .{_286} ),
+    instr(.VERW,    ops1(.rm16),                Op2r(0x0F, 0x00, 5),    .M,  .ZO,     .{_286} ),
 
 //
 // 80386
 //
 // BSF
-    instr(.BSF,     ops2(.reg16, .rm16),        Op2(0x0F, 0xBC),        .RM, .RM32,       .{_386} ),
-    instr(.BSF,     ops2(.reg32, .rm32),        Op2(0x0F, 0xBC),        .RM, .RM32,       .{_386} ),
-    instr(.BSF,     ops2(.reg64, .rm64),        Op2(0x0F, 0xBC),        .RM, .RM32,       .{x86_64} ),
+    instr(.BSF,     ops2(.reg16, .rm16),        Op2(0x0F, 0xBC),        .RM, .Op16,   .{_386} ),
+    instr(.BSF,     ops2(.reg32, .rm32),        Op2(0x0F, 0xBC),        .RM, .Op32,   .{_386} ),
+    instr(.BSF,     ops2(.reg64, .rm64),        Op2(0x0F, 0xBC),        .RM, .REX_W,  .{x86_64} ),
 // BSR
-    instr(.BSR,     ops2(.reg16, .rm16),        Op2(0x0F, 0xBD),        .RM, .RM32,       .{_386} ),
-    instr(.BSR,     ops2(.reg32, .rm32),        Op2(0x0F, 0xBD),        .RM, .RM32,       .{_386} ),
-    instr(.BSR,     ops2(.reg64, .rm64),        Op2(0x0F, 0xBD),        .RM, .RM32,       .{x86_64} ),
+    instr(.BSR,     ops2(.reg16, .rm16),        Op2(0x0F, 0xBD),        .RM, .Op16,   .{_386} ),
+    instr(.BSR,     ops2(.reg32, .rm32),        Op2(0x0F, 0xBD),        .RM, .Op32,   .{_386} ),
+    instr(.BSR,     ops2(.reg64, .rm64),        Op2(0x0F, 0xBD),        .RM, .REX_W,  .{x86_64} ),
 // BSR
-    instr(.BT,      ops2(.rm16, .reg16),        Op2(0x0F, 0xA3),        .MR, .RM32,       .{_386} ),
-    instr(.BT,      ops2(.rm32, .reg32),        Op2(0x0F, 0xA3),        .MR, .RM32,       .{_386} ),
-    instr(.BT,      ops2(.rm64, .reg64),        Op2(0x0F, 0xA3),        .MR, .RM32,       .{x86_64} ),
+    instr(.BT,      ops2(.rm16, .reg16),        Op2(0x0F, 0xA3),        .MR, .Op16,   .{_386} ),
+    instr(.BT,      ops2(.rm32, .reg32),        Op2(0x0F, 0xA3),        .MR, .Op32,   .{_386} ),
+    instr(.BT,      ops2(.rm64, .reg64),        Op2(0x0F, 0xA3),        .MR, .REX_W,  .{x86_64} ),
     //
-    instr(.BT,      ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 4),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BT,      ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 4),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BT,      ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 4),    .MI, .RM32_I8,    .{x86_64} ),
+    instr(.BT,      ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 4),    .MI, .Op16,   .{_386} ),
+    instr(.BT,      ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 4),    .MI, .Op32,   .{_386} ),
+    instr(.BT,      ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 4),    .MI, .REX_W,  .{x86_64} ),
 // BTC
-    instr(.BTC,     ops2(.rm16, .reg16),        Op2(0x0F, 0xBB),        .MR, .RM32,       .{_386} ),
-    instr(.BTC,     ops2(.rm32, .reg32),        Op2(0x0F, 0xBB),        .MR, .RM32,       .{_386} ),
-    instr(.BTC,     ops2(.rm64, .reg64),        Op2(0x0F, 0xBB),        .MR, .RM32,       .{x86_64} ),
+    instr(.BTC,     ops2(.rm16, .reg16),        Op2(0x0F, 0xBB),        .MR, .Op16,   .{_386, Lock, Hle} ),
+    instr(.BTC,     ops2(.rm32, .reg32),        Op2(0x0F, 0xBB),        .MR, .Op32,   .{_386, Lock, Hle} ),
+    instr(.BTC,     ops2(.rm64, .reg64),        Op2(0x0F, 0xBB),        .MR, .REX_W,  .{x86_64, Lock, Hle} ),
     //
-    instr(.BTC,     ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 7),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BTC,     ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 7),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BTC,     ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 7),    .MI, .RM32_I8,    .{x86_64} ),
+    instr(.BTC,     ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 7),    .MI, .Op16,   .{_386, Lock, Hle} ),
+    instr(.BTC,     ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 7),    .MI, .Op32,   .{_386, Lock, Hle} ),
+    instr(.BTC,     ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 7),    .MI, .REX_W,  .{x86_64, Lock, Hle} ),
 // BTR
-    instr(.BTR,     ops2(.rm16, .reg16),        Op2(0x0F, 0xB3),        .MR, .RM32,       .{_386} ),
-    instr(.BTR,     ops2(.rm32, .reg32),        Op2(0x0F, 0xB3),        .MR, .RM32,       .{_386} ),
-    instr(.BTR,     ops2(.rm64, .reg64),        Op2(0x0F, 0xB3),        .MR, .RM32,       .{x86_64} ),
+    instr(.BTR,     ops2(.rm16, .reg16),        Op2(0x0F, 0xB3),        .MR, .Op16,   .{_386, Lock, Hle} ),
+    instr(.BTR,     ops2(.rm32, .reg32),        Op2(0x0F, 0xB3),        .MR, .Op32,   .{_386, Lock, Hle} ),
+    instr(.BTR,     ops2(.rm64, .reg64),        Op2(0x0F, 0xB3),        .MR, .REX_W,  .{x86_64, Lock, Hle} ),
     //
-    instr(.BTR,     ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 6),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BTR,     ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 6),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BTR,     ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 6),    .MI, .RM32_I8,    .{x86_64} ),
+    instr(.BTR,     ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 6),    .MI, .Op16,   .{_386, Lock, Hle} ),
+    instr(.BTR,     ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 6),    .MI, .Op32,   .{_386, Lock, Hle} ),
+    instr(.BTR,     ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 6),    .MI, .REX_W,  .{x86_64, Lock, Hle} ),
 // BTS
-    instr(.BTS,     ops2(.rm16, .reg16),        Op2(0x0F, 0xAB),        .MR, .RM32,       .{_386} ),
-    instr(.BTS,     ops2(.rm32, .reg32),        Op2(0x0F, 0xAB),        .MR, .RM32,       .{_386} ),
-    instr(.BTS,     ops2(.rm64, .reg64),        Op2(0x0F, 0xAB),        .MR, .RM32,       .{x86_64} ),
+    instr(.BTS,     ops2(.rm16, .reg16),        Op2(0x0F, 0xAB),        .MR, .Op16,   .{_386, Lock, Hle} ),
+    instr(.BTS,     ops2(.rm32, .reg32),        Op2(0x0F, 0xAB),        .MR, .Op32,   .{_386, Lock, Hle} ),
+    instr(.BTS,     ops2(.rm64, .reg64),        Op2(0x0F, 0xAB),        .MR, .REX_W,  .{x86_64, Lock, Hle} ),
     //
-    instr(.BTS,     ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 5),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BTS,     ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 5),    .MI, .RM32_I8,    .{_386} ),
-    instr(.BTS,     ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 5),    .MI, .RM32_I8,    .{x86_64} ),
+    instr(.BTS,     ops2(.rm16, .imm8),         Op2r(0x0F, 0xBA, 5),    .MI, .Op16,   .{_386} ),
+    instr(.BTS,     ops2(.rm32, .imm8),         Op2r(0x0F, 0xBA, 5),    .MI, .Op32,   .{_386} ),
+    instr(.BTS,     ops2(.rm64, .imm8),         Op2r(0x0F, 0xBA, 5),    .MI, .REX_W,  .{x86_64} ),
 // MOVSX / MOVSXD
-    instr(.MOVSX,   ops2(.reg16, .rm8),         Op2(0x0F, 0xBE),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSX,   ops2(.reg32, .rm8),         Op2(0x0F, 0xBE),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSX,   ops2(.reg64, .rm8),         Op2(0x0F, 0xBE),        .RM, .RM32_Reg,    .{x86_64} ),
+    instr(.MOVSX,   ops2(.reg16, .rm8),         Op2(0x0F, 0xBE),        .RM, .Op16,   .{_386} ),
+    instr(.MOVSX,   ops2(.reg32, .rm8),         Op2(0x0F, 0xBE),        .RM, .Op32,   .{_386} ),
+    instr(.MOVSX,   ops2(.reg64, .rm8),         Op2(0x0F, 0xBE),        .RM, .REX_W,  .{x86_64} ),
     //
-    instr(.MOVSX,   ops2(.reg16, .rm16),        Op2(0x0F, 0xBF),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSX,   ops2(.reg32, .rm16),        Op2(0x0F, 0xBF),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSX,   ops2(.reg64, .rm16),        Op2(0x0F, 0xBF),        .RM, .RM32_Reg,    .{x86_64} ),
+    instr(.MOVSX,   ops2(.reg16, .rm16),        Op2(0x0F, 0xBF),        .RM, .Op16,   .{_386} ),
+    instr(.MOVSX,   ops2(.reg32, .rm16),        Op2(0x0F, 0xBF),        .RM, .Op32,   .{_386} ),
+    instr(.MOVSX,   ops2(.reg64, .rm16),        Op2(0x0F, 0xBF),        .RM, .REX_W,  .{x86_64} ),
     //
-    instr(.MOVSXD,  ops2(.reg16, .rm16),        Op1(0x63),              .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSXD,  ops2(.reg16, .rm32),        Op1(0x63),              .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSXD,  ops2(.reg32, .rm32),        Op1(0x63),              .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVSXD,  ops2(.reg64, .rm32),        Op1(0x63),              .RM, .RM32_Reg,    .{x86_64} ),
+    instr(.MOVSXD,  ops2(.reg16, .rm16),        Op1(0x63),              .RM, .Op16,   .{_386} ),
+    instr(.MOVSXD,  ops2(.reg16, .rm32),        Op1(0x63),              .RM, .Op16,   .{_386} ),
+    instr(.MOVSXD,  ops2(.reg32, .rm32),        Op1(0x63),              .RM, .Op32,   .{_386} ),
+    instr(.MOVSXD,  ops2(.reg64, .rm32),        Op1(0x63),              .RM, .REX_W,  .{x86_64} ),
 // MOVZX
-    instr(.MOVZX,   ops2(.reg16, .rm8),         Op2(0x0F, 0xB6),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVZX,   ops2(.reg32, .rm8),         Op2(0x0F, 0xB6),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVZX,   ops2(.reg64, .rm8),         Op2(0x0F, 0xB6),        .RM, .RM32_Reg,    .{x86_64} ),
+    instr(.MOVZX,   ops2(.reg16, .rm8),         Op2(0x0F, 0xB6),        .RM, .Op16,   .{_386} ),
+    instr(.MOVZX,   ops2(.reg32, .rm8),         Op2(0x0F, 0xB6),        .RM, .Op32,   .{_386} ),
+    instr(.MOVZX,   ops2(.reg64, .rm8),         Op2(0x0F, 0xB6),        .RM, .REX_W,  .{x86_64} ),
     //
-    instr(.MOVZX,   ops2(.reg16, .rm16),        Op2(0x0F, 0xB7),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVZX,   ops2(.reg32, .rm16),        Op2(0x0F, 0xB7),        .RM, .RM32_Reg,    .{_386} ),
-    instr(.MOVZX,   ops2(.reg64, .rm16),        Op2(0x0F, 0xB7),        .RM, .RM32_Reg,    .{x86_64} ),
+    instr(.MOVZX,   ops2(.reg16, .rm16),        Op2(0x0F, 0xB7),        .RM, .Op16,   .{_386} ),
+    instr(.MOVZX,   ops2(.reg32, .rm16),        Op2(0x0F, 0xB7),        .RM, .Op32,   .{_386} ),
+    instr(.MOVZX,   ops2(.reg64, .rm16),        Op2(0x0F, 0xB7),        .RM, .REX_W,  .{x86_64} ),
 // SETcc
-    instr(.SETA,    ops1(.rm8),                 Op2(0x0F, 0x97),        .M,  .RM8,        .{_386} ),
-    instr(.SETAE,   ops1(.rm8),                 Op2(0x0F, 0x93),        .M,  .RM8,        .{_386} ),
-    instr(.SETB,    ops1(.rm8),                 Op2(0x0F, 0x92),        .M,  .RM8,        .{_386} ),
-    instr(.SETBE,   ops1(.rm8),                 Op2(0x0F, 0x96),        .M,  .RM8,        .{_386} ),
-    instr(.SETC,    ops1(.rm8),                 Op2(0x0F, 0x92),        .M,  .RM8,        .{_386} ),
-    instr(.SETE,    ops1(.rm8),                 Op2(0x0F, 0x94),        .M,  .RM8,        .{_386} ),
-    instr(.SETG,    ops1(.rm8),                 Op2(0x0F, 0x9F),        .M,  .RM8,        .{_386} ),
-    instr(.SETGE,   ops1(.rm8),                 Op2(0x0F, 0x9D),        .M,  .RM8,        .{_386} ),
-    instr(.SETL,    ops1(.rm8),                 Op2(0x0F, 0x9C),        .M,  .RM8,        .{_386} ),
-    instr(.SETLE,   ops1(.rm8),                 Op2(0x0F, 0x9E),        .M,  .RM8,        .{_386} ),
-    instr(.SETNA,   ops1(.rm8),                 Op2(0x0F, 0x96),        .M,  .RM8,        .{_386} ),
-    instr(.SETNAE,  ops1(.rm8),                 Op2(0x0F, 0x92),        .M,  .RM8,        .{_386} ),
-    instr(.SETNB,   ops1(.rm8),                 Op2(0x0F, 0x93),        .M,  .RM8,        .{_386} ),
-    instr(.SETNBE,  ops1(.rm8),                 Op2(0x0F, 0x97),        .M,  .RM8,        .{_386} ),
-    instr(.SETNC,   ops1(.rm8),                 Op2(0x0F, 0x93),        .M,  .RM8,        .{_386} ),
-    instr(.SETNE,   ops1(.rm8),                 Op2(0x0F, 0x95),        .M,  .RM8,        .{_386} ),
-    instr(.SETNG,   ops1(.rm8),                 Op2(0x0F, 0x9E),        .M,  .RM8,        .{_386} ),
-    instr(.SETNGE,  ops1(.rm8),                 Op2(0x0F, 0x9C),        .M,  .RM8,        .{_386} ),
-    instr(.SETNL,   ops1(.rm8),                 Op2(0x0F, 0x9D),        .M,  .RM8,        .{_386} ),
-    instr(.SETNLE,  ops1(.rm8),                 Op2(0x0F, 0x9F),        .M,  .RM8,        .{_386} ),
-    instr(.SETNO,   ops1(.rm8),                 Op2(0x0F, 0x91),        .M,  .RM8,        .{_386} ),
-    instr(.SETNP,   ops1(.rm8),                 Op2(0x0F, 0x9B),        .M,  .RM8,        .{_386} ),
-    instr(.SETNS,   ops1(.rm8),                 Op2(0x0F, 0x99),        .M,  .RM8,        .{_386} ),
-    instr(.SETNZ,   ops1(.rm8),                 Op2(0x0F, 0x95),        .M,  .RM8,        .{_386} ),
-    instr(.SETO,    ops1(.rm8),                 Op2(0x0F, 0x90),        .M,  .RM8,        .{_386} ),
-    instr(.SETP,    ops1(.rm8),                 Op2(0x0F, 0x9A),        .M,  .RM8,        .{_386} ),
-    instr(.SETPE,   ops1(.rm8),                 Op2(0x0F, 0x9A),        .M,  .RM8,        .{_386} ),
-    instr(.SETPO,   ops1(.rm8),                 Op2(0x0F, 0x9B),        .M,  .RM8,        .{_386} ),
-    instr(.SETS,    ops1(.rm8),                 Op2(0x0F, 0x98),        .M,  .RM8,        .{_386} ),
-    instr(.SETZ,    ops1(.rm8),                 Op2(0x0F, 0x94),        .M,  .RM8,        .{_386} ),
+    instr(.SETA,    ops1(.rm8),                 Op2(0x0F, 0x97),        .M,  .ZO,     .{_386} ),
+    instr(.SETAE,   ops1(.rm8),                 Op2(0x0F, 0x93),        .M,  .ZO,     .{_386} ),
+    instr(.SETB,    ops1(.rm8),                 Op2(0x0F, 0x92),        .M,  .ZO,     .{_386} ),
+    instr(.SETBE,   ops1(.rm8),                 Op2(0x0F, 0x96),        .M,  .ZO,     .{_386} ),
+    instr(.SETC,    ops1(.rm8),                 Op2(0x0F, 0x92),        .M,  .ZO,     .{_386} ),
+    instr(.SETE,    ops1(.rm8),                 Op2(0x0F, 0x94),        .M,  .ZO,     .{_386} ),
+    instr(.SETG,    ops1(.rm8),                 Op2(0x0F, 0x9F),        .M,  .ZO,     .{_386} ),
+    instr(.SETGE,   ops1(.rm8),                 Op2(0x0F, 0x9D),        .M,  .ZO,     .{_386} ),
+    instr(.SETL,    ops1(.rm8),                 Op2(0x0F, 0x9C),        .M,  .ZO,     .{_386} ),
+    instr(.SETLE,   ops1(.rm8),                 Op2(0x0F, 0x9E),        .M,  .ZO,     .{_386} ),
+    instr(.SETNA,   ops1(.rm8),                 Op2(0x0F, 0x96),        .M,  .ZO,     .{_386} ),
+    instr(.SETNAE,  ops1(.rm8),                 Op2(0x0F, 0x92),        .M,  .ZO,     .{_386} ),
+    instr(.SETNB,   ops1(.rm8),                 Op2(0x0F, 0x93),        .M,  .ZO,     .{_386} ),
+    instr(.SETNBE,  ops1(.rm8),                 Op2(0x0F, 0x97),        .M,  .ZO,     .{_386} ),
+    instr(.SETNC,   ops1(.rm8),                 Op2(0x0F, 0x93),        .M,  .ZO,     .{_386} ),
+    instr(.SETNE,   ops1(.rm8),                 Op2(0x0F, 0x95),        .M,  .ZO,     .{_386} ),
+    instr(.SETNG,   ops1(.rm8),                 Op2(0x0F, 0x9E),        .M,  .ZO,     .{_386} ),
+    instr(.SETNGE,  ops1(.rm8),                 Op2(0x0F, 0x9C),        .M,  .ZO,     .{_386} ),
+    instr(.SETNL,   ops1(.rm8),                 Op2(0x0F, 0x9D),        .M,  .ZO,     .{_386} ),
+    instr(.SETNLE,  ops1(.rm8),                 Op2(0x0F, 0x9F),        .M,  .ZO,     .{_386} ),
+    instr(.SETNO,   ops1(.rm8),                 Op2(0x0F, 0x91),        .M,  .ZO,     .{_386} ),
+    instr(.SETNP,   ops1(.rm8),                 Op2(0x0F, 0x9B),        .M,  .ZO,     .{_386} ),
+    instr(.SETNS,   ops1(.rm8),                 Op2(0x0F, 0x99),        .M,  .ZO,     .{_386} ),
+    instr(.SETNZ,   ops1(.rm8),                 Op2(0x0F, 0x95),        .M,  .ZO,     .{_386} ),
+    instr(.SETO,    ops1(.rm8),                 Op2(0x0F, 0x90),        .M,  .ZO,     .{_386} ),
+    instr(.SETP,    ops1(.rm8),                 Op2(0x0F, 0x9A),        .M,  .ZO,     .{_386} ),
+    instr(.SETPE,   ops1(.rm8),                 Op2(0x0F, 0x9A),        .M,  .ZO,     .{_386} ),
+    instr(.SETPO,   ops1(.rm8),                 Op2(0x0F, 0x9B),        .M,  .ZO,     .{_386} ),
+    instr(.SETS,    ops1(.rm8),                 Op2(0x0F, 0x98),        .M,  .ZO,     .{_386} ),
+    instr(.SETZ,    ops1(.rm8),                 Op2(0x0F, 0x94),        .M,  .ZO,     .{_386} ),
 // SHLD
-    instr(.SHLD,    ops3(.rm16,.reg16,.imm8),   Op2(0x0F, 0xA4),        .MRI, .RM32_I8,   .{_386} ),
-    instr(.SHLD,    ops3(.rm32,.reg32,.imm8),   Op2(0x0F, 0xA4),        .MRI, .RM32_I8,   .{_386} ),
-    instr(.SHLD,    ops3(.rm64,.reg64,.imm8),   Op2(0x0F, 0xA4),        .MRI, .RM32_I8,   .{x86_64} ),
+    instr(.SHLD,    ops3(.rm16,.reg16,.imm8),   Op2(0x0F, 0xA4),        .MRI, .Op16,  .{_386} ),
+    instr(.SHLD,    ops3(.rm32,.reg32,.imm8),   Op2(0x0F, 0xA4),        .MRI, .Op32,  .{_386} ),
+    instr(.SHLD,    ops3(.rm64,.reg64,.imm8),   Op2(0x0F, 0xA4),        .MRI, .REX_W, .{x86_64} ),
     //
-    instr(.SHLD,    ops3(.rm16,.reg16,.reg_cl), Op2(0x0F, 0xA5),        .MR, .RM32,       .{_386} ),
-    instr(.SHLD,    ops3(.rm32,.reg32,.reg_cl), Op2(0x0F, 0xA5),        .MR, .RM32,       .{_386} ),
-    instr(.SHLD,    ops3(.rm64,.reg64,.reg_cl), Op2(0x0F, 0xA5),        .MR, .RM32,       .{x86_64} ),
+    instr(.SHLD,    ops3(.rm16,.reg16,.reg_cl), Op2(0x0F, 0xA5),        .MR, .Op16,   .{_386} ),
+    instr(.SHLD,    ops3(.rm32,.reg32,.reg_cl), Op2(0x0F, 0xA5),        .MR, .Op32,   .{_386} ),
+    instr(.SHLD,    ops3(.rm64,.reg64,.reg_cl), Op2(0x0F, 0xA5),        .MR, .REX_W,  .{x86_64} ),
 // SHLD
-    instr(.SHRD,    ops3(.rm16,.reg16,.imm8),   Op2(0x0F, 0xAC),        .MRI, .RM32_I8,   .{_386} ),
-    instr(.SHRD,    ops3(.rm32,.reg32,.imm8),   Op2(0x0F, 0xAC),        .MRI, .RM32_I8,   .{_386} ),
-    instr(.SHRD,    ops3(.rm64,.reg64,.imm8),   Op2(0x0F, 0xAC),        .MRI, .RM32_I8,   .{x86_64} ),
+    instr(.SHRD,    ops3(.rm16,.reg16,.imm8),   Op2(0x0F, 0xAC),        .MRI, .Op16,  .{_386} ),
+    instr(.SHRD,    ops3(.rm32,.reg32,.imm8),   Op2(0x0F, 0xAC),        .MRI, .Op32,  .{_386} ),
+    instr(.SHRD,    ops3(.rm64,.reg64,.imm8),   Op2(0x0F, 0xAC),        .MRI, .REX_W, .{x86_64} ),
     //
-    instr(.SHRD,    ops3(.rm16,.reg16,.reg_cl), Op2(0x0F, 0xAD),        .MR, .RM32,       .{_386} ),
-    instr(.SHRD,    ops3(.rm32,.reg32,.reg_cl), Op2(0x0F, 0xAD),        .MR, .RM32,       .{_386} ),
-    instr(.SHRD,    ops3(.rm64,.reg64,.reg_cl), Op2(0x0F, 0xAD),        .MR, .RM32,       .{x86_64} ),
+    instr(.SHRD,    ops3(.rm16,.reg16,.reg_cl), Op2(0x0F, 0xAD),        .MR, .Op16,   .{_386} ),
+    instr(.SHRD,    ops3(.rm32,.reg32,.reg_cl), Op2(0x0F, 0xAD),        .MR, .Op32,   .{_386} ),
+    instr(.SHRD,    ops3(.rm64,.reg64,.reg_cl), Op2(0x0F, 0xAD),        .MR, .REX_W,  .{x86_64} ),
 
 //
 // 80486
-    instr(.BSWAP,   ops1(.reg16),               Op2(0x0F, 0xC8),        .O,  .RM32,       .{_486, edge.Undefined} ),
-    instr(.BSWAP,   ops1(.reg32),               Op2(0x0F, 0xC8),        .O,  .RM32,       .{_486} ),
-    instr(.BSWAP,   ops1(.reg64),               Op2(0x0F, 0xC8),        .O,  .RM32,       .{x86_64} ),
+    instr(.BSWAP,   ops1(.reg16),               Op2(0x0F, 0xC8),        .O,  .Op16,   .{_486, edge.Undefined} ),
+    instr(.BSWAP,   ops1(.reg32),               Op2(0x0F, 0xC8),        .O,  .Op32,   .{_486} ),
+    instr(.BSWAP,   ops1(.reg64),               Op2(0x0F, 0xC8),        .O,  .REX_W,  .{x86_64} ),
 // CMPXCHG
-    instr(.CMPXCHG, ops2(.rm8,  .reg8 ),        Op2(0x0F, 0xB0),        .MR, .RM8,        .{_486} ),
-    instr(.CMPXCHG, ops2(.rm16, .reg16),        Op2(0x0F, 0xB1),        .MR, .RM32,       .{_486} ),
-    instr(.CMPXCHG, ops2(.rm32, .reg32),        Op2(0x0F, 0xB1),        .MR, .RM32,       .{_486} ),
-    instr(.CMPXCHG, ops2(.rm64, .reg64),        Op2(0x0F, 0xB1),        .MR, .RM32,       .{x86_64} ),
+    instr(.CMPXCHG, ops2(.rm8,  .reg8 ),        Op2(0x0F, 0xB0),        .MR, .ZO,     .{_486, Lock, Hle} ),
+    instr(.CMPXCHG, ops2(.rm16, .reg16),        Op2(0x0F, 0xB1),        .MR, .Op16,   .{_486, Lock, Hle} ),
+    instr(.CMPXCHG, ops2(.rm32, .reg32),        Op2(0x0F, 0xB1),        .MR, .Op32,   .{_486, Lock, Hle} ),
+    instr(.CMPXCHG, ops2(.rm64, .reg64),        Op2(0x0F, 0xB1),        .MR, .REX_W,  .{x86_64, Lock, Hle} ),
 // INVD
-    instr(.INVD,    ops0(),                     Op2(0x0F, 0x08),        .ZO, .ZO,         .{_486} ),
+    instr(.INVD,    ops0(),                     Op2(0x0F, 0x08),        .ZO, .ZO,     .{_486} ),
 // INVLPG
-    instr(.INVLPG,  ops1(.rm_mem),              Op2r(0x0F, 0x01, 7),    .M, .ZO,          .{_486} ),
+    instr(.INVLPG,  ops1(.rm_mem),              Op2r(0x0F, 0x01, 7),    .M, .ZO,      .{_486} ),
 // WBINVD
-    instr(.WBINVD,  ops0(),                     Op2(0x0F, 0x09),        .ZO, .ZO,         .{_486} ),
+    instr(.WBINVD,  ops0(),                     Op2(0x0F, 0x09),        .ZO, .ZO,     .{_486} ),
 // XADD
-    instr(.XADD,    ops2(.rm8,  .reg8 ),        Op2(0x0F, 0xC0),        .MR, .RM8,        .{_486} ),
-    instr(.XADD,    ops2(.rm16, .reg16),        Op2(0x0F, 0xC1),        .MR, .RM32,       .{_486} ),
-    instr(.XADD,    ops2(.rm32, .reg32),        Op2(0x0F, 0xC1),        .MR, .RM32,       .{_486} ),
-    instr(.XADD,    ops2(.rm64, .reg64),        Op2(0x0F, 0xC1),        .MR, .RM32,       .{x86_64} ),
+    instr(.XADD,    ops2(.rm8,  .reg8 ),        Op2(0x0F, 0xC0),        .MR, .ZO,     .{_486} ),
+    instr(.XADD,    ops2(.rm16, .reg16),        Op2(0x0F, 0xC1),        .MR, .Op16,   .{_486} ),
+    instr(.XADD,    ops2(.rm32, .reg32),        Op2(0x0F, 0xC1),        .MR, .Op32,   .{_486} ),
+    instr(.XADD,    ops2(.rm64, .reg64),        Op2(0x0F, 0xC1),        .MR, .REX_W,  .{x86_64} ),
 
 //
 // Pentium
 //
-    instr(.CPUID,      ops0(),                  Op2(0x0F, 0xA2),        .ZO, .ZO,         .{Pent} ),
+    instr(.CPUID,      ops0(),                  Op2(0x0F, 0xA2),        .ZO, .ZO,     .{cpu.CPUID} ),
 // CMPXCHG8B / CMPXCHG16B
-    instr(.CMPXCHG8B,  ops1(.rm_mem64),         Op2r(0x0F, 0xC7, 1),    .M, .ZO,          .{Pent} ),
-    instr(.CMPXCHG16B, ops1(.rm_mem128),        Op2r(0x0F, 0xC7, 1),    .M, .REX_W,       .{Pent} ),
+    instr(.CMPXCHG8B,  ops1(.rm_mem64),         Op2r(0x0F, 0xC7, 1),    .M, .ZO,      .{cpu.CX8, Lock, Hle} ),
+    instr(.CMPXCHG16B, ops1(.rm_mem128),        Op2r(0x0F, 0xC7, 1),    .M, .REX_W,   .{cpu.CX16, Lock, Hle} ),
 // RDMSR
-    instr(.RDMSR,      ops0(),                  Op2(0x0F, 0x32),        .ZO, .ZO,         .{Pent} ),
+    instr(.RDMSR,      ops0(),                  Op2(0x0F, 0x32),        .ZO, .ZO,     .{cpu.MSR} ),
 // RDTSC
-    instr(.RDTSC,      ops0(),                  Op2(0x0F, 0x31),        .ZO, .ZO,         .{Pent} ),
+    instr(.RDTSC,      ops0(),                  Op2(0x0F, 0x31),        .ZO, .ZO,     .{cpu.TSC} ),
 // WRMSR
-    instr(.WRMSR,      ops0(),                  Op2(0x0F, 0x30),        .ZO, .ZO,         .{Pent} ),
+    instr(.WRMSR,      ops0(),                  Op2(0x0F, 0x30),        .ZO, .ZO,     .{cpu.MSR} ),
 // RSM
-    instr(.RSM,        ops0(),                  Op2(0x0F, 0xAA),        .ZO, .ZO,         .{Pent} ),
+    instr(.RSM,        ops0(),                  Op2(0x0F, 0xAA),        .ZO, .ZO,     .{cpu.RSM} ),
 
 //
 // Pentium MMX
 //
 // RDPMC
-    instr(.RDPMC,      ops0(),                  Op2(0x0F, 0x33),        .ZO, .ZO,         .{cpu.MMX} ),
+    instr(.RDPMC,      ops0(),                  Op2(0x0F, 0x33),        .ZO, .ZO,     .{P6} ),
 // EMMS
-    instr(.EMMS,       ops0(),               preOp2(._NP, 0x0F, 0x77),  .ZO, .ZO,         .{cpu.MMX} ),
+    instr(.EMMS,       ops0(),               preOp2(._NP, 0x0F, 0x77),  .ZO, .ZO,     .{cpu.MMX} ),
 
 //
 // K6
 //
-    instr(.SYSCALL, ops0(),                   Op2(0x0F, 0x05),        .ZO, .ZO,         .{cpu.K6} ),
-    instr(.SYSRET,  ops0(),                   Op2(0x0F, 0x07),        .ZO, .ZO,         .{cpu.K6} ),
-    instr(.SYSRETQ, ops0(),                   Op2(0x0F, 0x07),        .ZO64, .RM32,     .{cpu.K6} ),
+    instr(.SYSCALL, ops0(),                   Op2(0x0F, 0x05),        .ZO, .ZO,       .{cpu.SYSCALL, cpu.Intel, No32} ),
+    instr(.SYSCALL, ops0(),                   Op2(0x0F, 0x05),        .ZO, .ZO,       .{cpu.SYSCALL, cpu.Amd} ),
+    //
+    instr(.SYSRET,  ops0(),                   Op2(0x0F, 0x07),        .ZO, .ZO,       .{cpu.SYSCALL, cpu.Intel, No32} ),
+    instr(.SYSRET,  ops0(),                   Op2(0x0F, 0x07),        .ZO, .ZO,       .{cpu.SYSCALL, cpu.Amd} ),
+    instr(.SYSRETQ, ops0(),                   Op2(0x0F, 0x07),        .ZO, .REX_W,    .{x86_64} ),
 
 //
 // Pentium Pro
 //
 // CMOVcc
-    instr(.CMOVA,   ops2(.reg16, .rm16),      Op2(0x0F, 0x47),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVA,   ops2(.reg32, .rm32),      Op2(0x0F, 0x47),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVA,   ops2(.reg64, .rm64),      Op2(0x0F, 0x47),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVA,   ops2(.reg16, .rm16),      Op2(0x0F, 0x47),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVA,   ops2(.reg32, .rm32),      Op2(0x0F, 0x47),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVA,   ops2(.reg64, .rm64),      Op2(0x0F, 0x47),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVAE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVAE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVAE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVAE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x43),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVAE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x43),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVAE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x43),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVB,   ops2(.reg16, .rm16),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVB,   ops2(.reg32, .rm32),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVB,   ops2(.reg64, .rm64),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVB,   ops2(.reg16, .rm16),      Op2(0x0F, 0x42),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVB,   ops2(.reg32, .rm32),      Op2(0x0F, 0x42),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVB,   ops2(.reg64, .rm64),      Op2(0x0F, 0x42),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVBE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x46),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVBE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x46),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVBE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x46),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVBE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x46),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVBE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x46),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVBE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x46),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVC,   ops2(.reg16, .rm16),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVC,   ops2(.reg32, .rm32),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVC,   ops2(.reg64, .rm64),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVC,   ops2(.reg16, .rm16),      Op2(0x0F, 0x42),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVC,   ops2(.reg32, .rm32),      Op2(0x0F, 0x42),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVC,   ops2(.reg64, .rm64),      Op2(0x0F, 0x42),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVE,   ops2(.reg16, .rm16),      Op2(0x0F, 0x44),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVE,   ops2(.reg32, .rm32),      Op2(0x0F, 0x44),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVE,   ops2(.reg64, .rm64),      Op2(0x0F, 0x44),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVE,   ops2(.reg16, .rm16),      Op2(0x0F, 0x44),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVE,   ops2(.reg32, .rm32),      Op2(0x0F, 0x44),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVE,   ops2(.reg64, .rm64),      Op2(0x0F, 0x44),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVG,   ops2(.reg16, .rm16),      Op2(0x0F, 0x4F),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVG,   ops2(.reg32, .rm32),      Op2(0x0F, 0x4F),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVG,   ops2(.reg64, .rm64),      Op2(0x0F, 0x4F),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVG,   ops2(.reg16, .rm16),      Op2(0x0F, 0x4F),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVG,   ops2(.reg32, .rm32),      Op2(0x0F, 0x4F),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVG,   ops2(.reg64, .rm64),      Op2(0x0F, 0x4F),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVGE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4D),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVGE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4D),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVGE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4D),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVGE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4D),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVGE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4D),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVGE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4D),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVL,   ops2(.reg16, .rm16),      Op2(0x0F, 0x4C),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVL,   ops2(.reg32, .rm32),      Op2(0x0F, 0x4C),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVL,   ops2(.reg64, .rm64),      Op2(0x0F, 0x4C),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVL,   ops2(.reg16, .rm16),      Op2(0x0F, 0x4C),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVL,   ops2(.reg32, .rm32),      Op2(0x0F, 0x4C),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVL,   ops2(.reg64, .rm64),      Op2(0x0F, 0x4C),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVLE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4E),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVLE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4E),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVLE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4E),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVLE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4E),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVLE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4E),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVLE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4E),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNA,  ops2(.reg16, .rm16),      Op2(0x0F, 0x46),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNA,  ops2(.reg32, .rm32),      Op2(0x0F, 0x46),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNA,  ops2(.reg64, .rm64),      Op2(0x0F, 0x46),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNA,  ops2(.reg16, .rm16),      Op2(0x0F, 0x46),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNA,  ops2(.reg32, .rm32),      Op2(0x0F, 0x46),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNA,  ops2(.reg64, .rm64),      Op2(0x0F, 0x46),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNAE, ops2(.reg16, .rm16),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNAE, ops2(.reg32, .rm32),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNAE, ops2(.reg64, .rm64),      Op2(0x0F, 0x42),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNAE, ops2(.reg16, .rm16),      Op2(0x0F, 0x42),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNAE, ops2(.reg32, .rm32),      Op2(0x0F, 0x42),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNAE, ops2(.reg64, .rm64),      Op2(0x0F, 0x42),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNB,  ops2(.reg16, .rm16),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNB,  ops2(.reg32, .rm32),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNB,  ops2(.reg64, .rm64),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNB,  ops2(.reg16, .rm16),      Op2(0x0F, 0x43),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNB,  ops2(.reg32, .rm32),      Op2(0x0F, 0x43),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNB,  ops2(.reg64, .rm64),      Op2(0x0F, 0x43),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNBE, ops2(.reg16, .rm16),      Op2(0x0F, 0x47),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNBE, ops2(.reg32, .rm32),      Op2(0x0F, 0x47),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNBE, ops2(.reg64, .rm64),      Op2(0x0F, 0x47),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNBE, ops2(.reg16, .rm16),      Op2(0x0F, 0x47),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNBE, ops2(.reg32, .rm32),      Op2(0x0F, 0x47),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNBE, ops2(.reg64, .rm64),      Op2(0x0F, 0x47),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNC,  ops2(.reg16, .rm16),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNC,  ops2(.reg32, .rm32),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNC,  ops2(.reg64, .rm64),      Op2(0x0F, 0x43),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNC,  ops2(.reg16, .rm16),      Op2(0x0F, 0x43),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNC,  ops2(.reg32, .rm32),      Op2(0x0F, 0x43),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNC,  ops2(.reg64, .rm64),      Op2(0x0F, 0x43),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x45),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x45),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x45),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x45),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x45),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x45),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNG,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4E),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNG,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4E),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNG,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4E),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNG,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4E),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNG,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4E),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNG,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4E),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNGE, ops2(.reg16, .rm16),      Op2(0x0F, 0x4C),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNGE, ops2(.reg32, .rm32),      Op2(0x0F, 0x4C),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNGE, ops2(.reg64, .rm64),      Op2(0x0F, 0x4C),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNGE, ops2(.reg16, .rm16),      Op2(0x0F, 0x4C),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNGE, ops2(.reg32, .rm32),      Op2(0x0F, 0x4C),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNGE, ops2(.reg64, .rm64),      Op2(0x0F, 0x4C),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNL,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4D),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNL,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4D),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNL,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4D),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNL,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4D),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNL,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4D),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNL,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4D),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNLE, ops2(.reg16, .rm16),      Op2(0x0F, 0x4F),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNLE, ops2(.reg32, .rm32),      Op2(0x0F, 0x4F),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNLE, ops2(.reg64, .rm64),      Op2(0x0F, 0x4F),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNLE, ops2(.reg16, .rm16),      Op2(0x0F, 0x4F),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNLE, ops2(.reg32, .rm32),      Op2(0x0F, 0x4F),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNLE, ops2(.reg64, .rm64),      Op2(0x0F, 0x4F),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNO,  ops2(.reg16, .rm16),      Op2(0x0F, 0x41),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNO,  ops2(.reg32, .rm32),      Op2(0x0F, 0x41),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNO,  ops2(.reg64, .rm64),      Op2(0x0F, 0x41),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNO,  ops2(.reg16, .rm16),      Op2(0x0F, 0x41),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNO,  ops2(.reg32, .rm32),      Op2(0x0F, 0x41),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNO,  ops2(.reg64, .rm64),      Op2(0x0F, 0x41),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNP,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4B),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNP,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4B),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNP,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4B),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNP,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4B),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNP,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4B),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNP,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4B),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNS,  ops2(.reg16, .rm16),      Op2(0x0F, 0x49),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNS,  ops2(.reg32, .rm32),      Op2(0x0F, 0x49),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNS,  ops2(.reg64, .rm64),      Op2(0x0F, 0x49),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNS,  ops2(.reg16, .rm16),      Op2(0x0F, 0x49),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNS,  ops2(.reg32, .rm32),      Op2(0x0F, 0x49),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNS,  ops2(.reg64, .rm64),      Op2(0x0F, 0x49),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVNZ,  ops2(.reg16, .rm16),      Op2(0x0F, 0x45),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNZ,  ops2(.reg32, .rm32),      Op2(0x0F, 0x45),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVNZ,  ops2(.reg64, .rm64),      Op2(0x0F, 0x45),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVNZ,  ops2(.reg16, .rm16),      Op2(0x0F, 0x45),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVNZ,  ops2(.reg32, .rm32),      Op2(0x0F, 0x45),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVNZ,  ops2(.reg64, .rm64),      Op2(0x0F, 0x45),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVO,   ops2(.reg16, .rm16),      Op2(0x0F, 0x40),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVO,   ops2(.reg32, .rm32),      Op2(0x0F, 0x40),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVO,   ops2(.reg64, .rm64),      Op2(0x0F, 0x40),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVO,   ops2(.reg16, .rm16),      Op2(0x0F, 0x40),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVO,   ops2(.reg32, .rm32),      Op2(0x0F, 0x40),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVO,   ops2(.reg64, .rm64),      Op2(0x0F, 0x40),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVP,   ops2(.reg16, .rm16),      Op2(0x0F, 0x4A),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVP,   ops2(.reg32, .rm32),      Op2(0x0F, 0x4A),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVP,   ops2(.reg64, .rm64),      Op2(0x0F, 0x4A),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVP,   ops2(.reg16, .rm16),      Op2(0x0F, 0x4A),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVP,   ops2(.reg32, .rm32),      Op2(0x0F, 0x4A),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVP,   ops2(.reg64, .rm64),      Op2(0x0F, 0x4A),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVPE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4A),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVPE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4A),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVPE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4A),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVPE,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4A),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVPE,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4A),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVPE,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4A),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVPO,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4B),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVPO,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4B),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVPO,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4B),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVPO,  ops2(.reg16, .rm16),      Op2(0x0F, 0x4B),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVPO,  ops2(.reg32, .rm32),      Op2(0x0F, 0x4B),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVPO,  ops2(.reg64, .rm64),      Op2(0x0F, 0x4B),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVS,   ops2(.reg16, .rm16),      Op2(0x0F, 0x48),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVS,   ops2(.reg32, .rm32),      Op2(0x0F, 0x48),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVS,   ops2(.reg64, .rm64),      Op2(0x0F, 0x48),        .RM, .RM32,       .{cpu.P6, x86_64} ),
+    instr(.CMOVS,   ops2(.reg16, .rm16),      Op2(0x0F, 0x48),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVS,   ops2(.reg32, .rm32),      Op2(0x0F, 0x48),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVS,   ops2(.reg64, .rm64),      Op2(0x0F, 0x48),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
     //
-    instr(.CMOVZ,   ops2(.reg16, .rm16),      Op2(0x0F, 0x44),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVZ,   ops2(.reg32, .rm32),      Op2(0x0F, 0x44),        .RM, .RM32,       .{cpu.P6} ),
-    instr(.CMOVZ,   ops2(.reg64, .rm64),      Op2(0x0F, 0x44),        .RM, .RM32,       .{cpu.P6, x86_64} ),
-// UD
-    instr(.UD0, ops2(.reg16, .rm16),          Op2(0x0F, 0xFF),        .RM, .RM32,       .{cpu.PentPro} ),
-    instr(.UD0, ops2(.reg32, .rm32),          Op2(0x0F, 0xFF),        .RM, .RM32,       .{cpu.PentPro} ),
-    instr(.UD0, ops2(.reg64, .rm64),          Op2(0x0F, 0xFF),        .RM, .RM32,       .{cpu.PentPro} ),
+    instr(.CMOVZ,   ops2(.reg16, .rm16),      Op2(0x0F, 0x44),        .RM, .Op16,     .{cpu.CMOV} ),
+    instr(.CMOVZ,   ops2(.reg32, .rm32),      Op2(0x0F, 0x44),        .RM, .Op32,     .{cpu.CMOV} ),
+    instr(.CMOVZ,   ops2(.reg64, .rm64),      Op2(0x0F, 0x44),        .RM, .REX_W,    .{cpu.CMOV, x86_64} ),
+// UD (first documented, but actually available since 80186)
+    instr(.UD0, ops2(.reg16, .rm16),          Op2(0x0F, 0xFF),        .RM, .Op16,     .{_186} ),
+    instr(.UD0, ops2(.reg32, .rm32),          Op2(0x0F, 0xFF),        .RM, .Op32,     .{_186} ),
+    instr(.UD0, ops2(.reg64, .rm64),          Op2(0x0F, 0xFF),        .RM, .REX_W,    .{x86_64} ),
     //
-    instr(.UD1, ops2(.reg16, .rm16),          Op2(0x0F, 0xB9),        .RM, .RM32,       .{cpu.PentPro} ),
-    instr(.UD1, ops2(.reg32, .rm32),          Op2(0x0F, 0xB9),        .RM, .RM32,       .{cpu.PentPro} ),
-    instr(.UD1, ops2(.reg64, .rm64),          Op2(0x0F, 0xB9),        .RM, .RM32,       .{cpu.PentPro} ),
+    instr(.UD1, ops2(.reg16, .rm16),          Op2(0x0F, 0xB9),        .RM, .Op16,     .{_186} ),
+    instr(.UD1, ops2(.reg32, .rm32),          Op2(0x0F, 0xB9),        .RM, .Op32,     .{_186} ),
+    instr(.UD1, ops2(.reg64, .rm64),          Op2(0x0F, 0xB9),        .RM, .REX_W,    .{x86_64} ),
     //
-    instr(.UD2, ops0(),                       Op2(0x0F, 0x0B),        .ZO, .ZO,         .{cpu.PentPro} ),
+    instr(.UD2, ops0(),                       Op2(0x0F, 0x0B),        .ZO, .ZO,       .{P6} ),
 
 //
 // Pentium II
 //
-    instr(.SYSENTER, ops0(),                  Op2(0x0F, 0x34),        .ZO, .ZO,         .{cpu.Pent2} ),
-    instr(.SYSEXIT,  ops0(),                  Op2(0x0F, 0x35),        .ZO, .ZO,         .{cpu.Pent2} ),
-    instr(.SYSEXITQ, ops0(),                  Op2(0x0F, 0x35),        .ZO64, .RM32,     .{cpu.Pent2} ),
+    instr(.SYSENTER, ops0(),                  Op2(0x0F, 0x34),        .ZO, .ZO,       .{cpu.SEP} ),
+    instr(.SYSEXIT,  ops0(),                  Op2(0x0F, 0x35),        .ZO, .ZO,       .{cpu.SEP} ),
+    instr(.SYSEXITQ, ops0(),                  Op2(0x0F, 0x35),        .ZO, .REX_W,    .{cpu.SEP, x86_64, No32} ),
 
 //
 // x86-64
 //
-    instr(.RDTSCP, ops0(),                    Op3(0x0F, 0x01, 0xF9),  .ZO, .ZO,         .{x86_64} ),
-    instr(.SWAPGS, ops0(),                    Op3(0x0F, 0x01, 0xF8),  .ZO, .ZO,         .{x86_64} ),
+    instr(.RDTSCP, ops0(),                    Op3(0x0F, 0x01, 0xF9),  .ZO, .ZO,       .{x86_64} ),
+    instr(.SWAPGS, ops0(),                    Op3(0x0F, 0x01, 0xF8),  .ZO, .ZO,       .{x86_64} ),
 
 //
 // bit manipulation (ABM / BMI1 / BMI2)
 //
 // LZCNT
-    instr(.LZCNT,   ops2(.reg16, .rm16),            preOp2(._F3, 0x0F, 0xBD),         .RM, .RM32,  .{ABM} ),
-    instr(.LZCNT,   ops2(.reg32, .rm32),            preOp2(._F3, 0x0F, 0xBD),         .RM, .RM32,  .{ABM} ),
-    instr(.LZCNT,   ops2(.reg64, .rm64),            preOp2(._F3, 0x0F, 0xBD),         .RM, .RM32,  .{ABM, x86_64} ),
+    instr(.LZCNT,   ops2(.reg16, .rm16),            preOp2(._F3, 0x0F, 0xBD),         .RM, .Op16,  .{cpu.LZCNT} ),
+    instr(.LZCNT,   ops2(.reg32, .rm32),            preOp2(._F3, 0x0F, 0xBD),         .RM, .Op32,  .{cpu.LZCNT} ),
+    instr(.LZCNT,   ops2(.reg64, .rm64),            preOp2(._F3, 0x0F, 0xBD),         .RM, .REX_W, .{cpu.LZCNT, x86_64} ),
 // LZCNT
-    instr(.POPCNT,  ops2(.reg16, .rm16),            preOp2(._F3, 0x0F, 0xB8),         .RM, .RM32,  .{ABM} ),
-    instr(.POPCNT,  ops2(.reg32, .rm32),            preOp2(._F3, 0x0F, 0xB8),         .RM, .RM32,  .{ABM} ),
-    instr(.POPCNT,  ops2(.reg64, .rm64),            preOp2(._F3, 0x0F, 0xB8),         .RM, .RM32,  .{ABM, x86_64} ),
+    instr(.POPCNT,  ops2(.reg16, .rm16),            preOp2(._F3, 0x0F, 0xB8),         .RM, .Op16,  .{cpu.POPCNT} ),
+    instr(.POPCNT,  ops2(.reg32, .rm32),            preOp2(._F3, 0x0F, 0xB8),         .RM, .Op32,  .{cpu.POPCNT} ),
+    instr(.POPCNT,  ops2(.reg64, .rm64),            preOp2(._F3, 0x0F, 0xB8),         .RM, .REX_W, .{cpu.POPCNT, x86_64} ),
 // ANDN
-    instr(.ANDN,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._NP,._0F38,.W0, 0xF2),   .RVM, .ZO,   .{BMI1} ),
-    instr(.ANDN,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._NP,._0F38,.W1, 0xF2),   .RVM, .ZO,   .{BMI1} ),
+    instr(.ANDN,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._NP,._0F38,.W0, 0xF2),   .RVM, .ZO,   .{cpu.BMI1} ),
+    instr(.ANDN,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._NP,._0F38,.W1, 0xF2),   .RVM, .ZO,   .{cpu.BMI1} ),
 // BEXTR
-    instr(.BEXTR,   ops3(.reg32, .rm32, .reg32),    vex(.LZ,._NP,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{BMI1} ),
-    instr(.BEXTR,   ops3(.reg64, .rm64, .reg64),    vex(.LZ,._NP,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{BMI1} ),
+    instr(.BEXTR,   ops3(.reg32, .rm32, .reg32),    vex(.LZ,._NP,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{cpu.BMI1} ),
+    instr(.BEXTR,   ops3(.reg64, .rm64, .reg64),    vex(.LZ,._NP,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{cpu.BMI1} ),
 // BLSI
-    instr(.BLSI,    ops2(.reg32, .rm32),            vexr(.LZ,._NP,._0F38,.W0,0xF3, 3),.VM, .ZO,    .{BMI1} ),
-    instr(.BLSI,    ops2(.reg64, .rm64),            vexr(.LZ,._NP,._0F38,.W1,0xF3, 3),.VM, .ZO,    .{BMI1} ),
+    instr(.BLSI,    ops2(.reg32, .rm32),            vexr(.LZ,._NP,._0F38,.W0,0xF3, 3),.VM, .ZO,    .{cpu.BMI1} ),
+    instr(.BLSI,    ops2(.reg64, .rm64),            vexr(.LZ,._NP,._0F38,.W1,0xF3, 3),.VM, .ZO,    .{cpu.BMI1} ),
 // BLSMSK
-    instr(.BLSMSK,  ops2(.reg32, .rm32),            vexr(.LZ,._NP,._0F38,.W0,0xF3, 2),.VM, .ZO,    .{BMI1} ),
-    instr(.BLSMSK,  ops2(.reg64, .rm64),            vexr(.LZ,._NP,._0F38,.W1,0xF3, 2),.VM, .ZO,    .{BMI1} ),
+    instr(.BLSMSK,  ops2(.reg32, .rm32),            vexr(.LZ,._NP,._0F38,.W0,0xF3, 2),.VM, .ZO,    .{cpu.BMI1} ),
+    instr(.BLSMSK,  ops2(.reg64, .rm64),            vexr(.LZ,._NP,._0F38,.W1,0xF3, 2),.VM, .ZO,    .{cpu.BMI1} ),
 // BLSR
-    instr(.BLSR,    ops2(.reg32, .rm32),            vexr(.LZ,._NP,._0F38,.W0,0xF3, 1),.VM, .ZO,    .{BMI1} ),
-    instr(.BLSR,    ops2(.reg64, .rm64),            vexr(.LZ,._NP,._0F38,.W1,0xF3, 1),.VM, .ZO,    .{BMI1} ),
+    instr(.BLSR,    ops2(.reg32, .rm32),            vexr(.LZ,._NP,._0F38,.W0,0xF3, 1),.VM, .ZO,    .{cpu.BMI1} ),
+    instr(.BLSR,    ops2(.reg64, .rm64),            vexr(.LZ,._NP,._0F38,.W1,0xF3, 1),.VM, .ZO,    .{cpu.BMI1} ),
 // BZHI
-    instr(.BZHI,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._NP,._0F38,.W0, 0xF5),   .RMV, .ZO,   .{BMI2} ),
-    instr(.BZHI,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._NP,._0F38,.W1, 0xF5),   .RMV, .ZO,   .{BMI2} ),
+    instr(.BZHI,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._NP,._0F38,.W0, 0xF5),   .RMV, .ZO,   .{cpu.BMI2} ),
+    instr(.BZHI,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._NP,._0F38,.W1, 0xF5),   .RMV, .ZO,   .{cpu.BMI2} ),
 // MULX
-    instr(.MULX,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._F2,._0F38,.W0, 0xF6),   .RVM, .ZO,   .{BMI2} ),
-    instr(.MULX,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._F2,._0F38,.W1, 0xF6),   .RVM, .ZO,   .{BMI2} ),
+    instr(.MULX,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._F2,._0F38,.W0, 0xF6),   .RVM, .ZO,   .{cpu.BMI2} ),
+    instr(.MULX,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._F2,._0F38,.W1, 0xF6),   .RVM, .ZO,   .{cpu.BMI2} ),
 // PDEP
-    instr(.PDEP,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._F2,._0F38,.W0, 0xF5),   .RVM, .ZO,   .{BMI2} ),
-    instr(.PDEP,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._F2,._0F38,.W1, 0xF5),   .RVM, .ZO,   .{BMI2} ),
+    instr(.PDEP,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._F2,._0F38,.W0, 0xF5),   .RVM, .ZO,   .{cpu.BMI2} ),
+    instr(.PDEP,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._F2,._0F38,.W1, 0xF5),   .RVM, .ZO,   .{cpu.BMI2} ),
 // PEXT
-    instr(.PEXT,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._F3,._0F38,.W0, 0xF5),   .RVM, .ZO,   .{BMI2} ),
-    instr(.PEXT,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._F3,._0F38,.W1, 0xF5),   .RVM, .ZO,   .{BMI2} ),
+    instr(.PEXT,    ops3(.reg32, .reg32, .rm32),    vex(.LZ,._F3,._0F38,.W0, 0xF5),   .RVM, .ZO,   .{cpu.BMI2} ),
+    instr(.PEXT,    ops3(.reg64, .reg64, .rm64),    vex(.LZ,._F3,._0F38,.W1, 0xF5),   .RVM, .ZO,   .{cpu.BMI2} ),
 // RORX
-    instr(.RORX,    ops3(.reg32, .rm32, .imm8),     vex(.LZ,._F2,._0F3A,.W0, 0xF0),   .vRMI,.ZO,   .{BMI2} ),
-    instr(.RORX,    ops3(.reg64, .rm64, .imm8),     vex(.LZ,._F2,._0F3A,.W1, 0xF0),   .vRMI,.ZO,   .{BMI2} ),
+    instr(.RORX,    ops3(.reg32, .rm32, .imm8),     vex(.LZ,._F2,._0F3A,.W0, 0xF0),   .vRMI,.ZO,   .{cpu.BMI2} ),
+    instr(.RORX,    ops3(.reg64, .rm64, .imm8),     vex(.LZ,._F2,._0F3A,.W1, 0xF0),   .vRMI,.ZO,   .{cpu.BMI2} ),
 // SARX
-    instr(.SARX,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._F3,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{BMI2} ),
-    instr(.SARX,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._F3,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{BMI2} ),
+    instr(.SARX,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._F3,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{cpu.BMI2} ),
+    instr(.SARX,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._F3,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{cpu.BMI2} ),
 // SHLX
-    instr(.SHLX,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._66,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{BMI2} ),
-    instr(.SHLX,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._66,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{BMI2} ),
+    instr(.SHLX,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._66,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{cpu.BMI2} ),
+    instr(.SHLX,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._66,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{cpu.BMI2} ),
 // SHRX
-    instr(.SHRX,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._F2,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{BMI2} ),
-    instr(.SHRX,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._F2,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{BMI2} ),
+    instr(.SHRX,    ops3(.reg32, .rm32, .reg32),    vex(.LZ,._F2,._0F38,.W0, 0xF7),   .RMV, .ZO,   .{cpu.BMI2} ),
+    instr(.SHRX,    ops3(.reg64, .rm64, .reg64),    vex(.LZ,._F2,._0F38,.W1, 0xF7),   .RMV, .ZO,   .{cpu.BMI2} ),
 // TZCNT
-    instr(.TZCNT,   ops2(.reg16, .rm16),            preOp2(._F3, 0x0F, 0xBC),         .RM, .RM32,  .{BMI1} ),
-    instr(.TZCNT,   ops2(.reg32, .rm32),            preOp2(._F3, 0x0F, 0xBC),         .RM, .RM32,  .{BMI1} ),
-    instr(.TZCNT,   ops2(.reg64, .rm64),            preOp2(._F3, 0x0F, 0xBC),         .RM, .RM32,  .{BMI1, x86_64} ),
+    instr(.TZCNT,   ops2(.reg16, .rm16),            preOp2(._F3, 0x0F, 0xBC),         .RM, .Op16,  .{cpu.BMI1} ),
+    instr(.TZCNT,   ops2(.reg32, .rm32),            preOp2(._F3, 0x0F, 0xBC),         .RM, .Op32,  .{cpu.BMI1} ),
+    instr(.TZCNT,   ops2(.reg64, .rm64),            preOp2(._F3, 0x0F, 0xBC),         .RM, .REX_W, .{cpu.BMI1, x86_64} ),
 //
 // TBM (AMD specific/legacy)
 //
@@ -2461,198 +2508,202 @@ pub const instruction_database = [_]InstructionItem {
 //
 // ADX
     // ADCX
-    instr(.ADCX,       ops2(.reg32, .rm32),          preOp3(._66, 0x0F, 0x38, 0xF6),      .RM, .RM32,  .{ADX} ),
-    instr(.ADCX,       ops2(.reg64, .rm64),          preOp3(._66, 0x0F, 0x38, 0xF6),      .RM, .RM32,  .{ADX} ),
+    instr(.ADCX,       ops2(.reg32, .rm32),          preOp3(._66, 0x0F, 0x38, 0xF6),      .RM, .Op32,  .{cpu.ADX} ),
+    instr(.ADCX,       ops2(.reg64, .rm64),          preOp3(._66, 0x0F, 0x38, 0xF6),      .RM, .REX_W, .{cpu.ADX} ),
     // ADOX
-    instr(.ADOX,       ops2(.reg32, .rm32),          preOp3(._F3, 0x0F, 0x38, 0xF6),      .RM, .RM32,  .{ADX} ),
-    instr(.ADOX,       ops2(.reg64, .rm64),          preOp3(._F3, 0x0F, 0x38, 0xF6),      .RM, .RM32,  .{ADX} ),
+    instr(.ADOX,       ops2(.reg32, .rm32),          preOp3(._F3, 0x0F, 0x38, 0xF6),      .RM, .Op32,  .{cpu.ADX} ),
+    instr(.ADOX,       ops2(.reg64, .rm64),          preOp3(._F3, 0x0F, 0x38, 0xF6),      .RM, .REX_W, .{cpu.ADX} ),
 // CLDEMOTE
-    instr(.CLDEMOTE,   ops1(.rm_mem8),               preOp2r(._NP, 0x0F, 0x1C, 0),        .M, .RM8,    .{CLDEMOTE} ),
+    instr(.CLDEMOTE,   ops1(.rm_mem8),               preOp2r(._NP, 0x0F, 0x1C, 0),        .M, .ZO,     .{cpu.CLDEMOTE} ),
 // CLFLUSHOPT
-    instr(.CLFLUSHOPT, ops1(.rm_mem8),               preOp2r(._66, 0x0F, 0xAE, 7),        .M, .RM8,    .{CLFLUSHOPT} ),
+    instr(.CLFLUSHOPT, ops1(.rm_mem8),               preOp2r(._66, 0x0F, 0xAE, 7),        .M, .ZO,     .{cpu.CLFLUSHOPT} ),
 // CET_IBT
-    instr(.ENDBR32,    ops0(),                       preOp3(._F3, 0x0F, 0x1E, 0xFB),      .ZO, .ZO,    .{CET_IBT} ),
-    instr(.ENDBR64,    ops0(),                       preOp3(._F3, 0x0F, 0x1E, 0xFA),      .ZO, .ZO,    .{CET_IBT} ),
+    instr(.ENDBR32,    ops0(),                       preOp3(._F3, 0x0F, 0x1E, 0xFB),      .ZO, .ZO,    .{cpu.CET_IBT} ),
+    instr(.ENDBR64,    ops0(),                       preOp3(._F3, 0x0F, 0x1E, 0xFA),      .ZO, .ZO,    .{cpu.CET_IBT} ),
 // CET_SS
     // CLRSSBSY
-    instr(.CLRSSBSY,   ops1(.rm_mem64),              preOp2r(._F3, 0x0F, 0xAE, 6),        .M, .ZO,     .{CET_SS} ),
+    instr(.CLRSSBSY,   ops1(.rm_mem64),              preOp2r(._F3, 0x0F, 0xAE, 6),        .M, .ZO,     .{cpu.CET_SS} ),
     // INCSSPD / INCSSPQ
-    instr(.INCSSPD,    ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 5),        .M, .RM32,   .{CET_SS} ),
-    instr(.INCSSPQ,    ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 5),        .M, .RM32,   .{CET_SS} ),
+    instr(.INCSSPD,    ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 5),        .M, .Op32,   .{cpu.CET_SS} ),
+    instr(.INCSSPQ,    ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 5),        .M, .REX_W,  .{cpu.CET_SS} ),
     // RDSSP
-    instr(.RDSSPD,     ops1(.reg32),                 preOp2r(._F3, 0x0F, 0x1E, 1),        .M, .RM32,   .{CET_SS} ),
-    instr(.RDSSPQ,     ops1(.reg64),                 preOp2r(._F3, 0x0F, 0x1E, 1),        .M, .RM32,   .{CET_SS} ),
+    instr(.RDSSPD,     ops1(.reg32),                 preOp2r(._F3, 0x0F, 0x1E, 1),        .M, .Op32,   .{cpu.CET_SS} ),
+    instr(.RDSSPQ,     ops1(.reg64),                 preOp2r(._F3, 0x0F, 0x1E, 1),        .M, .REX_W,  .{cpu.CET_SS} ),
     // RSTORSSP
-    instr(.RSTORSSP,   ops1(.rm_mem64),              preOp2r(._F3, 0x0F, 0x01, 5),        .M, .ZO,     .{CET_SS} ),
+    instr(.RSTORSSP,   ops1(.rm_mem64),              preOp2r(._F3, 0x0F, 0x01, 5),        .M, .ZO,     .{cpu.CET_SS} ),
     // SAVEPREVSSP
-    instr(.SAVEPREVSSP,ops0(),                       preOp3(._F3, 0x0F, 0x01, 0xEA),      .ZO,.ZO,     .{CET_SS} ),
+    instr(.SAVEPREVSSP,ops0(),                       preOp3(._F3, 0x0F, 0x01, 0xEA),      .ZO,.ZO,     .{cpu.CET_SS} ),
     // SETSSBSY
-    instr(.SETSSBSY,   ops0(),                       preOp3(._F3, 0x0F, 0x01, 0xE8),      .ZO,.ZO,     .{CET_SS} ),
+    instr(.SETSSBSY,   ops0(),                       preOp3(._F3, 0x0F, 0x01, 0xE8),      .ZO,.ZO,     .{cpu.CET_SS} ),
     // WRSS
-    instr(.WRSSD,      ops2(.rm32, .reg32),             Op3(0x0F, 0x38, 0xF6),            .MR, .RM32,  .{CET_SS} ),
-    instr(.WRSSQ,      ops2(.rm64, .reg64),             Op3(0x0F, 0x38, 0xF6),            .MR, .RM32,  .{CET_SS} ),
+    instr(.WRSSD,      ops2(.rm32, .reg32),             Op3(0x0F, 0x38, 0xF6),            .MR, .Op32,  .{cpu.CET_SS} ),
+    instr(.WRSSQ,      ops2(.rm64, .reg64),             Op3(0x0F, 0x38, 0xF6),            .MR, .REX_W, .{cpu.CET_SS} ),
     // WRUSS
-    instr(.WRUSSD,     ops2(.rm32, .reg32),          preOp3(._66, 0x0F, 0x38, 0xF5),      .MR, .RM32,  .{CET_SS} ),
-    instr(.WRUSSQ,     ops2(.rm64, .reg64),          preOp3(._66, 0x0F, 0x38, 0xF5),      .MR, .RM32,  .{CET_SS} ),
+    instr(.WRUSSD,     ops2(.rm32, .reg32),          preOp3(._66, 0x0F, 0x38, 0xF5),      .MR, .Op32,  .{cpu.CET_SS} ),
+    instr(.WRUSSQ,     ops2(.rm64, .reg64),          preOp3(._66, 0x0F, 0x38, 0xF5),      .MR, .REX_W, .{cpu.CET_SS} ),
 // CLWB
-    instr(.CLWB,       ops1(.rm_mem8),               preOp2r(._66, 0x0F, 0xAE, 6),        .M, .RM8,    .{CLWB} ),
+    instr(.CLWB,       ops1(.rm_mem8),               preOp2r(._66, 0x0F, 0xAE, 6),        .M, .ZO,     .{cpu.CLWB} ),
 // FSGSBASE
     // RDFSBASE
-    instr(.RDFSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 0),        .M, .RM32,   .{FSGSBASE} ),
-    instr(.RDFSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 0),        .M, .RM32,   .{FSGSBASE} ),
+    instr(.RDFSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 0),        .M, .Op32,   .{cpu.FSGSBASE} ),
+    instr(.RDFSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 0),        .M, .REX_W,  .{cpu.FSGSBASE} ),
     // RDGSBASE
-    instr(.RDGSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 1),        .M, .RM32,   .{FSGSBASE} ),
-    instr(.RDGSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 1),        .M, .RM32,   .{FSGSBASE} ),
+    instr(.RDGSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 1),        .M, .Op32,   .{cpu.FSGSBASE} ),
+    instr(.RDGSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 1),        .M, .REX_W,  .{cpu.FSGSBASE} ),
     // WRFSBASE
-    instr(.WRFSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 2),        .M, .RM32,   .{FSGSBASE} ),
-    instr(.WRFSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 2),        .M, .RM32,   .{FSGSBASE} ),
+    instr(.WRFSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 2),        .M, .Op32,   .{cpu.FSGSBASE} ),
+    instr(.WRFSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 2),        .M, .REX_W,  .{cpu.FSGSBASE} ),
     // WRGSBASE
-    instr(.WRGSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 3),        .M, .RM32,   .{FSGSBASE} ),
-    instr(.WRGSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 3),        .M, .RM32,   .{FSGSBASE} ),
+    instr(.WRGSBASE,   ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xAE, 3),        .M, .Op32,   .{cpu.FSGSBASE} ),
+    instr(.WRGSBASE,   ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xAE, 3),        .M, .REX_W,  .{cpu.FSGSBASE} ),
 // FXRSTOR
-    instr(.FXRSTOR,    ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 1),        .M, .ZO,     .{FXSR} ),
-    instr(.FXRSTOR64,  ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 1),        .M, .REX_W,  .{FXSR, No32} ),
+    instr(.FXRSTOR,    ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 1),        .M, .ZO,     .{cpu.FXSR} ),
+    instr(.FXRSTOR64,  ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 1),        .M, .REX_W,  .{cpu.FXSR, No32} ),
 // FXSAVE
-    instr(.FXSAVE,     ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 0),        .M, .ZO,     .{FXSR} ),
-    instr(.FXSAVE64,   ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 0),        .M, .REX_W,  .{FXSR, No32} ),
+    instr(.FXSAVE,     ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 0),        .M, .ZO,     .{cpu.FXSR} ),
+    instr(.FXSAVE64,   ops1(.rm_mem),                preOp2r(._NP, 0x0F, 0xAE, 0),        .M, .REX_W,  .{cpu.FXSR, No32} ),
 // SGX
-    instr(.ENCLS,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xCF),      .ZO,.ZO,     .{SGX} ),
-    instr(.ENCLU,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD7),      .ZO,.ZO,     .{SGX} ),
-    instr(.ENCLV,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xC0),      .ZO,.ZO,     .{SGX} ),
+    instr(.ENCLS,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xCF),      .ZO,.ZO,     .{cpu.SGX} ),
+    instr(.ENCLU,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD7),      .ZO,.ZO,     .{cpu.SGX} ),
+    instr(.ENCLV,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xC0),      .ZO,.ZO,     .{cpu.SGX} ),
 // SMX
-    instr(.GETSEC,     ops0(),                       preOp2(._NP, 0x0F, 0x37),            .ZO,.ZO,     .{SMX} ),
+    instr(.GETSEC,     ops0(),                       preOp2(._NP, 0x0F, 0x37),            .ZO,.ZO,     .{cpu.SMX} ),
 // GFNI
     instr(.GF2P8AFFINEINVQB, ops3(.xmml, .xmml_m128, .imm8), preOp3(._66, 0x0F, 0x3A, 0xCF), .RMI,.ZO, .{GFNI} ),
     instr(.GF2P8AFFINEQB,    ops3(.xmml, .xmml_m128, .imm8), preOp3(._66, 0x0F, 0x3A, 0xCE), .RMI,.ZO, .{GFNI} ),
     instr(.GF2P8MULB,        ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xCF), .RM, .ZO, .{GFNI} ),
 // INVPCID
-    instr(.INVPCID,    ops2(.reg32, .rm_mem128),     preOp3(._66, 0x0F, 0x38, 0x82),      .RM, .ZO,    .{INVPCID, No64} ),
-    instr(.INVPCID,    ops2(.reg64, .rm_mem128),     preOp3(._66, 0x0F, 0x38, 0x82),      .RM, .ZO,    .{INVPCID, No32} ),
+    instr(.INVPCID,    ops2(.reg32, .rm_mem128),     preOp3(._66, 0x0F, 0x38, 0x82),      .RM, .ZO,    .{cpu.INVPCID, No64} ),
+    instr(.INVPCID,    ops2(.reg64, .rm_mem128),     preOp3(._66, 0x0F, 0x38, 0x82),      .RM, .ZO,    .{cpu.INVPCID, No32} ),
 // MOVBE
-    instr(.MOVBE,      ops2(.reg16, .rm_mem16),         Op3(0x0F, 0x38, 0xF0),            .RM, .RM32,  .{MOVBE} ),
-    instr(.MOVBE,      ops2(.reg32, .rm_mem32),         Op3(0x0F, 0x38, 0xF0),            .RM, .RM32,  .{MOVBE} ),
-    instr(.MOVBE,      ops2(.reg64, .rm_mem64),         Op3(0x0F, 0x38, 0xF0),            .RM, .RM32,  .{MOVBE} ),
+    instr(.MOVBE,      ops2(.reg16, .rm_mem16),         Op3(0x0F, 0x38, 0xF0),            .RM, .Op16,  .{cpu.MOVBE} ),
+    instr(.MOVBE,      ops2(.reg32, .rm_mem32),         Op3(0x0F, 0x38, 0xF0),            .RM, .Op32,  .{cpu.MOVBE} ),
+    instr(.MOVBE,      ops2(.reg64, .rm_mem64),         Op3(0x0F, 0x38, 0xF0),            .RM, .REX_W, .{cpu.MOVBE} ),
     //
-    instr(.MOVBE,      ops2(.rm_mem16, .reg16),         Op3(0x0F, 0x38, 0xF1),            .MR, .RM32,  .{MOVBE} ),
-    instr(.MOVBE,      ops2(.rm_mem32, .reg32),         Op3(0x0F, 0x38, 0xF1),            .MR, .RM32,  .{MOVBE} ),
-    instr(.MOVBE,      ops2(.rm_mem64, .reg64),         Op3(0x0F, 0x38, 0xF1),            .MR, .RM32,  .{MOVBE} ),
+    instr(.MOVBE,      ops2(.rm_mem16, .reg16),         Op3(0x0F, 0x38, 0xF1),            .MR, .Op16,  .{cpu.MOVBE} ),
+    instr(.MOVBE,      ops2(.rm_mem32, .reg32),         Op3(0x0F, 0x38, 0xF1),            .MR, .Op32,  .{cpu.MOVBE} ),
+    instr(.MOVBE,      ops2(.rm_mem64, .reg64),         Op3(0x0F, 0x38, 0xF1),            .MR, .REX_W, .{cpu.MOVBE} ),
 // MOVDIRI
-    instr(.MOVDIRI,    ops2(.rm_mem32, .reg32),      preOp3(._NP, 0x0F, 0x38, 0xF9),      .MR, .RM32,  .{MOVDIRI} ),
-    instr(.MOVDIRI,    ops2(.rm_mem64, .reg64),      preOp3(._NP, 0x0F, 0x38, 0xF9),      .MR, .RM32,  .{MOVDIRI} ),
+    instr(.MOVDIRI,    ops2(.rm_mem32, .reg32),      preOp3(._NP, 0x0F, 0x38, 0xF9),      .MR, .Op32,  .{cpu.MOVDIRI} ),
+    instr(.MOVDIRI,    ops2(.rm_mem64, .reg64),      preOp3(._NP, 0x0F, 0x38, 0xF9),      .MR, .REX_W, .{cpu.MOVDIRI} ),
 // MOVDIR64B
-    instr(.MOVDIR64B,  ops2(.reg16, .rm_mem),        preOp3(._66, 0x0F, 0x38, 0xF8),      .RM, .R_Over16, .{MOVDIR64B, No64} ),
-    instr(.MOVDIR64B,  ops2(.reg32, .rm_mem),        preOp3(._66, 0x0F, 0x38, 0xF8),      .RM, .R_Over32, .{MOVDIR64B} ),
-    instr(.MOVDIR64B,  ops2(.reg64, .rm_mem),        preOp3(._66, 0x0F, 0x38, 0xF8),      .RM, .R_Over64, .{MOVDIR64B, No32} ),
+    instr(.MOVDIR64B,  ops2(.reg16, .rm_mem),        preOp3(._66, 0x0F, 0x38, 0xF8),      .RM, .Addr16,   .{cpu.MOVDIR64B, No64} ),
+    instr(.MOVDIR64B,  ops2(.reg32, .rm_mem),        preOp3(._66, 0x0F, 0x38, 0xF8),      .RM, .Addr32,   .{cpu.MOVDIR64B} ),
+    instr(.MOVDIR64B,  ops2(.reg64, .rm_mem),        preOp3(._66, 0x0F, 0x38, 0xF8),      .RM, .Addr64,   .{cpu.MOVDIR64B, No32} ),
 // MPX
-    instr(.BNDCL,      ops2(.bnd, .rm32),            preOp2(._F3, 0x0F, 0x1A),            .RM, .ZO,    .{MPX, No64} ),
-    instr(.BNDCL,      ops2(.bnd, .rm64),            preOp2(._F3, 0x0F, 0x1A),            .RM, .ZO,    .{MPX, No32} ),
+    instr(.BNDCL,      ops2(.bnd, .rm32),            preOp2(._F3, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX, No64} ),
+    instr(.BNDCL,      ops2(.bnd, .rm64),            preOp2(._F3, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX, No32} ),
     //
-    instr(.BNDCU,      ops2(.bnd, .rm32),            preOp2(._F2, 0x0F, 0x1A),            .RM, .ZO,    .{MPX, No64} ),
-    instr(.BNDCU,      ops2(.bnd, .rm64),            preOp2(._F2, 0x0F, 0x1A),            .RM, .ZO,    .{MPX, No32} ),
-    instr(.BNDCN,      ops2(.bnd, .rm32),            preOp2(._F2, 0x0F, 0x1B),            .RM, .ZO,    .{MPX, No64} ),
-    instr(.BNDCN,      ops2(.bnd, .rm64),            preOp2(._F2, 0x0F, 0x1B),            .RM, .ZO,    .{MPX, No32} ),
+    instr(.BNDCU,      ops2(.bnd, .rm32),            preOp2(._F2, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX, No64} ),
+    instr(.BNDCU,      ops2(.bnd, .rm64),            preOp2(._F2, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX, No32} ),
+    instr(.BNDCN,      ops2(.bnd, .rm32),            preOp2(._F2, 0x0F, 0x1B),            .RM, .ZO,    .{cpu.MPX, No64} ),
+    instr(.BNDCN,      ops2(.bnd, .rm64),            preOp2(._F2, 0x0F, 0x1B),            .RM, .ZO,    .{cpu.MPX, No32} ),
     // TODO/NOTE: special `mib` encoding actually requires SIB and is not used as normal memory
-    instr(.BNDLDX,     ops2(.bnd, .rm_mem),          preOp2(._NP, 0x0F, 0x1A),            .RM, .ZO,    .{MPX} ),
+    instr(.BNDLDX,     ops2(.bnd, .rm_mem),          preOp2(._NP, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX} ),
     //
-    instr(.BNDMK,      ops2(.bnd, .rm_mem32),        preOp2(._F3, 0x0F, 0x1B),            .RM, .ZO,    .{MPX, No64} ),
-    instr(.BNDMK,      ops2(.bnd, .rm_mem64),        preOp2(._F3, 0x0F, 0x1B),            .RM, .ZO,    .{MPX, No32} ),
+    instr(.BNDMK,      ops2(.bnd, .rm_mem32),        preOp2(._F3, 0x0F, 0x1B),            .RM, .ZO,    .{cpu.MPX, No64} ),
+    instr(.BNDMK,      ops2(.bnd, .rm_mem64),        preOp2(._F3, 0x0F, 0x1B),            .RM, .ZO,    .{cpu.MPX, No32} ),
     //
-    instr(.BNDMOV,     ops2(.bnd, .bnd_m64),         preOp2(._66, 0x0F, 0x1A),            .RM, .ZO,    .{MPX, No64} ),
-    instr(.BNDMOV,     ops2(.bnd, .bnd_m128),        preOp2(._66, 0x0F, 0x1A),            .RM, .ZO,    .{MPX, No32} ),
-    instr(.BNDMOV,     ops2(.bnd_m64, .bnd),         preOp2(._66, 0x0F, 0x1B),            .MR, .ZO,    .{MPX, No64} ),
-    instr(.BNDMOV,     ops2(.bnd_m128, .bnd),        preOp2(._66, 0x0F, 0x1B),            .MR, .ZO,    .{MPX, No32} ),
+    instr(.BNDMOV,     ops2(.bnd, .bnd_m64),         preOp2(._66, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX, No64} ),
+    instr(.BNDMOV,     ops2(.bnd, .bnd_m128),        preOp2(._66, 0x0F, 0x1A),            .RM, .ZO,    .{cpu.MPX, No32} ),
+    instr(.BNDMOV,     ops2(.bnd_m64, .bnd),         preOp2(._66, 0x0F, 0x1B),            .MR, .ZO,    .{cpu.MPX, No64} ),
+    instr(.BNDMOV,     ops2(.bnd_m128, .bnd),        preOp2(._66, 0x0F, 0x1B),            .MR, .ZO,    .{cpu.MPX, No32} ),
     // TODO/NOTE: special `mib` encoding actually requires SIB and is not used as normal memory
-    instr(.BNDSTX,     ops2(.rm_mem, .bnd),          preOp2(._NP, 0x0F, 0x1B),            .MR, .ZO,    .{MPX} ),
-// PKRU
-    instr(.RDPKRU,     ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xEE),      .ZO, .ZO,    .{PKRU, OSPKE} ),
-    instr(.WRPKRU,     ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xEF),      .ZO, .ZO,    .{PKRU, OSPKE} ),
+    instr(.BNDSTX,     ops2(.rm_mem, .bnd),          preOp2(._NP, 0x0F, 0x1B),            .MR, .ZO,    .{cpu.MPX} ),
+// PCOMMIT
+    instr(.PCOMMIT,    ops0(),                       preOp3(._66, 0x0F, 0xAE, 0xF8),      .ZO, .ZO,    .{cpu.PCOMMIT} ),
+// PKU
+    instr(.RDPKRU,     ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xEE),      .ZO, .ZO,    .{cpu.PKU} ),
+    instr(.WRPKRU,     ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xEF),      .ZO, .ZO,    .{cpu.PKU} ),
 // PREFETCHW
-    instr(.PREFETCHW,  ops1(.rm_mem8),                  Op2r(0x0F, 0x0D, 1),              .M, .ZO,     .{PREFETCHW} ),
+    instr(.PREFETCH,   ops1(.rm_mem8),                  Op2r(0x0F, 0x0D, 0),              .M, .ZO,     .{cpu.PREFETCHW} ),
+    instr(.PREFETCHW,  ops1(.rm_mem8),                  Op2r(0x0F, 0x0D, 1),              .M, .ZO,     .{cpu.PREFETCHW} ),
 // PTWRITE
-    instr(.PTWRITE,    ops1(.rm32),                  preOp2r(._F3, 0x0F, 0xAE, 4),        .M, .RM32,   .{PTWRITE} ),
-    instr(.PTWRITE,    ops1(.rm64),                  preOp2r(._F3, 0x0F, 0xAE, 4),        .M, .RM32,   .{PTWRITE} ),
+    instr(.PTWRITE,    ops1(.rm32),                  preOp2r(._F3, 0x0F, 0xAE, 4),        .M, .Op32,   .{cpu.PTWRITE} ),
+    instr(.PTWRITE,    ops1(.rm64),                  preOp2r(._F3, 0x0F, 0xAE, 4),        .M, .REX_W,  .{cpu.PTWRITE} ),
 // RDPID
-    instr(.RDPID,      ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xC7, 7),        .M, .ZO,     .{RDPID, No64} ),
-    instr(.RDPID,      ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xC7, 7),        .M, .ZO,     .{RDPID, No32} ),
+    instr(.RDPID,      ops1(.reg32),                 preOp2r(._F3, 0x0F, 0xC7, 7),        .M, .ZO,     .{cpu.RDPID, No64} ),
+    instr(.RDPID,      ops1(.reg64),                 preOp2r(._F3, 0x0F, 0xC7, 7),        .M, .ZO,     .{cpu.RDPID, No32} ),
 // RDRAND
-    instr(.RDRAND,     ops1(.reg16),                 preOp2r(.NFx, 0x0F, 0xC7, 6),        .M, .RM32,   .{RDRAND} ),
-    instr(.RDRAND,     ops1(.reg32),                 preOp2r(.NFx, 0x0F, 0xC7, 6),        .M, .RM32,   .{RDRAND} ),
-    instr(.RDRAND,     ops1(.reg64),                 preOp2r(.NFx, 0x0F, 0xC7, 6),        .M, .RM32,   .{RDRAND} ),
+    instr(.RDRAND,     ops1(.reg16),                 preOp2r(.NFx, 0x0F, 0xC7, 6),        .M, .Op16,   .{cpu.RDRAND} ),
+    instr(.RDRAND,     ops1(.reg32),                 preOp2r(.NFx, 0x0F, 0xC7, 6),        .M, .Op32,   .{cpu.RDRAND} ),
+    instr(.RDRAND,     ops1(.reg64),                 preOp2r(.NFx, 0x0F, 0xC7, 6),        .M, .REX_W,  .{cpu.RDRAND} ),
 // RDSEED
-    instr(.RDSEED,     ops1(.reg16),                 preOp2r(.NFx, 0x0F, 0xC7, 7),        .M, .RM32,   .{RDSEED} ),
-    instr(.RDSEED,     ops1(.reg32),                 preOp2r(.NFx, 0x0F, 0xC7, 7),        .M, .RM32,   .{RDSEED} ),
-    instr(.RDSEED,     ops1(.reg64),                 preOp2r(.NFx, 0x0F, 0xC7, 7),        .M, .RM32,   .{RDSEED} ),
+    instr(.RDSEED,     ops1(.reg16),                 preOp2r(.NFx, 0x0F, 0xC7, 7),        .M, .Op16,   .{cpu.RDSEED} ),
+    instr(.RDSEED,     ops1(.reg32),                 preOp2r(.NFx, 0x0F, 0xC7, 7),        .M, .Op32,   .{cpu.RDSEED} ),
+    instr(.RDSEED,     ops1(.reg64),                 preOp2r(.NFx, 0x0F, 0xC7, 7),        .M, .REX_W,  .{cpu.RDSEED} ),
 // SMAP
-    instr(.CLAC,       ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xCA),      .ZO, .ZO,    .{SMAP} ),
-    instr(.STAC,       ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xCB),      .ZO, .ZO,    .{SMAP} ),
+    instr(.CLAC,       ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xCA),      .ZO, .ZO,    .{cpu.SMAP} ),
+    instr(.STAC,       ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xCB),      .ZO, .ZO,    .{cpu.SMAP} ),
 // TDX (HLE / RTM)
     // HLE (NOTE: these instructions actually act as prefixes)
-    instr(.XACQUIRE,   ops0(),                          Op1(0xF2),                        .ZO,.ZO,     .{HLE} ),
-    instr(.XRELEASE,   ops0(),                          Op1(0xF3),                        .ZO,.ZO,     .{HLE} ),
+    instr(.XACQUIRE,   ops0(),                          Op1(0xF2),                        .ZO,.ZO,     .{cpu.HLE} ),
+    instr(.XRELEASE,   ops0(),                          Op1(0xF3),                        .ZO,.ZO,     .{cpu.HLE} ),
     // RTM
-    instr(.XABORT,     ops1(.imm8),                     Op2(0xC6, 0xF8),                  .I, .ZO,     .{RTM} ),
-    instr(.XBEGIN,     ops1(.imm16),                    Op2(0xC7, 0xF8),                  .I, .RM32,   .{Sign, RTM} ),
-    instr(.XBEGIN,     ops1(.imm32),                    Op2(0xC7, 0xF8),                  .I, .RM32,   .{Sign, RTM} ),
-    instr(.XEND,       ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD5),      .ZO,.ZO,     .{RTM} ),
-    // TDX (HLE or RTM)
-    instr(.XTEST,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD6),      .ZO,.ZO,     .{TDX} ),
+    instr(.XABORT,     ops1(.imm8),                     Op2(0xC6, 0xF8),                  .I, .ZO,     .{cpu.RTM} ),
+    instr(.XBEGIN,     ops1(.imm16),                    Op2(0xC7, 0xF8),                  .I, .Op16,   .{cpu.RTM, Sign} ),
+    instr(.XBEGIN,     ops1(.imm32),                    Op2(0xC7, 0xF8),                  .I, .Op32,   .{cpu.RTM, Sign} ),
+    instr(.XEND,       ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD5),      .ZO,.ZO,     .{cpu.RTM} ),
+    // HLE or RTM
+    instr(.XTEST,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD6),      .ZO,.ZO,     .{cpu.HLE} ),
+    instr(.XTEST,      ops0(),                       preOp3(._NP, 0x0F, 0x01, 0xD6),      .ZO,.ZO,     .{cpu.RTM} ),
 // WAITPKG
     //
-    instr(.UMONITOR,   ops1(.reg16),                  preOp2r(._F3, 0x0F, 0xAE, 6),       .M, .R_Over16, .{WAITPKG, No64} ),
-    instr(.UMONITOR,   ops1(.reg32),                  preOp2r(._F3, 0x0F, 0xAE, 6),       .M, .R_Over32, .{WAITPKG} ),
-    instr(.UMONITOR,   ops1(.reg64),                  preOp2r(._F3, 0x0F, 0xAE, 6),       .M, .ZO,       .{WAITPKG, No32} ),
+    instr(.UMONITOR,   ops1(.reg16),                  preOp2r(._F3, 0x0F, 0xAE, 6),       .M, .Addr16,   .{cpu.WAITPKG, No64} ),
+    instr(.UMONITOR,   ops1(.reg32),                  preOp2r(._F3, 0x0F, 0xAE, 6),       .M, .Addr32,   .{cpu.WAITPKG} ),
+    instr(.UMONITOR,   ops1(.reg64),                  preOp2r(._F3, 0x0F, 0xAE, 6),       .M, .ZO,       .{cpu.WAITPKG, No32} ),
     //
-    instr(.UMWAIT,     ops3(.reg32,.reg_edx,.reg_eax),preOp2r(._F2, 0x0F, 0xAE, 6),       .M, .ZO,     .{WAITPKG} ),
-    instr(.UMWAIT,     ops1(.reg32),                  preOp2r(._F2, 0x0F, 0xAE, 6),       .M, .ZO,     .{WAITPKG} ),
+    instr(.UMWAIT,     ops3(.reg32,.reg_edx,.reg_eax),preOp2r(._F2, 0x0F, 0xAE, 6),       .M, .ZO,     .{cpu.WAITPKG} ),
+    instr(.UMWAIT,     ops1(.reg32),                  preOp2r(._F2, 0x0F, 0xAE, 6),       .M, .ZO,     .{cpu.WAITPKG} ),
     //
-    instr(.TPAUSE,     ops3(.reg32,.reg_edx,.reg_eax),preOp2r(._66, 0x0F, 0xAE, 6),       .M, .ZO,     .{WAITPKG} ),
-    instr(.TPAUSE,     ops1(.reg32),                  preOp2r(._66, 0x0F, 0xAE, 6),       .M, .ZO,     .{WAITPKG} ),
+    instr(.TPAUSE,     ops3(.reg32,.reg_edx,.reg_eax),preOp2r(._66, 0x0F, 0xAE, 6),       .M, .ZO,     .{cpu.WAITPKG} ),
+    instr(.TPAUSE,     ops1(.reg32),                  preOp2r(._66, 0x0F, 0xAE, 6),       .M, .ZO,     .{cpu.WAITPKG} ),
 // XSAVE
     // XGETBV
-    instr(.XGETBV,     ops0(),                        preOp3(._NP, 0x0F, 0x01, 0xD0),     .ZO,.ZO,     .{XSAVE} ),
+    instr(.XGETBV,     ops0(),                        preOp3(._NP, 0x0F, 0x01, 0xD0),     .ZO,.ZO,     .{cpu.XSAVE} ),
     // XSETBV
-    instr(.XSETBV,     ops0(),                        preOp3(._NP, 0x0F, 0x01, 0xD1),     .ZO,.ZO,     .{XSAVE} ),
+    instr(.XSETBV,     ops0(),                        preOp3(._NP, 0x0F, 0x01, 0xD1),     .ZO,.ZO,     .{cpu.XSAVE} ),
     // FXSAE
-    instr(.XSAVE,      ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 4),       .M, .ZO,     .{XSAVE} ),
-    instr(.XSAVE64,    ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 4),       .M, .REX_W,  .{XSAVE, No32} ),
+    instr(.XSAVE,      ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 4),       .M, .ZO,     .{cpu.XSAVE} ),
+    instr(.XSAVE64,    ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 4),       .M, .REX_W,  .{cpu.XSAVE, No32} ),
     // FXRSTO
-    instr(.XRSTOR,     ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 5),       .M, .ZO,     .{XSAVE} ),
-    instr(.XRSTOR64,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 5),       .M, .REX_W,  .{XSAVE, No32} ),
+    instr(.XRSTOR,     ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 5),       .M, .ZO,     .{cpu.XSAVE} ),
+    instr(.XRSTOR64,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 5),       .M, .REX_W,  .{cpu.XSAVE, No32} ),
 // XSAVEOPT
-    instr(.XSAVEOPT,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 6),       .M, .ZO,     .{XSAVEOPT} ),
-    instr(.XSAVEOPT64, ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 6),       .M, .REX_W,  .{XSAVEOPT, No32} ),
+    instr(.XSAVEOPT,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 6),       .M, .ZO,     .{cpu.XSAVEOPT} ),
+    instr(.XSAVEOPT64, ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xAE, 6),       .M, .REX_W,  .{cpu.XSAVEOPT, No32} ),
 // XSAVEC
-    instr(.XSAVEC,     ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 4),       .M, .ZO,     .{XSAVEC} ),
-    instr(.XSAVEC64,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 4),       .M, .REX_W,  .{XSAVEC, No32} ),
+    instr(.XSAVEC,     ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 4),       .M, .ZO,     .{cpu.XSAVEC} ),
+    instr(.XSAVEC64,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 4),       .M, .REX_W,  .{cpu.XSAVEC, No32} ),
 // XSS
-    instr(.XSAVES,     ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 5),       .M, .ZO,     .{XSS} ),
-    instr(.XSAVES64,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 5),       .M, .REX_W,  .{XSS, No32} ),
+    instr(.XSAVES,     ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 5),       .M, .ZO,     .{cpu.XSS} ),
+    instr(.XSAVES64,   ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 5),       .M, .REX_W,  .{cpu.XSS, No32} ),
     //
-    instr(.XRSTORS,    ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 3),       .M, .ZO,     .{XSS} ),
-    instr(.XRSTORS64,  ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 3),       .M, .REX_W,  .{XSS, No32} ),
+    instr(.XRSTORS,    ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 3),       .M, .ZO,     .{cpu.XSS} ),
+    instr(.XRSTORS64,  ops1(.rm_mem),                 preOp2r(._NP, 0x0F, 0xC7, 3),       .M, .REX_W,  .{cpu.XSS, No32} ),
 
 
 //
 // AES instructions
 //
-    instr(.AESDEC,          ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDE),  .RM,  .ZO, .{AES} ),
-    instr(.AESDECLAST,      ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDF),  .RM,  .ZO, .{AES} ),
-    instr(.AESENC,          ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDC),  .RM,  .ZO, .{AES} ),
-    instr(.AESENCLAST,      ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDD),  .RM,  .ZO, .{AES} ),
-    instr(.AESIMC,          ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDB),  .RM,  .ZO, .{AES} ),
-    instr(.AESKEYGENASSIST, ops3(.xmml, .xmml_m128, .imm8), preOp3(._66, 0x0F, 0x3A, 0xDF),  .RMI, .ZO, .{AES} ),
+    instr(.AESDEC,          ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDE),  .RM,  .ZO, .{cpu.AES} ),
+    instr(.AESDECLAST,      ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDF),  .RM,  .ZO, .{cpu.AES} ),
+    instr(.AESENC,          ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDC),  .RM,  .ZO, .{cpu.AES} ),
+    instr(.AESENCLAST,      ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDD),  .RM,  .ZO, .{cpu.AES} ),
+    instr(.AESIMC,          ops2(.xmml, .xmml_m128),        preOp3(._66, 0x0F, 0x38, 0xDB),  .RM,  .ZO, .{cpu.AES} ),
+    instr(.AESKEYGENASSIST, ops3(.xmml, .xmml_m128, .imm8), preOp3(._66, 0x0F, 0x3A, 0xDF),  .RMI, .ZO, .{cpu.AES} ),
 
 //
 // SHA instructions
 //
-    instr(.SHA1RNDS4,   ops3(.xmml, .xmml_m128, .imm8),     preOp3(._NP, 0x0F, 0x3A, 0xCC),  .RMI, .ZO, .{SHA} ),
-    instr(.SHA1NEXTE,   ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xC8),  .RM,  .ZO, .{SHA} ),
-    instr(.SHA1MSG1,    ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xC9),  .RM,  .ZO, .{SHA} ),
-    instr(.SHA1MSG2,    ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCA),  .RM,  .ZO, .{SHA} ),
-    instr(.SHA256RNDS2, ops3(.xmml, .xmml_m128, .xmm0),     preOp3(._NP, 0x0F, 0x38, 0xCB),  .RM,  .ZO, .{SHA} ),
-    instr(.SHA256RNDS2, ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCB),  .RM,  .ZO, .{SHA} ),
-    instr(.SHA256MSG1,  ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCC),  .RM,  .ZO, .{SHA} ),
-    instr(.SHA256MSG2,  ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCD),  .RM,  .ZO, .{SHA} ),
+    instr(.SHA1RNDS4,   ops3(.xmml, .xmml_m128, .imm8),     preOp3(._NP, 0x0F, 0x3A, 0xCC),  .RMI, .ZO, .{cpu.SHA} ),
+    instr(.SHA1NEXTE,   ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xC8),  .RM,  .ZO, .{cpu.SHA} ),
+    instr(.SHA1MSG1,    ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xC9),  .RM,  .ZO, .{cpu.SHA} ),
+    instr(.SHA1MSG2,    ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCA),  .RM,  .ZO, .{cpu.SHA} ),
+    instr(.SHA256RNDS2, ops3(.xmml, .xmml_m128, .xmm0),     preOp3(._NP, 0x0F, 0x38, 0xCB),  .RM,  .ZO, .{cpu.SHA} ),
+    instr(.SHA256RNDS2, ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCB),  .RM,  .ZO, .{cpu.SHA} ),
+    instr(.SHA256MSG1,  ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCC),  .RM,  .ZO, .{cpu.SHA} ),
+    instr(.SHA256MSG2,  ops2(.xmml, .xmml_m128),            preOp3(._NP, 0x0F, 0x38, 0xCD),  .RM,  .ZO, .{cpu.SHA} ),
 
 //
 // SSE non-VEX/EVEX opcodes
@@ -2662,21 +2713,21 @@ pub const instruction_database = [_]InstructionItem {
 // STMXCSR
     instr(.STMXCSR,     ops1(.rm_mem32),         preOp2r(._NP, 0x0F, 0xAE, 3),    .M,  .ZO,        .{SSE} ),
 // PREFETCH
-    instr(.PREFETCHNTA, ops1(.rm_mem8),             Op2r(0x0F, 0x18, 0),          .M,  .RM8,       .{SSE} ),
-    instr(.PREFETCHT0,  ops1(.rm_mem8),             Op2r(0x0F, 0x18, 1),          .M,  .RM8,       .{SSE} ),
-    instr(.PREFETCHT1,  ops1(.rm_mem8),             Op2r(0x0F, 0x18, 2),          .M,  .RM8,       .{SSE} ),
-    instr(.PREFETCHT2,  ops1(.rm_mem8),             Op2r(0x0F, 0x18, 3),          .M,  .RM8,       .{SSE} ),
+    instr(.PREFETCHNTA, ops1(.rm_mem8),             Op2r(0x0F, 0x18, 0),          .M,  .ZO,        .{SSE} ),
+    instr(.PREFETCHT0,  ops1(.rm_mem8),             Op2r(0x0F, 0x18, 1),          .M,  .ZO,        .{SSE} ),
+    instr(.PREFETCHT1,  ops1(.rm_mem8),             Op2r(0x0F, 0x18, 2),          .M,  .ZO,        .{SSE} ),
+    instr(.PREFETCHT2,  ops1(.rm_mem8),             Op2r(0x0F, 0x18, 3),          .M,  .ZO,        .{SSE} ),
 // SFENCE
     instr(.SFENCE,      ops0(),                  preOp3(._NP, 0x0F, 0xAE, 0xF8),  .ZO, .ZO,        .{SSE} ),
 // CLFLUSH
-    instr(.CLFLUSH,     ops1(.rm_mem8),          preOp2r(._NP, 0x0F, 0xAE, 7),    .M,  .RM8,       .{SSE2} ),
+    instr(.CLFLUSH,     ops1(.rm_mem8),          preOp2r(._NP, 0x0F, 0xAE, 7),    .M,  .ZO,        .{SSE2} ),
 // LFENCE
     instr(.LFENCE,      ops0(),                  preOp3(._NP, 0x0F, 0xAE, 0xE8),  .ZO, .ZO,        .{SSE2} ),
 // MFENCE
     instr(.MFENCE,      ops0(),                  preOp3(._NP, 0x0F, 0xAE, 0xF0),  .ZO, .ZO,        .{SSE2} ),
 // MOVNTI
-    instr(.MOVNTI,      ops2(.rm_mem32, .reg32), preOp2(._NP, 0x0F, 0xC3),        .MR, .RM32,      .{SSE2} ),
-    instr(.MOVNTI,      ops2(.rm_mem64, .reg64), preOp2(._NP, 0x0F, 0xC3),        .MR, .RM32,      .{SSE2} ),
+    instr(.MOVNTI,      ops2(.rm_mem32, .reg32), preOp2(._NP, 0x0F, 0xC3),        .MR, .Op32,      .{SSE2} ),
+    instr(.MOVNTI,      ops2(.rm_mem64, .reg64), preOp2(._NP, 0x0F, 0xC3),        .MR, .REX_W,     .{SSE2} ),
 // PAUSE
     instr(.PAUSE,       ops0(),                  preOp1(._F3, 0x90),              .ZO, .ZO,        .{SSE2} ),
 // MONITOR
@@ -2684,77 +2735,76 @@ pub const instruction_database = [_]InstructionItem {
 // MWAIT
     instr(.MWAIT,       ops0(),                     Op3(0x0F, 0x01, 0xC9),        .ZO, .ZO,        .{SSE3} ),
 // CRC32
-    instr(.CRC32,       ops2(.reg32, .rm8),      preOp3(._F2, 0x0F, 0x38, 0xF0),  .RM, .RM32_Reg,  .{SSE4_2} ),
-    instr(.CRC32,       ops2(.reg64, .rm8),      preOp3(._F2, 0x0F, 0x38, 0xF0),  .RM, .RM32_Reg,  .{SSE4_2} ),
-    instr(.CRC32,       ops2(.reg32, .rm16),     preOp3(._F2, 0x0F, 0x38, 0xF1),  .RM, .RM32_RM,   .{SSE4_2} ),
-    instr(.CRC32,       ops2(.reg32, .rm32),     preOp3(._F2, 0x0F, 0x38, 0xF1),  .RM, .RM32_RM,   .{SSE4_2} ),
-    instr(.CRC32,       ops2(.reg64, .rm64),     preOp3(._F2, 0x0F, 0x38, 0xF1),  .RM, .RM32_RM,   .{SSE4_2} ),
+    instr(.CRC32,       ops2(.reg32, .rm8),      preOp3(._F2, 0x0F, 0x38, 0xF0),  .RM, .ZO,        .{SSE4_2} ),
+    instr(.CRC32,       ops2(.reg32, .rm16),     preOp3(._F2, 0x0F, 0x38, 0xF1),  .RM, .Op16,      .{SSE4_2} ),
+    instr(.CRC32,       ops2(.reg32, .rm32),     preOp3(._F2, 0x0F, 0x38, 0xF1),  .RM, .Op32,      .{SSE4_2} ),
+    instr(.CRC32,       ops2(.reg64, .rm64),     preOp3(._F2, 0x0F, 0x38, 0xF1),  .RM, .REX_W,     .{SSE4_2} ),
 
 //
 // AMD-V
 // CLGI
-    instr(.CLGI, ops0(),                    Op3(0x0F, 0x01, 0xDD),   .ZO, .ZO,              .{cpu.AMD_V} ),
+    instr(.CLGI, ops0(),                      Op3(0x0F, 0x01, 0xDD),   .ZO, .ZO,      .{cpu.AMD_V} ),
 // INVLPGA
-    instr(.INVLPGA, ops0(),                 Op3(0x0F, 0x01, 0xDF),   .ZO, .ZO,              .{cpu.AMD_V} ),
-    instr(.INVLPGA, ops2(.reg_ax,.reg_ecx), Op3(0x0F, 0x01, 0xDF),   .ZO16, .R_Over16,      .{No64, cpu.AMD_V} ),
-    instr(.INVLPGA, ops2(.reg_eax,.reg_ecx),Op3(0x0F, 0x01, 0xDF),   .ZO32, .R_Over32,      .{cpu.AMD_V} ),
-    instr(.INVLPGA, ops2(.reg_rax,.reg_ecx),Op3(0x0F, 0x01, 0xDF),   .ZO64, .RM64,          .{No32, cpu.AMD_V} ),
+    instr(.INVLPGA, ops0(),                   Op3(0x0F, 0x01, 0xDF),   .ZO, .ZO,      .{cpu.AMD_V} ),
+    instr(.INVLPGA, ops2(.reg_ax, .reg_ecx),  Op3(0x0F, 0x01, 0xDF),   .ZO, .Addr16,  .{cpu.AMD_V, No64} ),
+    instr(.INVLPGA, ops2(.reg_eax, .reg_ecx), Op3(0x0F, 0x01, 0xDF),   .ZO, .Addr32,  .{cpu.AMD_V} ),
+    instr(.INVLPGA, ops2(.reg_rax, .reg_ecx), Op3(0x0F, 0x01, 0xDF),   .ZO, .Addr64,  .{cpu.AMD_V, No32} ),
 // SKINIT
-    instr(.SKINIT,  ops0(),                 Op3(0x0F, 0x01, 0xDE),   .ZO, .ZO,              .{cpu.AMD_V} ),
-    instr(.SKINIT,  ops1(.reg_eax),         Op3(0x0F, 0x01, 0xDE),   .ZO, .ZO,              .{cpu.AMD_V} ),
+    instr(.SKINIT,  ops0(),                   Op3(0x0F, 0x01, 0xDE),   .ZO, .ZO,      .{cpu.AMD_V, cpu.SKINIT} ),
+    instr(.SKINIT,  ops1(.reg_eax),           Op3(0x0F, 0x01, 0xDE),   .ZO, .ZO,      .{cpu.AMD_V, cpu.SKINIT} ),
 // STGI
-    instr(.STGI,    ops0(),                 Op3(0x0F, 0x01, 0xDC),   .ZO, .ZO,              .{cpu.AMD_V} ),
+    instr(.STGI,    ops0(),                   Op3(0x0F, 0x01, 0xDC),   .ZO, .ZO,      .{cpu.AMD_V, cpu.SKINIT} ),
 // VMLOAD
-    instr(.VMLOAD,  ops0(),                 Op3(0x0F, 0x01, 0xDA),   .ZO, .ZO,              .{cpu.AMD_V} ),
-    instr(.VMLOAD,  ops1(.reg_ax),          Op3(0x0F, 0x01, 0xDA),   .ZO16, .R_Over16,      .{No64, cpu.AMD_V} ),
-    instr(.VMLOAD,  ops1(.reg_eax),         Op3(0x0F, 0x01, 0xDA),   .ZO32, .R_Over32,      .{cpu.AMD_V} ),
-    instr(.VMLOAD,  ops1(.reg_rax),         Op3(0x0F, 0x01, 0xDA),   .ZO64, .RM64,          .{No32, cpu.AMD_V} ),
+    instr(.VMLOAD,  ops0(),                   Op3(0x0F, 0x01, 0xDA),   .ZO, .ZO,      .{cpu.AMD_V} ),
+    instr(.VMLOAD,  ops1(.reg_ax),            Op3(0x0F, 0x01, 0xDA),   .ZO, .Addr16,  .{cpu.AMD_V, No64} ),
+    instr(.VMLOAD,  ops1(.reg_eax),           Op3(0x0F, 0x01, 0xDA),   .ZO, .Addr32,  .{cpu.AMD_V} ),
+    instr(.VMLOAD,  ops1(.reg_rax),           Op3(0x0F, 0x01, 0xDA),   .ZO, .Addr64,  .{cpu.AMD_V, No32} ),
 // VMMCALL
-    instr(.VMMCALL, ops0(),                 Op3(0x0F, 0x01, 0xD9),   .ZO, .ZO,              .{cpu.AMD_V} ),
+    instr(.VMMCALL, ops0(),                   Op3(0x0F, 0x01, 0xD9),   .ZO, .ZO,      .{cpu.AMD_V} ),
 // VMRUN
-    instr(.VMRUN,   ops0(),                 Op3(0x0F, 0x01, 0xD8),   .ZO, .ZO,              .{cpu.AMD_V} ),
-    instr(.VMRUN,   ops1(.reg_ax),          Op3(0x0F, 0x01, 0xD8),   .ZO16, .R_Over16,      .{No64, cpu.AMD_V} ),
-    instr(.VMRUN,   ops1(.reg_eax),         Op3(0x0F, 0x01, 0xD8),   .ZO32, .R_Over32,      .{cpu.AMD_V} ),
-    instr(.VMRUN,   ops1(.reg_rax),         Op3(0x0F, 0x01, 0xD8),   .ZO64, .RM64,          .{No32, cpu.AMD_V} ),
+    instr(.VMRUN,   ops0(),                   Op3(0x0F, 0x01, 0xD8),   .ZO, .ZO,      .{cpu.AMD_V} ),
+    instr(.VMRUN,   ops1(.reg_ax),            Op3(0x0F, 0x01, 0xD8),   .ZO, .Addr16,  .{cpu.AMD_V, No64} ),
+    instr(.VMRUN,   ops1(.reg_eax),           Op3(0x0F, 0x01, 0xD8),   .ZO, .Addr32,  .{cpu.AMD_V} ),
+    instr(.VMRUN,   ops1(.reg_rax),           Op3(0x0F, 0x01, 0xD8),   .ZO, .Addr64,  .{cpu.AMD_V, No32} ),
 // VMSAVE
-    instr(.VMSAVE,  ops0(),                 Op3(0x0F, 0x01, 0xDB),   .ZO, .ZO,              .{cpu.AMD_V} ),
-    instr(.VMSAVE,  ops1(.reg_ax),          Op3(0x0F, 0x01, 0xDB),   .ZO16, .R_Over16,      .{No64, cpu.AMD_V} ),
-    instr(.VMSAVE,  ops1(.reg_eax),         Op3(0x0F, 0x01, 0xDB),   .ZO32, .R_Over32,      .{cpu.AMD_V} ),
-    instr(.VMSAVE,  ops1(.reg_rax),         Op3(0x0F, 0x01, 0xDB),   .ZO64, .RM64,          .{No32, cpu.AMD_V} ),
+    instr(.VMSAVE,  ops0(),                   Op3(0x0F, 0x01, 0xDB),   .ZO, .ZO,      .{cpu.AMD_V} ),
+    instr(.VMSAVE,  ops1(.reg_ax),            Op3(0x0F, 0x01, 0xDB),   .ZO, .Addr16,  .{cpu.AMD_V, No64} ),
+    instr(.VMSAVE,  ops1(.reg_eax),           Op3(0x0F, 0x01, 0xDB),   .ZO, .Addr32,  .{cpu.AMD_V} ),
+    instr(.VMSAVE,  ops1(.reg_rax),           Op3(0x0F, 0x01, 0xDB),   .ZO, .Addr64,  .{cpu.AMD_V, No32} ),
 
 //
 // Intel VT-x
 //
 // INVEPT
-    instr(.INVEPT,   ops2(.reg32, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{No64, VT_x} ),
-    instr(.INVEPT,   ops2(.reg64, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{No32, VT_x} ),
+    instr(.INVEPT,   ops2(.reg32, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{cpu.VT_X, No64} ),
+    instr(.INVEPT,   ops2(.reg64, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{cpu.VT_X, No32} ),
 // INVVPID
-    instr(.INVVPID,  ops2(.reg32, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{No64, VT_x} ),
-    instr(.INVVPID,  ops2(.reg64, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{No32, VT_x} ),
+    instr(.INVVPID,  ops2(.reg32, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{cpu.VT_X, No64} ),
+    instr(.INVVPID,  ops2(.reg64, .rm_mem128), preOp3(._66, 0x0F, 0x38, 0x80),   .M, .ZO,     .{cpu.VT_X, No32} ),
 // VMCLEAR
-    instr(.VMCLEAR,  ops1(.rm_mem64),          preOp2r(._66, 0x0F, 0xC7, 6),     .M, .RM64,   .{VT_x} ),
+    instr(.VMCLEAR,  ops1(.rm_mem64),          preOp2r(._66, 0x0F, 0xC7, 6),     .M, .ZO,     .{cpu.VT_X} ),
 // VMFUNC
-    instr(.VMFUNC,   ops0(),                   preOp3(._NP, 0x0F, 0x01, 0xD4),   .ZO, .ZO,    .{VT_x} ),
+    instr(.VMFUNC,   ops0(),                   preOp3(._NP, 0x0F, 0x01, 0xD4),   .ZO, .ZO,    .{cpu.VT_X} ),
 // VMPTRLD
-    instr(.VMPTRLD,  ops1(.rm_mem64),          preOp2r(._NP, 0x0F, 0xC7, 6),     .M, .RM64,   .{VT_x} ),
+    instr(.VMPTRLD,  ops1(.rm_mem64),          preOp2r(._NP, 0x0F, 0xC7, 6),     .M, .ZO,     .{cpu.VT_X} ),
 // VMPTRST
-    instr(.VMPTRST,  ops1(.rm_mem64),          preOp2r(._NP, 0x0F, 0xC7, 7),     .M, .RM64,   .{VT_x} ),
+    instr(.VMPTRST,  ops1(.rm_mem64),          preOp2r(._NP, 0x0F, 0xC7, 7),     .M, .ZO,     .{cpu.VT_X} ),
 // VMREAD
-    instr(.VMREAD,   ops2(.rm32, .reg32),      preOp2(._NP, 0x0F, 0x78),         .MR, .RM32,  .{No64, VT_x} ),
-    instr(.VMREAD,   ops2(.rm64, .reg64),      preOp2(._NP, 0x0F, 0x78),         .MR, .RM64,  .{No32, VT_x} ),
+    instr(.VMREAD,   ops2(.rm32, .reg32),      preOp2(._NP, 0x0F, 0x78),         .MR, .Op32,  .{cpu.VT_X, No64} ),
+    instr(.VMREAD,   ops2(.rm64, .reg64),      preOp2(._NP, 0x0F, 0x78),         .MR, .ZO,    .{cpu.VT_X, No32} ),
 // VMWRITE
-    instr(.VMWRITE,  ops2(.reg32, .rm32),      preOp2(._NP, 0x0F, 0x79),         .RM, .RM32,  .{No64, VT_x} ),
-    instr(.VMWRITE,  ops2(.reg64, .rm64),      preOp2(._NP, 0x0F, 0x79),         .RM, .RM64,  .{No32, VT_x} ),
+    instr(.VMWRITE,  ops2(.reg32, .rm32),      preOp2(._NP, 0x0F, 0x79),         .RM, .Op32,  .{cpu.VT_X, No64} ),
+    instr(.VMWRITE,  ops2(.reg64, .rm64),      preOp2(._NP, 0x0F, 0x79),         .RM, .ZO,    .{cpu.VT_X, No32} ),
 // VMCALL
-    instr(.VMCALL,   ops0(),                      Op3(0x0F, 0x01, 0xC1),         .ZO, .ZO,    .{VT_x} ),
+    instr(.VMCALL,   ops0(),                      Op3(0x0F, 0x01, 0xC1),         .ZO, .ZO,    .{cpu.VT_X} ),
 // VMLAUNCH
-    instr(.VMLAUNCH, ops0(),                      Op3(0x0F, 0x01, 0xC2),         .ZO, .ZO,    .{VT_x} ),
+    instr(.VMLAUNCH, ops0(),                      Op3(0x0F, 0x01, 0xC2),         .ZO, .ZO,    .{cpu.VT_X} ),
 // VMRESUME
-    instr(.VMRESUME, ops0(),                      Op3(0x0F, 0x01, 0xC3),         .ZO, .ZO,    .{VT_x} ),
+    instr(.VMRESUME, ops0(),                      Op3(0x0F, 0x01, 0xC3),         .ZO, .ZO,    .{cpu.VT_X} ),
 // VMXOFF
-    instr(.VMXOFF,   ops0(),                      Op3(0x0F, 0x01, 0xC4),         .ZO, .ZO,    .{VT_x} ),
+    instr(.VMXOFF,   ops0(),                      Op3(0x0F, 0x01, 0xC4),         .ZO, .ZO,    .{cpu.VT_X} ),
 // VMXON
-    instr(.VMXON,    ops1(.rm_mem64),             Op3r(0x0F, 0x01, 0xC7, 6),     .M, .RM64,   .{VT_x} ),
+    instr(.VMXON,    ops1(.rm_mem64),             Op3r(0x0F, 0x01, 0xC7, 6),     .M, .ZO,     .{cpu.VT_X} ),
 
 //
 // SIMD legacy instructions (MMX + SSE)
@@ -2794,7 +2844,7 @@ pub const instruction_database = [_]InstructionItem {
 // CMPPS
     instr(.CMPPS,     ops3(.xmml,.xmml_m128,.imm8), preOp2(._NP, 0x0F, 0xC2),     .RMI, .ZO, .{SSE} ),
 // CMPSD
-    instr(.CMPSD,     ops0(),                          Op1(0xA7),                 .ZO32, .RM32, .{_386} ), // overloaded with CMPS
+    instr(.CMPSD,     ops0(),                       Op1(0xA7),                    .ZO, .Op32,.{_386, Repe, Repne} ), // overloaded
     instr(.CMPSD,     ops3(.xmml,.xmml_m64,.imm8),  preOp2(._F2, 0x0F, 0xC2),     .RMI, .ZO, .{SSE2} ),
 // CMPSS
     instr(.CMPSS,     ops3(.xmml,.xmml_m32,.imm8),  preOp2(._F3, 0x0F, 0xC2),     .RMI, .ZO, .{SSE} ),
@@ -2966,7 +3016,7 @@ pub const instruction_database = [_]InstructionItem {
 // MOVQ2DQ
     instr(.MOVQ2DQ,   ops2(.xmml, .mm),             preOp2(._F3, 0x0F, 0xD6),     .RM, .ZO, .{SSE2} ),
 // MOVSD
-    instr(.MOVSD,     ops0(),                       Op1(0xA5),                    .ZO32, .RM32, .{_386} ), // overloaded
+    instr(.MOVSD,     ops0(),                       Op1(0xA5),                    .ZO,.Op32,.{_386, Rep} ), // overloaded
     instr(.MOVSD,     ops2(.xmml, .xmml_m64),       preOp2(._F2, 0x0F, 0x10),     .RM, .ZO, .{SSE2} ),
     instr(.MOVSD,     ops2(.xmml_m64, .xmml),       preOp2(._F2, 0x0F, 0x11),     .MR, .ZO, .{SSE2} ),
 // MOVSHDUP
@@ -3062,7 +3112,7 @@ pub const instruction_database = [_]InstructionItem {
 // PBLENDVW
     instr(.PBLENDW,   ops3(.xmml,.xmml_m128,.imm8), preOp3(._66,0x0F,0x3A,0x0E),  .RMI,.ZO, .{SSE4_1} ),
 // PCLMULQDQ
-    instr(.PCLMULQDQ, ops3(.xmml,.xmml_m128,.imm8), preOp3(._66,0x0F,0x3A,0x44),  .RMI,.ZO, .{PCLMULQDQ} ),
+    instr(.PCLMULQDQ, ops3(.xmml,.xmml_m128,.imm8), preOp3(._66,0x0F,0x3A,0x44),  .RMI,.ZO, .{cpu.PCLMULQDQ} ),
 // PCMPEQB / PCMPEQW / PCMPEQD
     instr(.PCMPEQB,   ops2(.mm, .mm_m64),           preOp2(._NP, 0x0F, 0x74),     .RM, .ZO, .{MMX} ),
     instr(.PCMPEQB,   ops2(.xmml, .xmml_m128),      preOp2(._66, 0x0F, 0x74),     .RM, .ZO, .{SSE2} ),
@@ -4057,11 +4107,11 @@ pub const instruction_database = [_]InstructionItem {
     vec(.VPBLENDW,   ops4(.xmml, .xmml, .xmml_m128, .imm8),   vex(.L128,._66,._0F3A,.WIG,0x0E),         .RVMI,.{AVX} ),
     vec(.VPBLENDW,   ops4(.ymml, .ymml, .ymml_m256, .imm8),   vex(.L256,._66,._0F3A,.WIG,0x0E),         .RVMI,.{AVX2} ),
 // VPCLMULQDQ
-    vec(.VPCLMULQDQ, ops4(.xmml, .xmml, .xmml_m128, .imm8),   vex(.L128,._66,._0F3A,.WIG,0x44),         .RVMI,.{AVX, PCLMULQDQ} ),
-    vec(.VPCLMULQDQ, ops4(.ymml, .ymml, .ymml_m256, .imm8),   vex(.L256,._66,._0F3A,.WIG,0x44),         .RVMI,.{VPCLMULQDQ} ),
-    vec(.VPCLMULQDQ, ops4(.xmm, .xmm, .xmm_m128, .imm8),     evex(.L128,._66,._0F3A,.WIG,0x44, fmem),   .RVMI,.{VPCLMULQDQ, AVX512VL} ),
-    vec(.VPCLMULQDQ, ops4(.ymm, .ymm, .ymm_m256, .imm8),     evex(.L256,._66,._0F3A,.WIG,0x44, fmem),   .RVMI,.{VPCLMULQDQ, AVX512VL} ),
-    vec(.VPCLMULQDQ, ops4(.zmm, .zmm, .zmm_m512, .imm8),     evex(.L512,._66,._0F3A,.WIG,0x44, fmem),   .RVMI,.{VPCLMULQDQ, AVX512F} ),
+    vec(.VPCLMULQDQ, ops4(.xmml, .xmml, .xmml_m128, .imm8),   vex(.L128,._66,._0F3A,.WIG,0x44),         .RVMI,.{cpu.PCLMULQDQ, AVX} ),
+    vec(.VPCLMULQDQ, ops4(.ymml, .ymml, .ymml_m256, .imm8),   vex(.L256,._66,._0F3A,.WIG,0x44),         .RVMI,.{cpu.VPCLMULQDQ} ),
+    vec(.VPCLMULQDQ, ops4(.xmm, .xmm, .xmm_m128, .imm8),     evex(.L128,._66,._0F3A,.WIG,0x44, fmem),   .RVMI,.{cpu.VPCLMULQDQ, AVX512VL} ),
+    vec(.VPCLMULQDQ, ops4(.ymm, .ymm, .ymm_m256, .imm8),     evex(.L256,._66,._0F3A,.WIG,0x44, fmem),   .RVMI,.{cpu.VPCLMULQDQ, AVX512VL} ),
+    vec(.VPCLMULQDQ, ops4(.zmm, .zmm, .zmm_m512, .imm8),     evex(.L512,._66,._0F3A,.WIG,0x44, fmem),   .RVMI,.{cpu.VPCLMULQDQ, AVX512F} ),
 // VPCMPEQB / VPCMPEQW / VPCMPEQD
     vec(.VPCMPEQB,   ops3(.xmml, .xmml, .xmml_m128),          vex(.L128,._66,._0F,.WIG, 0x74),          .RVM, .{AVX} ),
     vec(.VPCMPEQB,   ops3(.ymml, .ymml, .ymml_m256),          vex(.L256,._66,._0F,.WIG, 0x74),          .RVM, .{AVX2} ),
@@ -4859,14 +4909,14 @@ pub const instruction_database = [_]InstructionItem {
     vec(.VCVTPD2UQQ,       ops2(.ymm_kz, .ymm_m256_m64bcst),      evex(.L256,._66,._0F,.W1, 0x79, full),    .vRM, .{AVX512VL, AVX512DQ} ),
     vec(.VCVTPD2UQQ,       ops2(.zmm_kz, .zmm_m512_m64bcst_er),   evex(.L512,._66,._0F,.W1, 0x79, full),    .vRM, .{AVX512DQ} ),
 // VCVTPH2PS
-    vec(.VCVTPH2PS,        ops2(.xmml, .xmml_m64),                 vex(.L128,._66,._0F38,.W0, 0x13),        .vRM, .{F16C} ),
-    vec(.VCVTPH2PS,        ops2(.ymml, .xmml_m128),                vex(.L256,._66,._0F38,.W0, 0x13),        .vRM, .{F16C} ),
+    vec(.VCVTPH2PS,        ops2(.xmml, .xmml_m64),                 vex(.L128,._66,._0F38,.W0, 0x13),        .vRM, .{cpu.F16C} ),
+    vec(.VCVTPH2PS,        ops2(.ymml, .xmml_m128),                vex(.L256,._66,._0F38,.W0, 0x13),        .vRM, .{cpu.F16C} ),
     vec(.VCVTPH2PS,        ops2(.xmm_kz, .xmm_m64),               evex(.L128,._66,._0F38,.W0, 0x13, hmem),  .vRM, .{AVX512VL, AVX512F} ),
     vec(.VCVTPH2PS,        ops2(.ymm_kz, .xmm_m128),              evex(.L256,._66,._0F38,.W0, 0x13, hmem),  .vRM, .{AVX512VL, AVX512F} ),
     vec(.VCVTPH2PS,        ops2(.zmm_kz, .ymm_m256_sae),          evex(.L512,._66,._0F38,.W0, 0x13, hmem),  .vRM, .{AVX512F} ),
 // VCVTPS2PH
-    vec(.VCVTPS2PH,        ops3(.xmml_m64, .xmml, .imm8),          vex(.L128,._66,._0F3A,.W0, 0x1D),        .vMRI,.{F16C} ),
-    vec(.VCVTPS2PH,        ops3(.xmml_m128, .ymml, .imm8),         vex(.L256,._66,._0F3A,.W0, 0x1D),        .vMRI,.{F16C} ),
+    vec(.VCVTPS2PH,        ops3(.xmml_m64, .xmml, .imm8),          vex(.L128,._66,._0F3A,.W0, 0x1D),        .vMRI,.{cpu.F16C} ),
+    vec(.VCVTPS2PH,        ops3(.xmml_m128, .ymml, .imm8),         vex(.L256,._66,._0F3A,.W0, 0x1D),        .vMRI,.{cpu.F16C} ),
     vec(.VCVTPS2PH,        ops3(.xmm_m64_kz, .xmm, .imm8),        evex(.L128,._66,._0F3A,.W0, 0x1D, hmem),  .vMRI,.{AVX512VL, AVX512F} ),
     vec(.VCVTPS2PH,        ops3(.xmm_m128_kz, .ymm, .imm8),       evex(.L256,._66,._0F3A,.W0, 0x1D, hmem),  .vMRI,.{AVX512VL, AVX512F} ),
     vec(.VCVTPS2PH,        ops3(.ymm_m256_kz, .zmm_sae, .imm8),   evex(.L512,._66,._0F3A,.W0, 0x1D, hmem),  .vMRI,.{AVX512F} ),
@@ -6283,8 +6333,351 @@ pub const instruction_database = [_]InstructionItem {
     vec(.KXORD,      ops3(.reg_k, .reg_k, .reg_k),    vex(.L1,._66,._0F,.W1, 0x47),    .RVM, .{AVX512BW} ),
     vec(.KXORQ,      ops3(.reg_k, .reg_k, .reg_k),    vex(.L1,._NP,._0F,.W1, 0x47),    .RVM, .{AVX512BW} ),
 
+//
+// Xeon Phi
+//
+// PREFETCHWT1
+    instr(.PREFETCHWT1,  ops1(.rm_mem8),             Op2r(0x0F, 0x0D, 2),   .M, .ZO,     .{cpu.PREFETCHWT1} ),
+
+//
+// Undefined/Reserved Opcodes
+//
+// Unused opcodes are reserved for future instruction extensions, and most
+// encodings will generate (#UD) on earlier processors.   However, for
+// compatibility with older processors, some reserved opcodes do not generate
+// #UD but behave like other instructions or have unique behavior.
+//
+// SALC
+// - Set AL to Cary flag. IF (CF=1), AL=FF, ELSE, AL=0 (#UD in 64-bit mode)
+    instr(.SALC,    ops0(),                     Op1(0xD6),              .ZO, .ZO,         .{_8086, No64} ),
+//
+// Immediate Group 1
+//
+// Same behavior as corresponding instruction with Opcode Op1r(0x80, x)
+//
+    instr(.RESRV_ADD,     ops2(.rm8, .imm8),          Op1r(0x82, 0),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_OR,      ops2(.rm8, .imm8),          Op1r(0x82, 1),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_ADC,     ops2(.rm8, .imm8),          Op1r(0x82, 2),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_SBB,     ops2(.rm8, .imm8),          Op1r(0x82, 3),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_AND,     ops2(.rm8, .imm8),          Op1r(0x82, 4),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_SUB,     ops2(.rm8, .imm8),          Op1r(0x82, 5),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_XOR,     ops2(.rm8, .imm8),          Op1r(0x82, 6),          .MI, .ZO,         .{_8086, No64} ),
+    instr(.RESRV_CMP,     ops2(.rm8, .imm8),          Op1r(0x82, 7),          .MI, .ZO,         .{_8086, No64} ),
+//
+// Shift Group 2 /6
+//
+// Same behavior as corresponding instruction with Opcode Op1r(x, 4)
+//
+    instr(.RESRV_SAL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 6),          .M,  .ZO,         .{_8086} ),
+    instr(.RESRV_SAL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 6),          .M,  .ZO,         .{_8086} ),
+    instr(.RESRV_SAL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 6),          .MI, .ZO,         .{_186} ),
+    instr(.RESRV_SAL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 6),          .M,  .Op16,       .{_8086} ),
+    instr(.RESRV_SAL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 6),          .M,  .Op32,       .{_386} ),
+    instr(.RESRV_SAL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 6),          .M,  .REX_W,      .{x86_64} ),
+    instr(.RESRV_SAL,     ops2(.rm16, .imm8),         Op1r(0xC1, 6),          .MI, .Op16,       .{_186} ),
+    instr(.RESRV_SAL,     ops2(.rm32, .imm8),         Op1r(0xC1, 6),          .MI, .Op32,       .{_386} ),
+    instr(.RESRV_SAL,     ops2(.rm64, .imm8),         Op1r(0xC1, 6),          .MI, .REX_W,      .{x86_64} ),
+    instr(.RESRV_SAL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 6),          .M,  .Op16,       .{_8086} ),
+    instr(.RESRV_SAL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 6),          .M,  .Op32,       .{_386} ),
+    instr(.RESRV_SAL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 6),          .M,  .REX_W,      .{x86_64} ),
+    //
+    instr(.RESRV_SHL,     ops2(.rm8, .imm_1),         Op1r(0xD0, 6),          .M,  .ZO,         .{_8086} ),
+    instr(.RESRV_SHL,     ops2(.rm8, .reg_cl),        Op1r(0xD2, 6),          .M,  .ZO,         .{_8086} ),
+    instr(.RESRV_SHL,     ops2(.rm8,  .imm8),         Op1r(0xC0, 6),          .MI, .ZO,         .{_186} ),
+    instr(.RESRV_SHL,     ops2(.rm16, .imm_1),        Op1r(0xD1, 6),          .M,  .Op16,       .{_8086} ),
+    instr(.RESRV_SHL,     ops2(.rm32, .imm_1),        Op1r(0xD1, 6),          .M,  .Op32,       .{_386} ),
+    instr(.RESRV_SHL,     ops2(.rm64, .imm_1),        Op1r(0xD1, 6),          .M,  .REX_W,      .{x86_64} ),
+    instr(.RESRV_SHL,     ops2(.rm16, .imm8),         Op1r(0xC1, 6),          .MI, .Op16,       .{_186} ),
+    instr(.RESRV_SHL,     ops2(.rm32, .imm8),         Op1r(0xC1, 6),          .MI, .Op32,       .{_386} ),
+    instr(.RESRV_SHL,     ops2(.rm64, .imm8),         Op1r(0xC1, 6),          .MI, .REX_W,      .{x86_64} ),
+    instr(.RESRV_SHL,     ops2(.rm16, .reg_cl),       Op1r(0xD3, 6),          .M,  .Op16,       .{_8086} ),
+    instr(.RESRV_SHL,     ops2(.rm32, .reg_cl),       Op1r(0xD3, 6),          .M,  .Op32,       .{_386} ),
+    instr(.RESRV_SHL,     ops2(.rm64, .reg_cl),       Op1r(0xD3, 6),          .M,  .REX_W,      .{x86_64} ),
+//
+// Unary Group 3 /1
+//
+    instr(.RESRV_TEST,    ops2(.rm8, .imm8),          Op1r(0xF6, 1),          .MI, .ZO,         .{_8086} ),
+    instr(.RESRV_TEST,    ops2(.rm16, .imm16),        Op1r(0xF7, 1),          .MI, .Op16,       .{_8086} ),
+    instr(.RESRV_TEST,    ops2(.rm32, .imm32),        Op1r(0xF7, 1),          .MI, .Op32,       .{_386} ),
+    instr(.RESRV_TEST,    ops2(.rm64, .imm32),        Op1r(0xF7, 1),          .MI, .REX_W,      .{x86_64} ),
+//
+// x87
+//
+    // DCD0 - DCD7 (same as FCOM D8D0-D8D7)
+    instr(.RESRV_FCOM,    ops2(.reg_st0, .reg_st),    Op2(0xDC, 0xD0),       .O2, .ZO,    .{_087} ),
+    instr(.RESRV_FCOM,    ops1(.reg_st),              Op2(0xDC, 0xD0),       .O,  .ZO,    .{_087} ),
+    instr(.RESRV_FCOM,    ops0(),                     Op2(0xDC, 0xD1),       .ZO, .ZO,    .{_087} ),
+    // DCD8 - DCDF (same as FCOMP D8D8-D8DF)
+    instr(.RESRV_FCOMP,   ops2(.reg_st0, .reg_st),    Op2(0xDC, 0xD8),       .O2, .ZO,    .{_087} ),
+    instr(.RESRV_FCOMP,   ops1(.reg_st),              Op2(0xDC, 0xD8),       .O,  .ZO,    .{_087} ),
+    instr(.RESRV_FCOMP,   ops0(),                     Op2(0xDC, 0xD9),       .ZO, .ZO,    .{_087} ),
+    // DED0 - DED7 (same as FCOMP D8C8-D8DF)
+    instr(.RESRV_FCOMP2,  ops2(.reg_st0, .reg_st),    Op2(0xDE, 0xD0),       .O2, .ZO,    .{_087} ),
+    instr(.RESRV_FCOMP2,  ops1(.reg_st),              Op2(0xDE, 0xD0),       .O,  .ZO,    .{_087} ),
+    instr(.RESRV_FCOMP2,  ops0(),                     Op2(0xDE, 0xD1),       .ZO, .ZO,    .{_087} ),
+    // D0C8 - D0CF (same as FXCH D9C8-D9CF)
+    instr(.RESRV_FXCH,    ops2(.reg_st0, .reg_st),    Op2(0xD0, 0xC8),       .O2, .ZO,    .{_087} ),
+    instr(.RESRV_FXCH,    ops1(.reg_st),              Op2(0xD0, 0xC8),       .O, .ZO,     .{_087} ),
+    instr(.RESRV_FXCH,    ops0(),                     Op2(0xD0, 0xC9),       .ZO, .ZO,    .{_087} ),
+    // DFC8 - DFCF (same as FXCH D9C8-D9CF)
+    instr(.RESRV_FXCH2,   ops2(.reg_st0, .reg_st),    Op2(0xDF, 0xC8),       .O2, .ZO,    .{_087} ),
+    instr(.RESRV_FXCH2,   ops1(.reg_st),              Op2(0xDF, 0xC8),       .O, .ZO,     .{_087} ),
+    instr(.RESRV_FXCH2,   ops0(),                     Op2(0xDF, 0xC9),       .ZO, .ZO,    .{_087} ),
+    // DFD0 - DFD7 (same as FSTP DDD8-DDDF)
+    instr(.RESRV_FSTP,    ops1(.reg_st),              Op2(0xDF, 0xD0),       .O, .ZO,     .{_087} ),
+    instr(.RESRV_FSTP,    ops2(.reg_st0, .reg_st),    Op2(0xDF, 0xD0),       .O2, .ZO,    .{_087} ),
+    // DFD8 - DFDF (same as FSTP DDD8-DDDF)
+    instr(.RESRV_FSTP2,   ops1(.reg_st),              Op2(0xDF, 0xD8),       .O, .ZO,     .{_087} ),
+    instr(.RESRV_FSTP2,   ops2(.reg_st0, .reg_st),    Op2(0xDF, 0xD8),       .O2, .ZO,    .{_087} ),
+    // D9D8 - D9DF (same as FFREE with addition of an x87 POP)
+    instr(.FFREEP,        ops1(.reg_st),              Op2(0xDF, 0xC0),       .O, .ZO,     .{_287} ),
+    // DFC0 - DFC7 (same as FSTP DDD8-DDDF but won't cause a stack underflow exception)
+    instr(.FSTPNOUFLOW,   ops1(.reg_st),            Op2(0xDD, 0xD8),       .O, .ZO,     .{_087} ),
+    instr(.FSTPNOUFLOW,   ops2(.reg_st0, .reg_st),  Op2(0xDD, 0xD8),       .O2, .ZO,    .{_087} ),
+
+//
+// Reserved NOP
+// - Reserved instructions which have no defined impact on existing architectural state.
+// - All opcodes `0F 0D` and opcodes in range `0F 18` to `0F 1F` that are not defined above
+// NOP - 0F 0D
+    // PREFETCH                                   Op2r(0x0F, 0x0D, 0)
+    instr(.RESRV_NOP_0F0D_0,   ops1(.rm16),       Op2r(0x0F, 0x0D, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_0,   ops1(.rm32),       Op2r(0x0F, 0x0D, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_0,   ops1(.rm64),       Op2r(0x0F, 0x0D, 0),  .M, .REX_W,      .{x86_64} ),
+    // PREFETCHW                                  Op2r(0x0F, 0x0D, 1)
+    instr(.RESRV_NOP_0F0D_1,   ops1(.rm16),       Op2r(0x0F, 0x0D, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_1,   ops1(.rm32),       Op2r(0x0F, 0x0D, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_1,   ops1(.rm64),       Op2r(0x0F, 0x0D, 1),  .M, .REX_W,      .{x86_64} ),
+    // PREFETCHWT1                                Op2r(0x0F, 0x0D, 2)
+    instr(.RESRV_NOP_0F0D_2,   ops1(.rm16),       Op2r(0x0F, 0x0D, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_2,   ops1(.rm32),       Op2r(0x0F, 0x0D, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_2,   ops1(.rm64),       Op2r(0x0F, 0x0D, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F0D_3,   ops1(.rm16),       Op2r(0x0F, 0x0D, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_3,   ops1(.rm32),       Op2r(0x0F, 0x0D, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_3,   ops1(.rm64),       Op2r(0x0F, 0x0D, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F0D_4,   ops1(.rm16),       Op2r(0x0F, 0x0D, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_4,   ops1(.rm32),       Op2r(0x0F, 0x0D, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_4,   ops1(.rm64),       Op2r(0x0F, 0x0D, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F0D_5,   ops1(.rm16),       Op2r(0x0F, 0x0D, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_5,   ops1(.rm32),       Op2r(0x0F, 0x0D, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_5,   ops1(.rm64),       Op2r(0x0F, 0x0D, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F0D_6,   ops1(.rm16),       Op2r(0x0F, 0x0D, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_6,   ops1(.rm32),       Op2r(0x0F, 0x0D, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_6,   ops1(.rm64),       Op2r(0x0F, 0x0D, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F0D_7,   ops1(.rm16),       Op2r(0x0F, 0x0D, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_7,   ops1(.rm32),       Op2r(0x0F, 0x0D, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F0D_7,   ops1(.rm64),       Op2r(0x0F, 0x0D, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 18
+    // PREFETCHNTA                                Op2r(0x0F, 0x18, 0)
+    instr(.RESRV_NOP_0F18_0,   ops1(.rm16),       Op2r(0x0F, 0x18, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_0,   ops1(.rm32),       Op2r(0x0F, 0x18, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_0,   ops1(.rm64),       Op2r(0x0F, 0x18, 0),  .M, .REX_W,      .{x86_64} ),
+    // PREFETCHT0                                 Op2r(0x0F, 0x18, 1)
+    instr(.RESRV_NOP_0F18_1,   ops1(.rm16),       Op2r(0x0F, 0x18, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_1,   ops1(.rm32),       Op2r(0x0F, 0x18, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_1,   ops1(.rm64),       Op2r(0x0F, 0x18, 1),  .M, .REX_W,      .{x86_64} ),
+    // PREFETCHT1                                 Op2r(0x0F, 0x18, 2)
+    instr(.RESRV_NOP_0F18_2,   ops1(.rm16),       Op2r(0x0F, 0x18, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_2,   ops1(.rm32),       Op2r(0x0F, 0x18, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_2,   ops1(.rm64),       Op2r(0x0F, 0x18, 2),  .M, .REX_W,      .{x86_64} ),
+    // PREFETCHT2                                 Op2r(0x0F, 0x18, 3)
+    instr(.RESRV_NOP_0F18_3,   ops1(.rm16),       Op2r(0x0F, 0x18, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_3,   ops1(.rm32),       Op2r(0x0F, 0x18, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_3,   ops1(.rm64),       Op2r(0x0F, 0x18, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F18_4,   ops1(.rm16),       Op2r(0x0F, 0x18, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_4,   ops1(.rm32),       Op2r(0x0F, 0x18, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_4,   ops1(.rm64),       Op2r(0x0F, 0x18, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F18_5,   ops1(.rm16),       Op2r(0x0F, 0x18, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_5,   ops1(.rm32),       Op2r(0x0F, 0x18, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_5,   ops1(.rm64),       Op2r(0x0F, 0x18, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F18_6,   ops1(.rm16),       Op2r(0x0F, 0x18, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_6,   ops1(.rm32),       Op2r(0x0F, 0x18, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_6,   ops1(.rm64),       Op2r(0x0F, 0x18, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F18_7,   ops1(.rm16),       Op2r(0x0F, 0x18, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F18_7,   ops1(.rm32),       Op2r(0x0F, 0x18, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F18_7,   ops1(.rm64),       Op2r(0x0F, 0x18, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 19
+    instr(.RESRV_NOP_0F19_0,   ops1(.rm16),       Op2r(0x0F, 0x19, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_0,   ops1(.rm32),       Op2r(0x0F, 0x19, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_0,   ops1(.rm64),       Op2r(0x0F, 0x19, 0),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_1,   ops1(.rm16),       Op2r(0x0F, 0x19, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_1,   ops1(.rm32),       Op2r(0x0F, 0x19, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_1,   ops1(.rm64),       Op2r(0x0F, 0x19, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_2,   ops1(.rm16),       Op2r(0x0F, 0x19, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_2,   ops1(.rm32),       Op2r(0x0F, 0x19, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_2,   ops1(.rm64),       Op2r(0x0F, 0x19, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_3,   ops1(.rm16),       Op2r(0x0F, 0x19, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_3,   ops1(.rm32),       Op2r(0x0F, 0x19, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_3,   ops1(.rm64),       Op2r(0x0F, 0x19, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_4,   ops1(.rm16),       Op2r(0x0F, 0x19, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_4,   ops1(.rm32),       Op2r(0x0F, 0x19, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_4,   ops1(.rm64),       Op2r(0x0F, 0x19, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_5,   ops1(.rm16),       Op2r(0x0F, 0x19, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_5,   ops1(.rm32),       Op2r(0x0F, 0x19, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_5,   ops1(.rm64),       Op2r(0x0F, 0x19, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_6,   ops1(.rm16),       Op2r(0x0F, 0x19, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_6,   ops1(.rm32),       Op2r(0x0F, 0x19, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_6,   ops1(.rm64),       Op2r(0x0F, 0x19, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F19_7,   ops1(.rm16),       Op2r(0x0F, 0x19, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F19_7,   ops1(.rm32),       Op2r(0x0F, 0x19, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F19_7,   ops1(.rm64),       Op2r(0x0F, 0x19, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 1A
+    instr(.RESRV_NOP_0F1A_0,   ops1(.rm16),       Op2r(0x0F, 0x1A, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_0,   ops1(.rm32),       Op2r(0x0F, 0x1A, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_0,   ops1(.rm64),       Op2r(0x0F, 0x1A, 0),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_1,   ops1(.rm16),       Op2r(0x0F, 0x1A, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_1,   ops1(.rm32),       Op2r(0x0F, 0x1A, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_1,   ops1(.rm64),       Op2r(0x0F, 0x1A, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_2,   ops1(.rm16),       Op2r(0x0F, 0x1A, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_2,   ops1(.rm32),       Op2r(0x0F, 0x1A, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_2,   ops1(.rm64),       Op2r(0x0F, 0x1A, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_3,   ops1(.rm16),       Op2r(0x0F, 0x1A, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_3,   ops1(.rm32),       Op2r(0x0F, 0x1A, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_3,   ops1(.rm64),       Op2r(0x0F, 0x1A, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_4,   ops1(.rm16),       Op2r(0x0F, 0x1A, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_4,   ops1(.rm32),       Op2r(0x0F, 0x1A, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_4,   ops1(.rm64),       Op2r(0x0F, 0x1A, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_5,   ops1(.rm16),       Op2r(0x0F, 0x1A, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_5,   ops1(.rm32),       Op2r(0x0F, 0x1A, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_5,   ops1(.rm64),       Op2r(0x0F, 0x1A, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_6,   ops1(.rm16),       Op2r(0x0F, 0x1A, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_6,   ops1(.rm32),       Op2r(0x0F, 0x1A, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_6,   ops1(.rm64),       Op2r(0x0F, 0x1A, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1A_7,   ops1(.rm16),       Op2r(0x0F, 0x1A, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_7,   ops1(.rm32),       Op2r(0x0F, 0x1A, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1A_7,   ops1(.rm64),       Op2r(0x0F, 0x1A, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 1B
+    instr(.RESRV_NOP_0F1B_0,   ops1(.rm16),       Op2r(0x0F, 0x1B, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_0,   ops1(.rm32),       Op2r(0x0F, 0x1B, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_0,   ops1(.rm64),       Op2r(0x0F, 0x1B, 0),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_1,   ops1(.rm16),       Op2r(0x0F, 0x1B, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_1,   ops1(.rm32),       Op2r(0x0F, 0x1B, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_1,   ops1(.rm64),       Op2r(0x0F, 0x1B, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_2,   ops1(.rm16),       Op2r(0x0F, 0x1B, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_2,   ops1(.rm32),       Op2r(0x0F, 0x1B, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_2,   ops1(.rm64),       Op2r(0x0F, 0x1B, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_3,   ops1(.rm16),       Op2r(0x0F, 0x1B, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_3,   ops1(.rm32),       Op2r(0x0F, 0x1B, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_3,   ops1(.rm64),       Op2r(0x0F, 0x1B, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_4,   ops1(.rm16),       Op2r(0x0F, 0x1B, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_4,   ops1(.rm32),       Op2r(0x0F, 0x1B, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_4,   ops1(.rm64),       Op2r(0x0F, 0x1B, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_5,   ops1(.rm16),       Op2r(0x0F, 0x1B, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_5,   ops1(.rm32),       Op2r(0x0F, 0x1B, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_5,   ops1(.rm64),       Op2r(0x0F, 0x1B, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_6,   ops1(.rm16),       Op2r(0x0F, 0x1B, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_6,   ops1(.rm32),       Op2r(0x0F, 0x1B, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_6,   ops1(.rm64),       Op2r(0x0F, 0x1B, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1B_7,   ops1(.rm16),       Op2r(0x0F, 0x1B, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_7,   ops1(.rm32),       Op2r(0x0F, 0x1B, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1B_7,   ops1(.rm64),       Op2r(0x0F, 0x1B, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 1C
+    // CLDEMOTE                          preOp2r(._NP, 0x0F, 0x1C, 0)
+    instr(.RESRV_NOP_0F1C_0,   ops1(.rm16),       Op2r(0x0F, 0x1C, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_0,   ops1(.rm32),       Op2r(0x0F, 0x1C, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_0,   ops1(.rm64),       Op2r(0x0F, 0x1C, 0),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_1,   ops1(.rm16),       Op2r(0x0F, 0x1C, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_1,   ops1(.rm32),       Op2r(0x0F, 0x1C, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_1,   ops1(.rm64),       Op2r(0x0F, 0x1C, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_2,   ops1(.rm16),       Op2r(0x0F, 0x1C, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_2,   ops1(.rm32),       Op2r(0x0F, 0x1C, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_2,   ops1(.rm64),       Op2r(0x0F, 0x1C, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_3,   ops1(.rm16),       Op2r(0x0F, 0x1C, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_3,   ops1(.rm32),       Op2r(0x0F, 0x1C, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_3,   ops1(.rm64),       Op2r(0x0F, 0x1C, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_4,   ops1(.rm16),       Op2r(0x0F, 0x1C, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_4,   ops1(.rm32),       Op2r(0x0F, 0x1C, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_4,   ops1(.rm64),       Op2r(0x0F, 0x1C, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_5,   ops1(.rm16),       Op2r(0x0F, 0x1C, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_5,   ops1(.rm32),       Op2r(0x0F, 0x1C, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_5,   ops1(.rm64),       Op2r(0x0F, 0x1C, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_6,   ops1(.rm16),       Op2r(0x0F, 0x1C, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_6,   ops1(.rm32),       Op2r(0x0F, 0x1C, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_6,   ops1(.rm64),       Op2r(0x0F, 0x1C, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1C_7,   ops1(.rm16),       Op2r(0x0F, 0x1C, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_7,   ops1(.rm32),       Op2r(0x0F, 0x1C, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1C_7,   ops1(.rm64),       Op2r(0x0F, 0x1C, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 1D
+    instr(.RESRV_NOP_0F1D_0,   ops1(.rm16),       Op2r(0x0F, 0x1D, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_0,   ops1(.rm32),       Op2r(0x0F, 0x1D, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_0,   ops1(.rm64),       Op2r(0x0F, 0x1D, 0),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_1,   ops1(.rm16),       Op2r(0x0F, 0x1D, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_1,   ops1(.rm32),       Op2r(0x0F, 0x1D, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_1,   ops1(.rm64),       Op2r(0x0F, 0x1D, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_2,   ops1(.rm16),       Op2r(0x0F, 0x1D, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_2,   ops1(.rm32),       Op2r(0x0F, 0x1D, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_2,   ops1(.rm64),       Op2r(0x0F, 0x1D, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_3,   ops1(.rm16),       Op2r(0x0F, 0x1D, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_3,   ops1(.rm32),       Op2r(0x0F, 0x1D, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_3,   ops1(.rm64),       Op2r(0x0F, 0x1D, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_4,   ops1(.rm16),       Op2r(0x0F, 0x1D, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_4,   ops1(.rm32),       Op2r(0x0F, 0x1D, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_4,   ops1(.rm64),       Op2r(0x0F, 0x1D, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_5,   ops1(.rm16),       Op2r(0x0F, 0x1D, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_5,   ops1(.rm32),       Op2r(0x0F, 0x1D, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_5,   ops1(.rm64),       Op2r(0x0F, 0x1D, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_6,   ops1(.rm16),       Op2r(0x0F, 0x1D, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_6,   ops1(.rm32),       Op2r(0x0F, 0x1D, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_6,   ops1(.rm64),       Op2r(0x0F, 0x1D, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1D_7,   ops1(.rm16),       Op2r(0x0F, 0x1D, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_7,   ops1(.rm32),       Op2r(0x0F, 0x1D, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1D_7,   ops1(.rm64),       Op2r(0x0F, 0x1D, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 1E
+    instr(.RESRV_NOP_0F1E_0,   ops1(.rm16),       Op2r(0x0F, 0x1E, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_0,   ops1(.rm32),       Op2r(0x0F, 0x1E, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_0,   ops1(.rm64),       Op2r(0x0F, 0x1E, 0),  .M, .REX_W,      .{x86_64} ),
+    // RDSSPD                            preOp2r(._F3, 0x0F, 0x1E, 1)
+    // RDSSPQ                            preOp2r(._F3, 0x0F, 0x1E, 1)
+    instr(.RESRV_NOP_0F1E_1,   ops1(.rm16),       Op2r(0x0F, 0x1E, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_1,   ops1(.rm32),       Op2r(0x0F, 0x1E, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_1,   ops1(.rm64),       Op2r(0x0F, 0x1E, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1E_2,   ops1(.rm16),       Op2r(0x0F, 0x1E, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_2,   ops1(.rm32),       Op2r(0x0F, 0x1E, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_2,   ops1(.rm64),       Op2r(0x0F, 0x1E, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1E_3,   ops1(.rm16),       Op2r(0x0F, 0x1E, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_3,   ops1(.rm32),       Op2r(0x0F, 0x1E, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_3,   ops1(.rm64),       Op2r(0x0F, 0x1E, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1E_4,   ops1(.rm16),       Op2r(0x0F, 0x1E, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_4,   ops1(.rm32),       Op2r(0x0F, 0x1E, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_4,   ops1(.rm64),       Op2r(0x0F, 0x1E, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1E_5,   ops1(.rm16),       Op2r(0x0F, 0x1E, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_5,   ops1(.rm32),       Op2r(0x0F, 0x1E, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_5,   ops1(.rm64),       Op2r(0x0F, 0x1E, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1E_6,   ops1(.rm16),       Op2r(0x0F, 0x1E, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_6,   ops1(.rm32),       Op2r(0x0F, 0x1E, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_6,   ops1(.rm64),       Op2r(0x0F, 0x1E, 6),  .M, .REX_W,      .{x86_64} ),
+    // ENDBR32                            preOp3(._F3, 0x0F, 0x1E, 0xFB)
+    // ENDBR64                            preOp3(._F3, 0x0F, 0x1E, 0xFA)
+    instr(.RESRV_NOP_0F1E_7,   ops1(.rm16),       Op2r(0x0F, 0x1E, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_7,   ops1(.rm32),       Op2r(0x0F, 0x1E, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1E_7,   ops1(.rm64),       Op2r(0x0F, 0x1E, 7),  .M, .REX_W,      .{x86_64} ),
+// NOP - 0F 1F
+    instr(.RESRV_NOP_0F1F_0,   ops1(.rm16),       Op2r(0x0F, 0x1F, 0),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_0,   ops1(.rm32),       Op2r(0x0F, 0x1F, 0),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_0,   ops1(.rm64),       Op2r(0x0F, 0x1F, 0),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_1,   ops1(.rm16),       Op2r(0x0F, 0x1F, 1),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_1,   ops1(.rm32),       Op2r(0x0F, 0x1F, 1),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_1,   ops1(.rm64),       Op2r(0x0F, 0x1F, 1),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_2,   ops1(.rm16),       Op2r(0x0F, 0x1F, 2),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_2,   ops1(.rm32),       Op2r(0x0F, 0x1F, 2),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_2,   ops1(.rm64),       Op2r(0x0F, 0x1F, 2),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_3,   ops1(.rm16),       Op2r(0x0F, 0x1F, 3),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_3,   ops1(.rm32),       Op2r(0x0F, 0x1F, 3),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_3,   ops1(.rm64),       Op2r(0x0F, 0x1F, 3),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_4,   ops1(.rm16),       Op2r(0x0F, 0x1F, 4),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_4,   ops1(.rm32),       Op2r(0x0F, 0x1F, 4),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_4,   ops1(.rm64),       Op2r(0x0F, 0x1F, 4),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_5,   ops1(.rm16),       Op2r(0x0F, 0x1F, 5),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_5,   ops1(.rm32),       Op2r(0x0F, 0x1F, 5),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_5,   ops1(.rm64),       Op2r(0x0F, 0x1F, 5),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_6,   ops1(.rm16),       Op2r(0x0F, 0x1F, 6),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_6,   ops1(.rm32),       Op2r(0x0F, 0x1F, 6),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_6,   ops1(.rm64),       Op2r(0x0F, 0x1F, 6),  .M, .REX_W,      .{x86_64} ),
+    instr(.RESRV_NOP_0F1F_7,   ops1(.rm16),       Op2r(0x0F, 0x1F, 7),  .M, .Op16,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_7,   ops1(.rm32),       Op2r(0x0F, 0x1F, 7),  .M, .Op32,       .{P6} ),
+    instr(.RESRV_NOP_0F1F_7,   ops1(.rm64),       Op2r(0x0F, 0x1F, 7),  .M, .REX_W,      .{x86_64} ),
+
     // Dummy sigil value that marks the end of the table, use this to avoid
     // extra bounds checking when scanning this table.
     instr(._mnemonic_final,  ops0(), Opcode{}, .ZO, .ZO, .{} ),
 };
-

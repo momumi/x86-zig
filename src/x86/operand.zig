@@ -420,6 +420,8 @@ pub const OperandType = enum(u32) {
     rm32 = create_rm(0, .reg32, .mem32),
     rm_reg32 = create_rm(0, .reg32, .no_mem),
     rm_mem32 = create_rm(0, .mem, .mem32),
+    reg32_m8 = create_rm(0, .reg32, .mem8),
+    reg32_m16 = create_rm(0, .reg32, .mem16),
 
     rm64 = create_rm(0, .reg64, .mem64),
     rm_reg64 = create_rm(0, .reg64, .no_mem),

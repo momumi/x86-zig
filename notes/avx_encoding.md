@@ -32,6 +32,12 @@ P1: | W | v | v | v | v | L | p | p |
 ```
 
 3 byte XOP is same as 3 byte vex except with 0x8F magic prefix instead of 0xC4
+```
+      7   6   5   4   3   2   1   0
+8F  | 1 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+P0: | R | X | B | m | m | m | m | m |
+P1: | W | v | v | v | v | L | p | p |
+```
 
 * Prefixes
     * REX / 0x66 / 0xF2 / 0xF3 prefixes reserved for future use

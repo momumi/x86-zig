@@ -17,18 +17,18 @@ test "cpuid features" {
         const m32 = Machine.init_with_features(.x86_32, cpu_features[0..]);
         const m64 = Machine.init_with_features(.x64, cpu_features[0..]);
 
-        testOp2(m16, .MOV,  reg(.AL), reg(.AL), "8a c0");
-        testOp2(m16, .MOV,  reg(.AX), reg(.AX), "8b c0");
+        testOp2(m16, .MOV,  reg(.AL), reg(.AL), "88 c0");
+        testOp2(m16, .MOV,  reg(.AX), reg(.AX), "89 c0");
         testOp2(m16, .MOV,  reg(.EAX), reg(.EAX), AsmError.InvalidOperand);
         testOp2(m16, .MOV,  reg(.RAX), reg(.RAX), AsmError.InvalidOperand);
 
-        testOp2(m32, .MOV,  reg(.AL), reg(.AL), "8a c0");
-        testOp2(m32, .MOV,  reg(.AX), reg(.AX), "66 8b c0");
+        testOp2(m32, .MOV,  reg(.AL), reg(.AL), "88 c0");
+        testOp2(m32, .MOV,  reg(.AX), reg(.AX), "66 89 c0");
         testOp2(m32, .MOV,  reg(.EAX), reg(.EAX), AsmError.InvalidOperand);
         testOp2(m32, .MOV,  reg(.RAX), reg(.RAX), AsmError.InvalidOperand);
 
-        testOp2(m64, .MOV,  reg(.AL), reg(.AL), "8a c0");
-        testOp2(m64, .MOV,  reg(.AX), reg(.AX), "66 8b c0");
+        testOp2(m64, .MOV,  reg(.AL), reg(.AL), "88 c0");
+        testOp2(m64, .MOV,  reg(.AX), reg(.AX), "66 89 c0");
         testOp2(m64, .MOV,  reg(.EAX), reg(.EAX), AsmError.InvalidOperand);
         testOp2(m64, .MOV,  reg(.RAX), reg(.RAX), AsmError.InvalidOperand);
 
@@ -46,12 +46,12 @@ test "cpuid features" {
         const m32 = Machine.init_with_features(.x86_32, cpu_features[0..]);
         const m64 = Machine.init_with_features(.x64, cpu_features[0..]);
 
-        testOp2(m64, .MOV,  reg(.AL), reg(.AL), "8a c0");
-        testOp2(m64, .MOV,  reg(.AX), reg(.AX), "66 8b c0");
-        testOp2(m64, .MOV,  reg(.EAX), reg(.EAX), "8b c0");
-        testOp2(m64, .MOV,  reg(.RAX), reg(.RAX), "48 8b c0");
+        testOp2(m64, .MOV,  reg(.AL), reg(.AL), "88 c0");
+        testOp2(m64, .MOV,  reg(.AX), reg(.AX), "66 89 c0");
+        testOp2(m64, .MOV,  reg(.EAX), reg(.EAX), "89 c0");
+        testOp2(m64, .MOV,  reg(.RAX), reg(.RAX), "48 89 c0");
 
-        testOp2(m64, .MOV,  reg(.RAX), reg(.RAX), "48 8b c0");
+        testOp2(m64, .MOV,  reg(.RAX), reg(.RAX), "48 89 c0");
 
         testOp2(m64, .FCMOVB, reg(.ST0), reg(.ST7), "da c7");
 

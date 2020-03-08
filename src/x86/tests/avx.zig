@@ -1873,6 +1873,25 @@ test "AVX" {
     }
 
     {
+        {
+            // VFMADDPD
+            testOp4(m64, .VFMADDPD,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 69 c8 30");
+            testOp4(m64, .VFMADDPD,    reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 69 c8 30");
+            testOp4(m64, .VFMADDPD,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 69 c8 30");
+            testOp4(m64, .VFMADDPD,    reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 69 c8 30");
+            // VFMADDPS
+            testOp4(m64, .VFMADDPS,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 68 c8 30");
+            testOp4(m64, .VFMADDPS,    reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 68 c8 30");
+            testOp4(m64, .VFMADDPS,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 68 c8 30");
+            testOp4(m64, .VFMADDPS,    reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 68 c8 30");
+            // VFMADDSD
+            testOp4(m64, .VFMADDSD,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 6b c8 30");
+            testOp4(m64, .VFMADDSD,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 6b c8 30");
+            // VFMADDSS
+            testOp4(m64, .VFMADDSS,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 6a c8 30");
+            testOp4(m64, .VFMADDSS,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 6a c8 30");
+        }
+
         // VFMADD132PD / VFMADD213PD / VFMADD231PD
         testOp3(m64, .VFMADD132PD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 98 c8");
         testOp3(m64, .VFMADD132PD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 98 c8");
@@ -1930,6 +1949,18 @@ test "AVX" {
     }
 
     {
+        {
+            // VFMADDSUBPD
+            testOp4(m64, .VFMADDSUBPD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 5d c8 30");
+            testOp4(m64, .VFMADDSUBPD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 5d c8 30");
+            testOp4(m64, .VFMADDSUBPD, reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 5d c8 30");
+            testOp4(m64, .VFMADDSUBPD, reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 5d c8 30");
+            // VFMADDSUBPS
+            testOp4(m64, .VFMADDSUBPS, reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 5c c8 30");
+            testOp4(m64, .VFMADDSUBPS, reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 5c c8 30");
+            testOp4(m64, .VFMADDSUBPS, reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 5c c8 30");
+            testOp4(m64, .VFMADDSUBPS, reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 5c c8 30");
+        }
         // VFMADDSUB132PD / VFMADDSUB213PD / VFMADDSUB231PD
         testOp3(m64, .VFMADDSUB132PD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 96 c8");
         testOp3(m64, .VFMADDSUB132PD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 96 c8");
@@ -1969,6 +2000,18 @@ test "AVX" {
     }
 
     {
+        {
+            // VFMSUBADDPD
+            testOp4(m64, .VFMSUBADDPD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 5f c8 30");
+            testOp4(m64, .VFMSUBADDPD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 5f c8 30");
+            testOp4(m64, .VFMSUBADDPD, reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 5f c8 30");
+            testOp4(m64, .VFMSUBADDPD, reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 5f c8 30");
+            // VFMSUBADDPS
+            testOp4(m64, .VFMSUBADDPS, reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 5e c8 30");
+            testOp4(m64, .VFMSUBADDPS, reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 5e c8 30");
+            testOp4(m64, .VFMSUBADDPS, reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 5e c8 30");
+            testOp4(m64, .VFMSUBADDPS, reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 5e c8 30");
+        }
         // VFMSUBADD132PD / VFMSUBADD213PD / VFMSUBADD231PD
         testOp3(m64, .VFMSUBADD132PD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 97 c8");
         testOp3(m64, .VFMSUBADD132PD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 97 c8");
@@ -2008,6 +2051,24 @@ test "AVX" {
     }
 
     {
+        {
+            // VFMSUBPD
+            testOp4(m64, .VFMSUBPD,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 6d c8 30");
+            testOp4(m64, .VFMSUBPD,    reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 6d c8 30");
+            testOp4(m64, .VFMSUBPD,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 6d c8 30");
+            testOp4(m64, .VFMSUBPD,    reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 6d c8 30");
+            // VFMSUBPS
+            testOp4(m64, .VFMSUBPS,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 6c c8 30");
+            testOp4(m64, .VFMSUBPS,    reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 6c c8 30");
+            testOp4(m64, .VFMSUBPS,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 6c c8 30");
+            testOp4(m64, .VFMSUBPS,    reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 6c c8 30");
+            // VFMSUBSD
+            testOp4(m64, .VFMSUBSD,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 6f c8 30");
+            testOp4(m64, .VFMSUBSD,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 6f c8 30");
+            // VFMSUBSS
+            testOp4(m64, .VFMSUBSS,    reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 6e c8 30");
+            testOp4(m64, .VFMSUBSS,    reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 6e c8 30");
+        }
         // VFMSUB132PD / VFMSUB213PD / VFMSUB231PD
         testOp3(m64, .VFMSUB132PD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 9a c8");
         testOp3(m64, .VFMSUB132PD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 9a c8");
@@ -2065,6 +2126,24 @@ test "AVX" {
     }
 
     {
+        {
+            // VFNMADDPD
+            testOp4(m64, .VFNMADDPD,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 79 c8 30");
+            testOp4(m64, .VFNMADDPD,   reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 79 c8 30");
+            testOp4(m64, .VFNMADDPD,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 79 c8 30");
+            testOp4(m64, .VFNMADDPD,   reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 79 c8 30");
+            // VFNMADDPS
+            testOp4(m64, .VFNMADDPS,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 78 c8 30");
+            testOp4(m64, .VFNMADDPS,   reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 78 c8 30");
+            testOp4(m64, .VFNMADDPS,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 78 c8 30");
+            testOp4(m64, .VFNMADDPS,   reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 78 c8 30");
+            // VFNMADDSD
+            testOp4(m64, .VFNMADDSD,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 7b c8 30");
+            testOp4(m64, .VFNMADDSD,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 7b c8 30");
+            // VFNMADDSS
+            testOp4(m64, .VFNMADDSS,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 7a c8 30");
+            testOp4(m64, .VFNMADDSS,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 7a c8 30");
+        }
         // VFNMADD132PD / VFNMADD213PD / VFNMADD231PD
         testOp3(m64, .VFNMADD132PD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 9c c8");
         testOp3(m64, .VFNMADD132PD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 9c c8");
@@ -2122,6 +2201,24 @@ test "AVX" {
     }
 
     {
+        {
+            // VFNMSUBPD
+            testOp4(m64, .VFNMSUBPD,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 7d c8 30");
+            testOp4(m64, .VFNMSUBPD,   reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 7d c8 30");
+            testOp4(m64, .VFNMSUBPD,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 7d c8 30");
+            testOp4(m64, .VFNMSUBPD,   reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 7d c8 30");
+            // VFNMSUBPS
+            testOp4(m64, .VFNMSUBPS,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 7c c8 30");
+            testOp4(m64, .VFNMSUBPS,   reg(.YMM1), reg(.YMM2), regRm(.YMM0), reg(.YMM3), "c4 e3 6d 7c c8 30");
+            testOp4(m64, .VFNMSUBPS,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 7c c8 30");
+            testOp4(m64, .VFNMSUBPS,   reg(.YMM1), reg(.YMM2), reg(.YMM3), regRm(.YMM0), "c4 e3 ed 7c c8 30");
+            // VFNMSUBSD
+            testOp4(m64, .VFNMSUBSD,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 7f c8 30");
+            testOp4(m64, .VFNMSUBSD,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 7f c8 30");
+            // VFNMSUBSS
+            testOp4(m64, .VFNMSUBSS,   reg(.XMM1), reg(.XMM2), regRm(.XMM0), reg(.XMM3), "c4 e3 69 7e c8 30");
+            testOp4(m64, .VFNMSUBSS,   reg(.XMM1), reg(.XMM2), reg(.XMM3), regRm(.XMM0), "c4 e3 e9 7e c8 30");
+        }
         // VFNMSUB132PD / VFNMSUB213PD / VFNMSUB231PD
         testOp3(m64, .VFNMSUB132PD, reg(.XMM1), reg(.XMM2), regRm(.XMM0), "c4 e2 e9 9e c8");
         testOp3(m64, .VFNMSUB132PD, reg(.YMM1), reg(.YMM2), regRm(.YMM0), "c4 e2 ed 9e c8");

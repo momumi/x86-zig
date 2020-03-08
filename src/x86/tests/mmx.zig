@@ -7,6 +7,7 @@ test "MMX" {
     const m64 = Machine.init(.x64);
 
     const reg = Operand.register;
+    const regRm = Operand.registerRm;
     const imm = Operand.immediate;
 
     debugPrint(false);
@@ -210,7 +211,6 @@ test "MMX" {
         testOp2(m32, .PCMPGTW,   reg(.MM0), reg(.MM0), "0f 65 c0");
         testOp2(m32, .PCMPGTD,   reg(.MM0), reg(.MM0), "0f 66 c0");
 
-        testOp3(m32, .PEXTRW,    reg( .AX), reg(.MM0), imm(0), "0f c5 c0 00");
         testOp3(m32, .PEXTRW,    reg(.EAX), reg(.MM0), imm(0), "0f c5 c0 00");
         testOp3(m64, .PEXTRW,    reg(.RAX), reg(.MM0), imm(0), "0f c5 c0 00");
 
@@ -254,4 +254,106 @@ test "MMX" {
         testOp2(m32, .PUNPCKLDQ, reg(.MM0), reg(.MM0), "0f 62 c0");
         // testOp2(m32, .PUNPCKLQDQ,reg(.MM0), reg(.MM0), "0f 6c c0");
     }
+
+    //
+    // 3DNow!
+    //
+    {
+        // FEMMS
+        testOp0(m64, .FEMMS,     "0f 0e");
+        // PAVGUSB
+        testOp2(m64, .PAVGUSB,   reg(.MM1), regRm(.MM0), "0f 0f c8 bf");
+        // PF2ID
+        testOp2(m64, .PF2ID,     reg(.MM1), regRm(.MM0), "0f 0f c8 1d");
+        // PFACC
+        testOp2(m64, .PFACC,     reg(.MM1), regRm(.MM0), "0f 0f c8 ae");
+        // PFADD
+        testOp2(m64, .PFADD,     reg(.MM1), regRm(.MM0), "0f 0f c8 9e");
+        // PFCMPEQ
+        testOp2(m64, .PFCMPEQ,   reg(.MM1), regRm(.MM0), "0f 0f c8 b0");
+        // PFCMPGE
+        testOp2(m64, .PFCMPGE,   reg(.MM1), regRm(.MM0), "0f 0f c8 90");
+        // PFCMPGT
+        testOp2(m64, .PFCMPGT,   reg(.MM1), regRm(.MM0), "0f 0f c8 a0");
+        // PFMAX
+        testOp2(m64, .PFMAX,     reg(.MM1), regRm(.MM0), "0f 0f c8 a4");
+        // PFMIN
+        testOp2(m64, .PFMIN,     reg(.MM1), regRm(.MM0), "0f 0f c8 94");
+        // PFMUL
+        testOp2(m64, .PFMUL,     reg(.MM1), regRm(.MM0), "0f 0f c8 b4");
+        // PFRCP
+        testOp2(m64, .PFRCP,     reg(.MM1), regRm(.MM0), "0f 0f c8 96");
+        // PFRCPIT1
+        testOp2(m64, .PFRCPIT1,  reg(.MM1), regRm(.MM0), "0f 0f c8 a6");
+        // PFRCPIT2
+        testOp2(m64, .PFRCPIT2,  reg(.MM1), regRm(.MM0), "0f 0f c8 b6");
+        // PFRSQIT1
+        testOp2(m64, .PFRSQIT1,  reg(.MM1), regRm(.MM0), "0f 0f c8 a7");
+        // PFRSQRT
+        testOp2(m64, .PFRSQRT,   reg(.MM1), regRm(.MM0), "0f 0f c8 97");
+        // PFSUB
+        testOp2(m64, .PFSUB,     reg(.MM1), regRm(.MM0), "0f 0f c8 9a");
+        // PFSUBR
+        testOp2(m64, .PFSUBR,    reg(.MM1), regRm(.MM0), "0f 0f c8 aa");
+        // PI2FD
+        testOp2(m64, .PI2FD,     reg(.MM1), regRm(.MM0), "0f 0f c8 0d");
+        // PMULHRW
+        testOp2(m64, .PMULHRW,   reg(.MM1), regRm(.MM0), "0f 0f c8 0c");
+    }
+
+    {
+        // PFRCPV
+        testOp2(m64, .PFRCPV,    reg(.MM1), regRm(.MM0), "0f 0f c8 87");
+        // PFRSQRTV
+        testOp2(m64, .PFRSQRTV,  reg(.MM1), regRm(.MM0), "0f 0f c8 86");
+    }
+
+    //
+    // 3DNow! Extensions
+    //
+    {
+        // PF2IW
+        testOp2(m64, .PF2IW,     reg(.MM1), regRm(.MM0), "0f 0f c8 1c");
+        // PFNACC
+        testOp2(m64, .PFNACC,    reg(.MM1), regRm(.MM0), "0f 0f c8 8a");
+        // PFPNACC
+        testOp2(m64, .PFPNACC,   reg(.MM1), regRm(.MM0), "0f 0f c8 8e");
+        // PI2FW
+        testOp2(m64, .PI2FW,     reg(.MM1), regRm(.MM0), "0f 0f c8 0c");
+        // PSWAPD
+        testOp2(m64, .PSWAPD,    reg(.MM1), regRm(.MM0), "0f 0f c8 bb");
+    }
+
+    //
+    // Cyrix EMMI (Extended Multi-Media Instructions)
+    //
+    {
+        // NOTE: some instructions are overloaded elsewhere by AMD/Intel, so
+        // so need to use separate cpu features here
+        const cpu_features = [_]CpuFeature { .Cyrix, .EMMI };
+
+        const cyrix32 = Machine.init_with_features(.x86_32, cpu_features[0..]);
+
+        // PADDSIW
+        testOp2(cyrix32, .PADDSIW,   reg(.MM1), regRm(.MM0), "0f 51 c8");
+        // PAVEB
+        testOp2(cyrix32, .PAVEB,     reg(.MM1), regRm(.MM0), "0f 50 c8");
+        // PDISTIB
+        testOp2(cyrix32, .PDISTIB,   reg(.MM1), mem_64, "0f 54 08");
+        // PMACHRIW
+        testOp2(cyrix32, .PMACHRIW,  reg(.MM1), mem_64, "0f 5e 08");
+        // PMAGW
+        testOp2(cyrix32, .PMAGW,     reg(.MM1), regRm(.MM0), "0f 52 c8");
+        // PMULHRW / PMULHRIW
+        testOp2(cyrix32, .PMULHRW,   reg(.MM1), regRm(.MM0), "0f 59 c8");
+        testOp2(cyrix32, .PMULHRIW,  reg(.MM1), regRm(.MM0), "0f 5d c8");
+        // PMVZB / PMVNZB / PMVLZB / PMVGEZB
+        testOp2(cyrix32, .PMVZB,     reg(.MM1), mem_64, "0f 58 08");
+        testOp2(cyrix32, .PMVNZB,    reg(.MM1), mem_64, "0f 5a 08");
+        testOp2(cyrix32, .PMVLZB,    reg(.MM1), mem_64, "0f 5b 08");
+        testOp2(cyrix32, .PMVGEZB,   reg(.MM1), mem_64, "0f 5c 08");
+        // PSUBSIW
+        testOp2(cyrix32, .PSUBSIW,   reg(.MM1), regRm(.MM0), "0f 55 c8");
+    }
+
 }

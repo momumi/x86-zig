@@ -27,6 +27,7 @@ test "main test" {
     _ = @import("x86/tests/mmx.zig");
     _ = @import("x86/tests/sse.zig");
     _ = @import("x86/tests/avx.zig");
+    _ = @import("x86/tests/xop.zig");
     _ = @import("x86/tests/mask_register.zig");
     _ = @import("x86/tests/avx_512.zig");
     _ = @import("x86/tests/16bit_mode.zig");

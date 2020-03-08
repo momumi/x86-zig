@@ -60,7 +60,32 @@ test "mov x64 register" {
 
     {
         testOp2(m64, .MOV, reg(.AL), imm8(0), "B0 00");
+        testOp2(m64, .MOV, reg(.CL), imm8(0), "B1 00");
+        testOp2(m64, .MOV, reg(.DL), imm8(0), "B2 00");
+        testOp2(m64, .MOV, reg(.BL), imm8(0), "B3 00");
         testOp2(m64, .MOV, reg(.AH), imm8(0), "B4 00");
+        testOp2(m64, .MOV, reg(.CH), imm8(0), "B5 00");
+        testOp2(m64, .MOV, reg(.DH), imm8(0), "B6 00");
+        testOp2(m64, .MOV, reg(.BH), imm8(0), "B7 00");
+        testOp2(m64, .MOV, reg(.SPL), imm8(0), "40 B4 00");
+        testOp2(m64, .MOV, reg(.BPL), imm8(0), "40 B5 00");
+        testOp2(m64, .MOV, reg(.SIL), imm8(0), "40 B6 00");
+        testOp2(m64, .MOV, reg(.DIL), imm8(0), "40 B7 00");
+
+        testOp2(m32, .MOV, reg(.SPL), imm8(0), AsmError.InvalidMode);
+        testOp2(m32, .MOV, reg(.BPL), imm8(0), AsmError.InvalidMode);
+        testOp2(m32, .MOV, reg(.SIL), imm8(0), AsmError.InvalidMode);
+        testOp2(m32, .MOV, reg(.DIL), imm8(0), AsmError.InvalidMode);
+
+        testOp2(m64, .MOV, reg(.MM0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.XMM0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.YMM0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.ZMM0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.CR0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.DR0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.DR0), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.SS), imm8(0), AsmError.InvalidOperand);
+        testOp2(m64, .MOV, reg(.SS), imm8(0), AsmError.InvalidOperand);
     }
 
     {
@@ -119,7 +144,7 @@ test "mov x64 register" {
     }
 
     {
-        testOp2(m64, .MOV, reg(.AL), reg(.AL), "8a c0");
+        testOp2(m64, .MOV, reg(.AL), reg(.AL), "88 c0");
         testOp2(m64, .MOV, reg(.AL), regRm(.AL), "8a c0");
         testOp2(m64, .MOV, regRm(.AL), reg(.AL), "88 c0");
         testOp2(m64, .MOV, regRm(.AL), reg(.R9B), "44 88 c8");

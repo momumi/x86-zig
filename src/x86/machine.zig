@@ -124,7 +124,10 @@ pub const Machine = struct {
         if (has_rm) {
             res.modrm(modrm);
         }
-        if (imm) |im| {
+
+        if (opcode.hasPostfix()) {
+            res.addImm8(opcode.getPostfix());
+        } else if (imm) |im| {
             res.addImm(im);
         }
 
@@ -174,14 +177,16 @@ pub const Machine = struct {
         return res;
     }
 
-    pub fn encodeImmImm(
+    pub fn encodeRMII(
         self: Machine,
         instr_item: *const InstructionItem,
+        op_reg: ?*const Operand,
+        op_rm: ?*const Operand,
         imm1: Immediate,
         imm2: Immediate,
         overides: Overides
     ) AsmError!Instruction {
-        var res = try self.encodeRMI(instr_item, null, null, imm1, overides);
+        var res = try self.encodeRMI(instr_item, op_reg, op_rm, imm1, overides);
         res.addImm(imm2);
 
         return res;
@@ -517,7 +522,7 @@ pub const Machine = struct {
             if (imm_op) |imm| {
                 const imm_val = imm.Imm.as8();
                 if (imm_val > 0x0F) {
-                    return AsmError.InvalidOperand;
+                    return AsmError.InvalidImmediate;
                 }
                 imm8 |= imm_val << 0;
             }
@@ -530,19 +535,19 @@ pub const Machine = struct {
     }
 
     pub fn build0(self: Machine, mnem: Mnemonic) AsmError!Instruction {
-        return self.build(mnem, null, null, null, null);
+        return self.build(mnem, null, null, null, null, null);
     }
 
     pub fn build1(self: Machine, mnem: Mnemonic, ops1: Operand) AsmError!Instruction {
-        return self.build(mnem, &ops1, null, null, null);
+        return self.build(mnem, &ops1, null, null, null, null);
     }
 
     pub fn build2(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, null, null);
+        return self.build(mnem, &ops1, &ops2, null, null, null);
     }
 
     pub fn build3(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, &ops3, null);
+        return self.build(mnem, &ops1, &ops2, &ops3, null, null);
     }
 
     pub fn build4(
@@ -553,7 +558,19 @@ pub const Machine = struct {
         ops3: Operand,
         ops4: Operand
     ) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, &ops3, &ops4);
+        return self.build(mnem, &ops1, &ops2, &ops3, &ops4, null);
+    }
+
+    pub fn build5(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand,
+        ops4: Operand,
+        ops5: Operand,
+    ) AsmError!Instruction {
+        return self.build(mnem, &ops1, &ops2, &ops3, &ops4, &ops5);
     }
 
     pub fn build(
@@ -562,9 +579,10 @@ pub const Machine = struct {
         ops1: ?*const Operand,
         ops2: ?*const Operand,
         ops3: ?*const Operand,
-        ops4: ?*const Operand
+        ops4: ?*const Operand,
+        ops5: ?*const Operand,
     ) AsmError!Instruction {
-        const sig = database.Signature.fromOperands(ops1, ops2, ops3, ops4);
+        const sig = database.Signature.fromOperands(ops1, ops2, ops3, ops4, ops5);
 
         // sig.debugPrint();
         var i = database.lookupMnemonic(mnem);
@@ -580,13 +598,13 @@ pub const Machine = struct {
 
             if (Signature.matchTemplate(item.signature, sig)) {
                 // item.signature.debugPrint();
-                if (item.hasEdgeCase() and item.matchesEdgeCase(self, ops1, ops2, ops3, ops4)) {
+                if (item.hasEdgeCase() and item.matchesEdgeCase(self, ops1, ops2, ops3, ops4, ops5)) {
                     continue;
                 }
                 if (!item.isMachineMatch(self)) {
                     continue;
                 }
-                return item.encode(self, ops1, ops2, ops3, ops4);
+                return item.encode(self, ops1, ops2, ops3, ops4, ops5);
             }
         }
 

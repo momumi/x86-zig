@@ -32,7 +32,7 @@ pub const AvxResult = struct {
     X: u1 = 0,
     B: u1 = 0,
     W: u1 = 0,
-    mm: u2 = 0,
+    map: u5 = 0,
     /// V'
     V_: u1 = 0,
     vvvv: u4 = 0b0000,
@@ -144,7 +144,7 @@ pub const AvxResult = struct {
             | (@as(u8, ~self.B) << 5)
             | (@as(u8, ~self.R_) << 4)
             // | (0b00 << 2)
-            | (@as(u8, self.mm) << 0)
+            | (@as(u8, self.map) << 0)
         );
         const P1: u8 = (
             (@as(u8, self.W) << 7)
@@ -178,19 +178,14 @@ pub const AvxResult = struct {
         return [2]u8 { 0xC5, P0 };
     }
 
-    /// Generate VEX3 prefix bytes
-    ///
-    ///       7   6   5   4   3   2   1   0
-    /// C4  | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
-    /// P0: | R | X | B | 0 | 0 | 0 | m | m |
-    /// P1: | W | v | v | v | v | L | p | p |
-    pub fn makeVex3(self: AvxResult) [3]u8 {
+
+    fn makeCommonXopVex3(self: AvxResult, magic: u8) [3]u8 {
         const P0: u8 = (
             (@as(u8, ~self.R) << 7)
             | (@as(u8, ~self.X) << 6)
             | (@as(u8, ~self.B) << 5)
             // | (0b000 << 2)
-            | (@as(u8, self.mm) << 0)
+            | (@as(u8, self.map) << 0)
         );
         const P1: u8 = (
             (@as(u8, self.W) << 7)
@@ -198,9 +193,28 @@ pub const AvxResult = struct {
             | (@as(u8, self.L) << 2)
             | (@as(u8, self.pp) << 0)
         );
-        return [3]u8 { 0xC4, P0, P1 };
+        return [3]u8 { magic, P0, P1 };
     }
 
+    /// Generate VEX3 prefix bytes
+    ///
+    ///       7   6   5   4   3   2   1   0
+    /// C4  | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 |
+    /// P0: | R | X | B | 0 | 0 | 0 | m | m |
+    /// P1: | W | v | v | v | v | L | p | p |
+    pub fn makeVex3(self: AvxResult) [3]u8 {
+        return self.makeCommonXopVex3(0xC4);
+    }
+
+    /// Generate XOP prefix bytes
+    ///
+    ///       7   6   5   4   3   2   1   0
+    /// 8F  | 1 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+    /// P0: | R | X | B | 0 | 0 | 0 | m | m |
+    /// P1: | W | v | v | v | v | L | p | p |
+    pub fn makeXop(self: AvxResult) [3]u8 {
+        return self.makeCommonXopVex3(0x8F);
+    }
 };
 
 pub const AvxEncoding = enum {
@@ -222,6 +236,12 @@ pub const VexEscape = enum (u2) {
     _0F = 0b01,
     _0F38 = 0b10,
     _0F3A = 0b11,
+};
+
+pub const XopMapSelect = enum (u5) {
+    _08h = 0b01000,
+    _09h = 0b01001,
+    _0Ah = 0b01010,
 };
 
 pub const VexW = enum {
@@ -410,11 +430,10 @@ pub const AvxOpcode = struct {
     encoding: AvxEncoding,
     vec_len: EvexLength,
     prefix: VexPrefix,
-    escape: VexEscape,
+    map_select: u5,
     opcode: u8,
     reg_bits: ?u3 = null,
     vex_w: VexW,
-    immSourceOp: bool = false,
     tuple_type: TupleType = .None,
 
     pub fn encode(
@@ -428,7 +447,7 @@ pub const AvxOpcode = struct {
         var res = AvxResult{};
 
         res.pp = @enumToInt(self.prefix);
-        res.mm = @enumToInt(self.escape);
+        res.map = self.map_select;
         res.addVecLen(machine, self.vec_len);
 
         // handle (E)VEX modrm.reg register
@@ -520,7 +539,7 @@ pub const AvxOpcode = struct {
                     and (res.z == 0)
                 );
 
-                if (res.X == 0 and res.B == 0 and res.W == 0 and res.mm == 0b01) {
+                if (res.X == 0 and res.B == 0 and res.W == 0 and res.map == 0b01) {
                     res.encoding = .Vex2;
                 } else {
                     res.encoding = .Vex3;
@@ -561,21 +580,20 @@ pub const AvxOpcode = struct {
             .encoding = .EVEX,
             .vec_len = len,
             .prefix = pre,
-            .escape = esc,
+            .map_select = @enumToInt(esc),
             .vex_w = w,
             .opcode = op,
             .reg_bits = reg,
-            .immSourceOp = false,
             .tuple_type = tuple,
         };
     }
 
     pub fn vex(len: VexLength, pre: VexPrefix, esc: VexEscape, w: VexW, op: u8) AvxOpcode {
-        return vex_r(len, pre, esc, w, op, null, false);
+        return vex_r(len, pre, esc, w, op, null);
     }
 
     pub fn vexr(len: VexLength, pre: VexPrefix, esc: VexEscape, w: VexW, op: u8, r: u3) AvxOpcode {
-        return vex_r(len, pre, esc, w, op, r, false);
+        return vex_r(len, pre, esc, w, op, r);
     }
 
     pub fn vex_r(
@@ -585,47 +603,47 @@ pub const AvxOpcode = struct {
         w: VexW,
         op: u8,
         reg: ?u3,
-        immS4: bool,
     ) AvxOpcode {
-        return vex_common(.VEX, len, pre, esc, w, op, reg, immS4);
+        return vex_common(.VEX, len, pre, @enumToInt(esc), w, op, reg);
     }
 
 
-    pub fn xop(len: VexLength, pre: VexPrefix, esc: VexEscape, w: VexW, op: u8,) AvxOpcode {
-        return xop_r(len, pre, esc, w, op, null, false);
+    pub fn xop(len: VexLength, pre: VexPrefix, map: XopMapSelect, w: VexW, op: u8,) AvxOpcode {
+        return xop_r(len, pre, map, w, op, null);
+    }
+
+    pub fn xopr(len: VexLength, pre: VexPrefix, map: XopMapSelect, w: VexW, op: u8, r: u3) AvxOpcode {
+        return xop_r(len, pre, map, w, op, r);
     }
 
     pub fn xop_r(
         len: VexLength,
         pre: VexPrefix,
-        esc: VexEscape,
+        map: XopMapSelect,
         w: VexW,
         op: u8,
         reg: ?u3,
-        immS4: bool,
     ) AvxOpcode {
-        return vex_common(.XOP, len, pre, esc, w, op, reg, immS4);
+        return vex_common(.XOP, len, pre, @enumToInt(map), w, op, reg);
     }
 
     pub fn vex_common(
         enc: AvxEncoding,
         len: VexLength,
         pre: VexPrefix,
-        esc: VexEscape,
+        map_select: u5,
         w: VexW,
         op: u8,
         reg: ?u3,
-        immS4: bool,
     ) AvxOpcode {
         return AvxOpcode {
             .encoding = enc,
             .vec_len = @intToEnum(EvexLength, @enumToInt(len)),
             .prefix = pre,
-            .escape = esc,
+            .map_select = map_select,
             .vex_w = w,
             .opcode = op,
             .reg_bits = reg,
-            .immSourceOp = immS4,
         };
     }
 
@@ -646,10 +664,14 @@ pub const AvxOpcode = struct {
             ._F3 => try output(context, ".F3"),
             ._F2 => try output(context, ".F2"),
         }
-        switch (self.escape) {
-            ._0F => try output(context, ".0F."),
-            ._0F3A => try output(context, ".0F3A."),
-            ._0F38 => try output(context, ".0F38."),
+        switch (self.map_select) {
+            0b01 => try output(context, ".0F."),
+            0b10 => try output(context, ".0F3A."),
+            0b11 => try output(context, ".0F38."),
+
+            0b01000 => try output(context, ".map(08h)."),
+            0b01001 => try output(context, ".map(09h)."),
+            0b01010 => try output(context, ".map(0Ah)."),
         }
         try output(context, @tagName(self.vex_w));
         try std.fmt.format(context, FmtError, output, " {X}", .{self.opcode});

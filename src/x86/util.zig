@@ -111,6 +111,7 @@ pub fn printOp(
     op2: ?*const Operand,
     op3: ?*const Operand,
     op4: ?*const Operand,
+    op5: ?*const Operand,
 ) void {
     if (hide_message) {
         return;
@@ -133,6 +134,9 @@ pub fn printOp(
     if (op4) |op| {
         std.debug.warn(", {}", .{op4});
     }
+    if (op5) |op| {
+        std.debug.warn(", {}", .{op5});
+    }
 
     if (instr) |temp| {
         std.debug.warn(": {x}\n", .{temp.asSlice()});
@@ -148,14 +152,15 @@ pub fn testOp(
     op2: ?*const Operand,
     op3: ?*const Operand,
     op4: ?*const Operand,
+    op5: ?*const Operand,
     comptime thing_to_match: var,
 ) void {
     switch (@TypeOf(thing_to_match)) {
         AsmError => {
-            testOpError(machine, mnem, op1, op2, op3, op4, thing_to_match);
+            testOpError(machine, mnem, op1, op2, op3, op4, op5, thing_to_match);
         },
         else => {
-            testOpInstruction(machine, mnem, op1, op2, op3, op4, thing_to_match);
+            testOpInstruction(machine, mnem, op1, op2, op3, op4, op5, thing_to_match);
         },
     }
 }
@@ -167,10 +172,11 @@ pub fn testOpInstruction(
     op2: ?*const Operand,
     op3: ?*const Operand,
     op4: ?*const Operand,
+    op5: ?*const Operand,
     hex_str: []const u8
 ) void {
-    const instr = machine.build(mnem, op1, op2, op3, op4);
-    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4);
+    const instr = machine.build(mnem, op1, op2, op3, op4, op5);
+    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4, op5);
     if (!isMatchingMemory(instr, hex_str)) {
         // strip any spaces from the string to unify formating
         var expected_hex: [128]u8 = undefined;
@@ -189,7 +195,7 @@ pub fn testOpInstruction(
         } else |err| {
             std.debug.warn("But got: {}\n", .{err});
         }
-        printOp(false, machine, mnem, instr, op1, op2, op3, op4);
+        printOp(false, machine, mnem, instr, op1, op2, op3, op4, op5);
         std.debug.warn("\n", .{});
         testing.expect(false);
     }
@@ -202,10 +208,11 @@ pub fn testOpError(
     op2: ?*const Operand,
     op3: ?*const Operand,
     op4: ?*const Operand,
+    op5: ?*const Operand,
     comptime err: AsmError,
 ) void {
-    const instr = machine.build(mnem, op1, op2, op3, op4);
-    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4);
+    const instr = machine.build(mnem, op1, op2, op3, op4, op5);
+    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4, op5);
     if (!isErrorMatch(instr, err)) {
         std.debug.warn("Test failed:\n", .{});
         std.debug.warn("Expeced error: {}\n", .{err});
@@ -214,7 +221,7 @@ pub fn testOpError(
         } else |actual_error| {
             std.debug.warn("But got error: {}\n", .{actual_error});
         }
-        printOp(false, machine, mnem, instr, op1, op2, op3, op4);
+        printOp(false, machine, mnem, instr, op1, op2, op3, op4, op5);
         std.debug.warn("\n", .{});
         testing.expect(false);
     }
@@ -229,22 +236,42 @@ pub fn isErrorMatch(instr: AsmError!Instruction, err: AsmError) bool {
 }
 
 pub fn testOp0(machine: Machine, mnem: Mnemonic, comptime expected: var) void {
-    testOp(machine, mnem, null, null, null, null, expected);
+    testOp(machine, mnem, null, null, null, null, null, expected);
 }
 
 pub fn testOp1(machine: Machine, mnem: Mnemonic, op1: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, null, null, null, expected);
+    testOp(machine, mnem, &op1, null, null, null, null, expected);
 }
 
 pub fn testOp2(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, &op2, null, null, expected);
+    testOp(machine, mnem, &op1, &op2, null, null, null, expected);
 }
 
 pub fn testOp3(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, &op2, &op3, null, expected);
+    testOp(machine, mnem, &op1, &op2, &op3, null, null, expected);
 }
 
-pub fn testOp4(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3: Operand, op4: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, &op2, &op3, &op4, expected);
+pub fn testOp4(
+    machine: Machine,
+    mnem: Mnemonic,
+    op1: Operand,
+    op2: Operand,
+    op3: Operand,
+    op4: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, mnem, &op1, &op2, &op3, &op4, null, expected);
 }
 
+pub fn testOp5(
+    machine: Machine,
+    mnem: Mnemonic,
+    op1: Operand,
+    op2: Operand,
+    op3: Operand,
+    op4: Operand,
+    op5: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, mnem, &op1, &op2, &op3, &op4, &op5, expected);
+}

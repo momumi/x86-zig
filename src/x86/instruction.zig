@@ -191,8 +191,10 @@ pub const Instruction = struct {
                 self.addBytes(&info.makeEvex());
             },
 
-            // TODO:
-            .Xop => unreachable,
+            .Xop => {
+                self.view.ext = self.makeViewPart(3);
+                self.addBytes(&info.makeXop());
+            },
         }
     }
 

@@ -48,10 +48,11 @@ References:
 
 // LegacyPrefixes | REX/VEX/EVEX | OPCODE(0,1,2,3) | ModRM | SIB | displacement(0,1,2,4) | immediate(0,1,2,4)
 
-* Prefixes: optional prefixes, 1 byte each. Can take one prefix from upto 4 different groups:
+* Prefixes: optional prefixes, 1 byte each. Can take one prefix from up to 4 (Intel) or 5 (AMD) different groups:
     * Group 1:
         * Lock:
             * Lock: 0xF0
+            * On AMD, lock is treated as it's own group
         * Repeat: (MOVS, CMPS, SCAS, LODS, STOS, INS, OUTS)
             * REPNE/REPNZ: 0xF2 (Repeat-not-Zero)
             * REP/REPE/REPZ: 0xF3
@@ -61,19 +62,31 @@ References:
             * When the F2 prefix precedes a near {CALL,RET,JMP,Jcc} or short Jcc
     * Group 2:
         * Segment override prefixes:
-            * 0x2E - CS segment override
-            * 0x36 - SS segment override
-            * 0x3E - DS segment override
-            * 0x26 - ES segment override
+            * 0x2E - CS segment override (ignored on 64 bit)
+            * 0x36 - SS segment override (ignored on 64 bit)
+            * 0x3E - DS segment override (ignored on 64 bit)
+            * 0x26 - ES segment override (ignored on 64 bit)
             * 0x64 - FS segment override
             * 0x65 - GS segment override
         * Branch hints:
             * 0x2E - Branch not taken (used only with Jcc instructions)
             * 0x3E - Branch taken (used only with Jcc instructions)
-    * Group 3: (select between 16- and 32-bit operand sizes, selects the non-default size)
+    * Group 3: 0x66: (select between 16- and 32-bit operand sizes, selects the non-default size)
         * 0x66: Operand-size override prefix is encoding (mandatory for some instr)
-    * Group 4: (select between 16- and 32-bit addressing, selects the non-default size)
+    * Group 4: 0x67: (select between 16- and 32-bit addressing, selects the non-default size)
         * 0x67: Address-size override prefix
+        * Some instructions use 0x67 to control the size of implicit register operand
+            * eg in 32 bit mode:
+                * `JCXZ  0x00 <==> 67 E3 00`
+                * `JECXZ 0x00 <==> E3 00`
+            * eg in 64 bit mode:
+                * `JECXZ 0x00 <==> 67 E3 00`
+                * `JRCXZ 0x00 <==> E3 00`
+    * NOTE: on AMD treats prefixes in 5 groups with Lock and Repeat prefixes in separate groups
+    * NOTE: can technically use as many prefixes as long as instruction length is ≤15
+        * If multiple prefixes from the same group are used, only the last one has meaning
+        * Can encode `0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x90` (NOP + 14 0x66 prefixes)
+        * Can encode `0x2E 0x36 0x3E 0x26 0x64 0x65 0x67 0xF2 0xF3 0x66 0x66 0x66 0x66 0x66 0x90` (NOP + 14 0x66 prefixes)
 * REX: 1 byte prefix used for 64-bit instruction extensions
     * Not all instructions require a rex prefix in 64-bit mode
         * Not needed by near branches

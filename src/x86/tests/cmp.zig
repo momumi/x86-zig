@@ -62,8 +62,8 @@ test "cmp" {
     }
 
     {
-        testOp2(m32, .CMP, reg(.EAX), reg(.EAX), "3b c0");
-        testOp2(m64, .CMP, reg(.EAX), reg(.EAX), "3b c0");
+        testOp2(m32, .CMP, reg(.EAX), reg(.EAX), "39 c0");
+        testOp2(m64, .CMP, reg(.EAX), reg(.EAX), "39 c0");
         //
         testOp2(m32, .CMP, reg(.EAX), regRm(.EAX), "3b c0");
         testOp2(m64, .CMP, reg(.EAX), regRm(.EAX), "3b c0");

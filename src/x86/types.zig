@@ -10,6 +10,7 @@ pub const Mode86 = enum {
 pub const AsmError = error {
     InvalidOperand,
     InvalidMode,
+    InvalidImmediate,
     InvalidMemoryAddressing,
     InvalidRegisterCombination,
 };
@@ -125,6 +126,8 @@ pub const OpcodePrefixType = enum {
     Mandatory,
     /// Opcode is composed of multiple separate instructions
     Compound,
+    /// 3DNow! opcode, uses imm8 after instruction to extend the opcode
+    Postfix,
 };
 
 pub const OpcodePrefix = enum(u8) {
@@ -136,7 +139,7 @@ pub const OpcodePrefix = enum(u8) {
     _F2 = 0xF2,
     _,
 
-    pub fn opcode(op: u8) OpcodePrefix {
+    pub fn byte(op: u8) OpcodePrefix {
         return @intToEnum(OpcodePrefix, op);
     }
 };
@@ -151,6 +154,7 @@ pub const Opcode = struct {
     opcode: [max_length]u8 = undefined,
     len: u8 = 0,
     compound_op: CompoundInstruction = .None,
+    /// Note: can also be used to store the postfix for 3DNow opcodes
     prefix: OpcodePrefix = .Any,
     prefix_type: OpcodePrefixType = .Prefixable,
     reg_bits: ?u3 = null,
@@ -172,6 +176,14 @@ pub const Opcode = struct {
             .Mandatory, .Compound => true,
             else => false,
         };
+    }
+
+    pub fn hasPostfix(self: Opcode) bool {
+        return self.prefix_type == .Postfix;
+    }
+
+    pub fn getPostfix(self: Opcode) u8 {
+        return @enumToInt(self.prefix);
     }
 
     fn create_generic(
@@ -253,6 +265,12 @@ pub const Opcode = struct {
     pub fn compOp2(compound_op: CompoundInstruction, byte0: u8, byte1: u8) Opcode {
         var res = create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, null);
         res.compound_op = compound_op;
+        return res;
+    }
+
+    pub fn op3DNow(byte0: u8, byte1: u8, imm_byte: u8) Opcode {
+        var res = create_generic(OpcodePrefix.byte(imm_byte), [_]u8{byte0, byte1, 0}, 2, null);
+        res.prefix_type = .Postfix;
         return res;
     }
 };

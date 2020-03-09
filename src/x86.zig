@@ -33,4 +33,5 @@ test "main test" {
     _ = @import("x86/tests/16bit_mode.zig");
     _ = @import("x86/tests/reserved.zig");
     _ = @import("x86/tests/cpuid.zig");
+    _ = @import("x86/tests/prefixes.zig");
 }

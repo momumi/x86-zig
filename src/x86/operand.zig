@@ -1022,7 +1022,6 @@ pub const ModRmResult = struct {
     needs_no_rex: bool = false,
     prefixes: Prefixes = Prefixes {},
     reg_size: BitSize = .None,
-    operand_size: BitSize = .None,
     addressing_size: BitSize = .None,
     data_size: DataSize = .Void,
     rex_w: u1 = 0,
@@ -1056,6 +1055,10 @@ pub const ModRmResult = struct {
             | (@as(u8, self.rex_x) << 1)
             | (@as(u8, self.rex_b) << 0)
         );
+    }
+
+    pub fn isRexRequired(self: @This()) bool {
+        return self.rex(0) != 0x40 or self.needs_rex;
     }
 
     pub fn modrm(self: @This()) u8 {
@@ -1213,7 +1216,6 @@ pub const ModRm = union(ModRmTag) {
         };
         res.addMemDisp(mem.disp);
 
-        res.operand_size = mem.data_size.bitSize();
         res.data_size = mem.data_size;
         res.addressing_size = .Bit16;
         res.segment = mem.segment;
@@ -1268,7 +1270,6 @@ pub const ModRm = union(ModRmTag) {
                 res.rexRequirements(reg, overides);
                 res.rm = reg.numberRm();
                 res.rex_b = reg.numberRex();
-                res.operand_size = reg.bitSize();
                 res.data_size = reg.dataSize();
             },
             .Mem16 => |mem| res = try encodeMem16(mem, mode, modrm_reg),
@@ -1278,7 +1279,6 @@ pub const ModRm = union(ModRmTag) {
                     return AsmError.InvalidMemoryAddressing;
                 }
 
-                res.operand_size = mem.data_size.bitSize();
                 res.data_size = mem.data_size;
                 res.addressing_size = mem.reg.bitSize();
                 res.segment = mem.segment;
@@ -1313,7 +1313,6 @@ pub const ModRm = union(ModRmTag) {
                 res.rm = Register.SP.numberRm(); // 0b100, magic value for SIB addressing
                 const disp_size = sib.disp.dispSize();
 
-                res.operand_size = sib.data_size.bitSize();
                 res.data_size = sib.data_size;
                 res.segment = sib.segment;
 
@@ -1448,7 +1447,6 @@ pub const ModRm = union(ModRmTag) {
                 res.segment = rel.segment;
                 res.disp_bit_size = .Bit32;
                 res.disp = rel.disp;
-                res.operand_size = rel.data_size.bitSize();
                 res.data_size = rel.data_size;
                 res.addressing_size = switch (rel.reg) {
                     .EIP => .Bit32,
@@ -1505,7 +1503,6 @@ pub const ModRm = union(ModRmTag) {
                 res.rex_x = vsib.index.numberRex();
                 res.evex_v = vsib.index.numberEvex();
 
-                res.operand_size = vsib.data_size.bitSize();
                 res.data_size = vsib.data_size;
                 res.segment = vsib.segment;
 
@@ -1522,7 +1519,7 @@ pub const ModRm = union(ModRmTag) {
         }
 
         try res.prefixes.addOverides(
-            mode, &res.rex_w, res.operand_size, res.addressing_size, overides
+            mode, &res.rex_w, res.addressing_size, overides
         );
 
         return res;

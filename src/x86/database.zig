@@ -582,7 +582,12 @@ pub const InstructionEncoding = enum {
     }
 };
 
-pub const OpcodeAny = union {
+pub const OpcodeAnyTag = enum {
+    Op,
+    Avx,
+};
+
+pub const OpcodeAny = union(OpcodeAnyTag) {
     Op: Opcode,
     Avx: AvxOpcode,
 };
@@ -677,8 +682,8 @@ pub const InstructionItem = struct {
         return self.edge_case != .None;
     }
 
+    /// Check if this InstructionItem is encodable on the given machine
     pub inline fn isMachineMatch(self: InstructionItem, machine: Machine) bool {
-
         if (self.cpu_feature_mask & machine.cpu_feature_mask != self.cpu_feature_mask) {
             return false;
         }
@@ -704,6 +709,45 @@ pub const InstructionItem = struct {
         return self.edge_case.isEdgeCase(self, machine.mode, op1, op2, op3, op4, op5);
     }
 
+    /// Calculates the total length of instruction (without prefixes or rex)
+    fn calcLengthLegacy(self: *const InstructionItem, modrm: ?x86.operand.ModRmResult) u8 {
+        var result: u8 = 0;
+
+        switch (self.opcode) {
+            .Op => |op| result += op.byteCount(),
+            else => unreachable,
+        }
+        result += self.totalImmediateSize();
+
+        if (modrm) |rm| {
+            if (rm.sib != null) {
+                // modrm + sib byte
+                result += 2;
+            } else {
+                // modrm byte only
+                result += 1;
+            }
+            result += rm.disp_bit_size.valueBytes();
+        }
+
+        return result;
+    }
+
+    pub fn totalImmediateSize(self: InstructionItem) u8 {
+        var res: u8 = 0;
+        for (self.signature.operands) |ops| {
+            switch (ops) {
+                .imm8 => res += 1,
+                .imm16 => res += 2,
+                .imm32 => res += 4,
+                .imm64 => res += 8,
+                .none => break,
+                else => continue,
+            }
+        }
+        return res;
+    }
+
     pub fn coerceImm(self: InstructionItem, op: ?*const Operand, pos: u8) Immediate {
         switch (self.signature.operands[pos]) {
             .imm8 => return op.?.*.Imm,
@@ -717,6 +761,7 @@ pub const InstructionItem = struct {
     pub fn encode(
         self: *const InstructionItem,
         machine: Machine,
+        ctrl: ?*const EncodingControl,
         op1: ?*const Operand,
         op2: ?*const Operand,
         op3: ?*const Operand,
@@ -724,42 +769,42 @@ pub const InstructionItem = struct {
         op5: ?*const Operand,
     ) AsmError!Instruction {
         return switch (self.encoding) {
-            .ZO    => machine.encodeRMI(self, null, null, null, self.overides),
-            .M     => machine.encodeRMI(self, null, op1, null, self.overides),
-            .MI    => machine.encodeRMI(self, null, op1, self.coerceImm(op2, 1), self.overides),
-            .RM    => machine.encodeRMI(self, op1, op2, null, self.overides),
-            .RMI   => machine.encodeRMI(self, op1, op2, self.coerceImm(op3, 2), self.overides),
-            .MRI   => machine.encodeRMI(self, op2, op1, self.coerceImm(op3, 2), self.overides),
-            .MR    => machine.encodeRMI(self, op2, op1, null, self.overides),
-            .I     => machine.encodeRMI(self, null, null, self.coerceImm(op1, 0), self.overides),
-            .I2    => machine.encodeRMI(self, null, null, self.coerceImm(op2, 1), self.overides),
-            .II    => machine.encodeRMII(self, null, null, self.coerceImm(op1, 0), self.coerceImm(op2, 1), self.overides),
-            .MII   => machine.encodeRMII(self, null, op1, self.coerceImm(op2, 1), self.coerceImm(op3, 2), self.overides),
-            .RMII  => machine.encodeRMII(self, op1, op2, self.coerceImm(op3, 2), self.coerceImm(op4, 3), self.overides),
-            .O     => machine.encodeOI(self, op1, null, self.overides),
-            .O2    => machine.encodeOI(self, op2, null, self.overides),
-            .OI    => machine.encodeOI(self, op1, self.coerceImm(op2, 1), self.overides),
-            .D     => machine.encodeAddress(self, op1, self.overides),
-            .FD    => machine.encodeMOffset(self, op1, op2, self.overides),
-            .TD    => machine.encodeMOffset(self, op2, op1, self.overides),
-            .MSpec => machine.encodeMSpecial(self, op1, op2, self.overides),
-            .RVM   => machine.encodeAvx(self, op1, op2, op3, null, null, self.disp_n),
-            .MVR   => machine.encodeAvx(self, op3, op2, op1, null, null, self.disp_n),
-            .RMV   => machine.encodeAvx(self, op1, op3, op2, null, null, self.disp_n),
-            .VM    => machine.encodeAvx(self, null, op1, op2, null, null, self.disp_n),
-            .MV    => machine.encodeAvx(self, null, op2, op1, null, null, self.disp_n),
-            .RVMI  => machine.encodeAvx(self, op1, op2, op3, null, op4, self.disp_n),
-            .VMI   => machine.encodeAvx(self, null, op1, op2, null, op3, self.disp_n),
-            .RVMR  => machine.encodeAvx(self, op1, op2, op3, op4, null, self.disp_n),
-            .RVMRI => machine.encodeAvx(self, op1, op2, op3, op4, op5, self.disp_n),
-            .RVRM  => machine.encodeAvx(self, op1, op2, op4, op3, null, self.disp_n),
-            .RVRMI => machine.encodeAvx(self, op1, op2, op4, op3, op5, self.disp_n),
-            .vRMI  => machine.encodeAvx(self, op1, null, op2, null, op3, self.disp_n),
-            .vMRI  => machine.encodeAvx(self, op2, null, op1, null, op3, self.disp_n),
-            .vRM   => machine.encodeAvx(self, op1, null, op2, null, null, self.disp_n),
-            .vMR   => machine.encodeAvx(self, op2, null, op1, null, null, self.disp_n),
-            .vM    => machine.encodeAvx(self, null, null, op1, null, null, self.disp_n),
-            .vZO   => machine.encodeAvx(self, null, null, null, null, null, self.disp_n),
+            .ZO    => machine.encodeRMI(self, ctrl, null, null, null, self.overides),
+            .M     => machine.encodeRMI(self, ctrl, null, op1, null, self.overides),
+            .MI    => machine.encodeRMI(self, ctrl, null, op1, self.coerceImm(op2, 1), self.overides),
+            .RM    => machine.encodeRMI(self, ctrl, op1, op2, null, self.overides),
+            .RMI   => machine.encodeRMI(self, ctrl, op1, op2, self.coerceImm(op3, 2), self.overides),
+            .MRI   => machine.encodeRMI(self, ctrl, op2, op1, self.coerceImm(op3, 2), self.overides),
+            .MR    => machine.encodeRMI(self, ctrl, op2, op1, null, self.overides),
+            .I     => machine.encodeRMI(self, ctrl, null, null, self.coerceImm(op1, 0), self.overides),
+            .I2    => machine.encodeRMI(self, ctrl, null, null, self.coerceImm(op2, 1), self.overides),
+            .II    => machine.encodeRMII(self, ctrl, null, null, self.coerceImm(op1, 0), self.coerceImm(op2, 1), self.overides),
+            .MII   => machine.encodeRMII(self, ctrl, null, op1, self.coerceImm(op2, 1), self.coerceImm(op3, 2), self.overides),
+            .RMII  => machine.encodeRMII(self, ctrl, op1, op2, self.coerceImm(op3, 2), self.coerceImm(op4, 3), self.overides),
+            .O     => machine.encodeOI(self, ctrl, op1, null, self.overides),
+            .O2    => machine.encodeOI(self, ctrl, op2, null, self.overides),
+            .OI    => machine.encodeOI(self, ctrl, op1, self.coerceImm(op2, 1), self.overides),
+            .D     => machine.encodeAddress(self, ctrl, op1, self.overides),
+            .FD    => machine.encodeMOffset(self, ctrl, op1, op2, self.overides),
+            .TD    => machine.encodeMOffset(self, ctrl, op2, op1, self.overides),
+            .MSpec => machine.encodeMSpecial(self, ctrl, op1, op2, self.overides),
+            .RVM   => machine.encodeAvx(self, ctrl, op1, op2, op3, null, null, self.disp_n),
+            .MVR   => machine.encodeAvx(self, ctrl, op3, op2, op1, null, null, self.disp_n),
+            .RMV   => machine.encodeAvx(self, ctrl, op1, op3, op2, null, null, self.disp_n),
+            .VM    => machine.encodeAvx(self, ctrl, null, op1, op2, null, null, self.disp_n),
+            .MV    => machine.encodeAvx(self, ctrl, null, op2, op1, null, null, self.disp_n),
+            .RVMI  => machine.encodeAvx(self, ctrl, op1, op2, op3, null, op4, self.disp_n),
+            .VMI   => machine.encodeAvx(self, ctrl, null, op1, op2, null, op3, self.disp_n),
+            .RVMR  => machine.encodeAvx(self, ctrl, op1, op2, op3, op4, null, self.disp_n),
+            .RVMRI => machine.encodeAvx(self, ctrl, op1, op2, op3, op4, op5, self.disp_n),
+            .RVRM  => machine.encodeAvx(self, ctrl, op1, op2, op4, op3, null, self.disp_n),
+            .RVRMI => machine.encodeAvx(self, ctrl, op1, op2, op4, op3, op5, self.disp_n),
+            .vRMI  => machine.encodeAvx(self, ctrl, op1, null, op2, null, op3, self.disp_n),
+            .vMRI  => machine.encodeAvx(self, ctrl, op2, null, op1, null, op3, self.disp_n),
+            .vRM   => machine.encodeAvx(self, ctrl, op1, null, op2, null, null, self.disp_n),
+            .vMR   => machine.encodeAvx(self, ctrl, op2, null, op1, null, null, self.disp_n),
+            .vM    => machine.encodeAvx(self, ctrl, null, null, op1, null, null, self.disp_n),
+            .vZO   => machine.encodeAvx(self, ctrl, null, null, null, null, null, self.disp_n),
         };
     }
 };

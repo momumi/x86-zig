@@ -8,6 +8,7 @@ const AsmError = x86.AsmError;
 const Machine = x86.Machine;
 const Operand = x86.Operand;
 const Mnemonic = x86.Mnemonic;
+const EncodingControl = x86.EncodingControl;
 
 pub const debug: bool = true;
 var hide_debug: bool = true;
@@ -105,6 +106,7 @@ pub fn debugPrint(on: bool) void {
 pub fn printOp(
     hide_message: bool,
     machine: Machine,
+    ctrl: ?*const EncodingControl,
     mnem: Mnemonic,
     instr: AsmError!Instruction,
     op1: ?*const Operand,
@@ -118,10 +120,22 @@ pub fn printOp(
     }
 
     switch (machine.mode) {
-        .x86_16 => std.debug.warn("x86-16: {} ", .{@tagName(mnem)}),
-        .x86_32 => std.debug.warn("x86-32: {} ", .{@tagName(mnem)}),
-        .x64 => std.debug.warn("x86-64: {} ", .{@tagName(mnem)}),
+        .x86_16 => std.debug.warn("x86-16: ", .{}),
+        .x86_32 => std.debug.warn("x86-32: ", .{}),
+        .x64 => std.debug.warn("x86-64: ", .{}),
     }
+
+    if (ctrl) |c| {
+        for (c.prefixes) |pre| {
+            if (pre == .None) {
+                break;
+            }
+            std.debug.warn("{} ", .{@tagName(pre)});
+        }
+    }
+
+    std.debug.warn("{} ", .{@tagName(mnem)});
+
     if (op1) |op| {
         std.debug.warn("{}", .{op1});
     }
@@ -147,6 +161,7 @@ pub fn printOp(
 
 pub fn testOp(
     machine: Machine,
+    ctrl: ?*const EncodingControl,
     mnem: Mnemonic,
     op1: ?*const Operand,
     op2: ?*const Operand,
@@ -157,16 +172,17 @@ pub fn testOp(
 ) void {
     switch (@TypeOf(thing_to_match)) {
         AsmError => {
-            testOpError(machine, mnem, op1, op2, op3, op4, op5, thing_to_match);
+            testOpError(machine, ctrl, mnem, op1, op2, op3, op4, op5, thing_to_match);
         },
         else => {
-            testOpInstruction(machine, mnem, op1, op2, op3, op4, op5, thing_to_match);
+            testOpInstruction(machine, ctrl, mnem, op1, op2, op3, op4, op5, thing_to_match);
         },
     }
 }
 
 pub fn testOpInstruction(
     machine: Machine,
+    ctrl: ?*const EncodingControl,
     mnem: Mnemonic,
     op1: ?*const Operand,
     op2: ?*const Operand,
@@ -175,8 +191,8 @@ pub fn testOpInstruction(
     op5: ?*const Operand,
     hex_str: []const u8
 ) void {
-    const instr = machine.build(mnem, op1, op2, op3, op4, op5);
-    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4, op5);
+    const instr = machine.build(ctrl, mnem, op1, op2, op3, op4, op5);
+    printOp(hide_debug, machine, ctrl, mnem, instr, op1, op2, op3, op4, op5);
     if (!isMatchingMemory(instr, hex_str)) {
         // strip any spaces from the string to unify formating
         var expected_hex: [128]u8 = undefined;
@@ -195,7 +211,7 @@ pub fn testOpInstruction(
         } else |err| {
             std.debug.warn("But got: {}\n", .{err});
         }
-        printOp(false, machine, mnem, instr, op1, op2, op3, op4, op5);
+        printOp(false, machine, ctrl, mnem, instr, op1, op2, op3, op4, op5);
         std.debug.warn("\n", .{});
         testing.expect(false);
     }
@@ -203,6 +219,7 @@ pub fn testOpInstruction(
 
 pub fn testOpError(
     machine: Machine,
+    ctrl: ?*const EncodingControl,
     mnem: Mnemonic,
     op1: ?*const Operand,
     op2: ?*const Operand,
@@ -211,8 +228,8 @@ pub fn testOpError(
     op5: ?*const Operand,
     comptime err: AsmError,
 ) void {
-    const instr = machine.build(mnem, op1, op2, op3, op4, op5);
-    printOp(hide_debug, machine, mnem, instr, op1, op2, op3, op4, op5);
+    const instr = machine.build(ctrl, mnem, op1, op2, op3, op4, op5);
+    printOp(hide_debug, machine, ctrl, mnem, instr, op1, op2, op3, op4, op5);
     if (!isErrorMatch(instr, err)) {
         std.debug.warn("Test failed:\n", .{});
         std.debug.warn("Expeced error: {}\n", .{err});
@@ -221,7 +238,7 @@ pub fn testOpError(
         } else |actual_error| {
             std.debug.warn("But got error: {}\n", .{actual_error});
         }
-        printOp(false, machine, mnem, instr, op1, op2, op3, op4, op5);
+        printOp(false, machine, ctrl, mnem, instr, op1, op2, op3, op4, op5);
         std.debug.warn("\n", .{});
         testing.expect(false);
     }
@@ -236,19 +253,19 @@ pub fn isErrorMatch(instr: AsmError!Instruction, err: AsmError) bool {
 }
 
 pub fn testOp0(machine: Machine, mnem: Mnemonic, comptime expected: var) void {
-    testOp(machine, mnem, null, null, null, null, null, expected);
+    testOp(machine, null, mnem, null, null, null, null, null, expected);
 }
 
 pub fn testOp1(machine: Machine, mnem: Mnemonic, op1: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, null, null, null, null, expected);
+    testOp(machine, null, mnem, &op1, null, null, null, null, expected);
 }
 
 pub fn testOp2(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, &op2, null, null, null, expected);
+    testOp(machine, null, mnem, &op1, &op2, null, null, null, expected);
 }
 
 pub fn testOp3(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3: Operand, comptime expected: var) void {
-    testOp(machine, mnem, &op1, &op2, &op3, null, null, expected);
+    testOp(machine, null, mnem, &op1, &op2, &op3, null, null, expected);
 }
 
 pub fn testOp4(
@@ -260,7 +277,7 @@ pub fn testOp4(
     op4: Operand,
     comptime expected: var
 ) void {
-    testOp(machine, mnem, &op1, &op2, &op3, &op4, null, expected);
+    testOp(machine, null, mnem, &op1, &op2, &op3, &op4, null, expected);
 }
 
 pub fn testOp5(
@@ -273,5 +290,74 @@ pub fn testOp5(
     op5: Operand,
     comptime expected: var
 ) void {
-    testOp(machine, mnem, &op1, &op2, &op3, &op4, &op5, expected);
+    testOp(machine, null, mnem, &op1, &op2, &op3, &op4, &op5, expected);
+}
+
+pub fn testOpCtrl0(
+    machine: Machine,
+    ctrl: EncodingControl,
+    mnem: Mnemonic,
+    comptime expected: var
+) void {
+    testOp(machine, &ctrl, mnem, null, null, null, null, null, expected);
+}
+
+pub fn testOpCtrl1(
+    machine: Machine,
+    ctrl: EncodingControl,
+    mnem: Mnemonic,
+    op1: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, &ctrl, mnem, &op1, null, null, null, null, expected);
+}
+
+pub fn testOpCtrl2(
+    machine: Machine,
+    ctrl: EncodingControl,
+    mnem: Mnemonic,
+    op1: Operand,
+    op2: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, &ctrl, mnem, &op1, &op2, null, null, null, expected);
+}
+
+pub fn testOpCtrl3(
+    machine: Machine,
+    ctrl: EncodingControl,
+    mnem: Mnemonic,
+    op1: Operand,
+    op2: Operand,
+    op3: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, &ctrl, mnem, &op1, &op2, &op3, null, null, expected);
+}
+
+pub fn testOpCtrl4(
+    machine: Machine,
+    ctrl: EncodingControl,
+    mnem: Mnemonic,
+    op1: Operand,
+    op2: Operand,
+    op3: Operand,
+    op4: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, &ctrl, mnem, &op1, &op2, &op3, &op4, null, expected);
+}
+
+pub fn testOpCtrl5(
+    machine: Machine,
+    ctrl: EncodingControl,
+    mnem: Mnemonic,
+    op1: Operand,
+    op2: Operand,
+    op3: Operand,
+    op4: Operand,
+    op5: Operand,
+    comptime expected: var
+) void {
+    testOp(machine, &ctrl, mnem, &op1, &op2, &op3, &op4, &op5, expected);
 }

@@ -63,9 +63,9 @@ References:
     * Group 2:
         * Segment override prefixes:
             * 0x2E - CS segment override (ignored on 64 bit)
-            * 0x36 - SS segment override (ignored on 64 bit)
             * 0x3E - DS segment override (ignored on 64 bit)
             * 0x26 - ES segment override (ignored on 64 bit)
+            * 0x36 - SS segment override (ignored on 64 bit)
             * 0x64 - FS segment override
             * 0x65 - GS segment override
         * Branch hints:
@@ -82,18 +82,65 @@ References:
             * eg in 64 bit mode:
                 * `JECXZ 0x00 <==> 67 E3 00`
                 * `JRCXZ 0x00 <==> E3 00`
+    * Can't use 0xF0, 0xF2, 0xF3, 0x66 prefixes with VEX or EVEX (Invalid Opcode #UD exception)
     * NOTE: on AMD treats prefixes in 5 groups with Lock and Repeat prefixes in separate groups
     * NOTE: can technically use as many prefixes as long as instruction length is ≤15
         * If multiple prefixes from the same group are used, only the last one has meaning
         * Can encode `0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x66 0x90` (NOP + 14 0x66 prefixes)
         * Can encode `0x2E 0x36 0x3E 0x26 0x64 0x65 0x67 0xF2 0xF3 0x66 0x66 0x66 0x66 0x66 0x90` (NOP + 14 0x66 prefixes)
 * REX: 1 byte prefix used for 64-bit instruction extensions
+    * Encoded as REX = 0b0100WRXB
+        * REX.W: 64 bit operand size
+        * REX.R: extends the modrm.reg to 4 bits
+        * REX.X: extends the sib.index to 4 bits
+        * REX.B: extends the modrm.rm or sib.base to 4 bits
     * Not all instructions require a rex prefix in 64-bit mode
         * Not needed by near branches
         * Not needed by functions that implicity reference the RSP
+    * REX byte must be placed immediately before the opcode bytes
+        * If another prefix is placed between the REX byte and the opcode, then the REX byte is (ignored)/(undefined behavior)
+        * Mandatory prefixes must be placed before the REX byte, otherwise the REX byte will be ignored
+        * example using `mov eax, ecx` == `89 c8`
+            * `48 66 89 c8` -> `mov ax, cx` REX.W=0x48 ignored
+            * `66 48 89 c8` -> `mov rax, rcx` 0x66 ignored
+    * If both prefix 0x66 and REX.W=0x48 are used, then operand size is 64 bit
+    * If both prefix 0x66 and REX.~W=0x40 are used, then operand size is 16 bit
+    * REX maybe invalid or ignored in some places
+        * Multiple REX prefixes is undefined behaviour but in practice most CPUs seem to:
+            * treat REX as an extra prefix that counts to opcode length
+            * ignore any REX prefix that does not immediately proceed the opcode
+        * Can't use REX prefix with VEX or EVEX (Invalid Opcode #UD exception)
     * Specify GPRs and SSE registers
     * Specify 64-bit operand size
     * Specify extended control registers
+    * List of instructions that are 64 bit that don't require the REX prefix:
+        * CALL (near)
+        * JMP (near)
+        * RET (near)
+        * ENTER
+        * Jcc
+        * JRCXZ
+        * LEAVE
+        * LGDT
+        * LIDT
+        * LLDT
+        * LOOP
+        * LOOPcc
+        * LTR
+        * MOV CRn
+        * MOV DRn
+        * POP reg/mem
+        * POP reg
+        * POP FS
+        * POP GS
+        * POPF, POPFD, POPFQ
+        * PUSH imm8
+        * PUSH imm32
+        * PUSH reg/mem
+        * PUSH reg
+        * PUSH FS
+        * PUSH GS
+        * PUSHF, PUSHFD, PUSHFQ
 * VEX: prefix used for AVX instructions
     * 2 byte form
         * Mainly for 128-bit scalar and the most common 256-bit AVX instructions
@@ -101,8 +148,9 @@ References:
     * 3 byte form
         * A compact replacement of REX and 3-byte opcode instrucions (AVX and FMA)
         * First byte 0xC4
-    * Vex and {LOCK, 0x66, 0xF2, 0xF3, REX} prefix raises `#UD` (invalid opcode exception)
+    * VEX and {0xF0, 0x66, 0xF2, 0xF3, REX} prefix raises `#UD` (invalid opcode exception)
 * EVEX:
+    * EVEX and {0xF0, 0x66, 0xF2, 0xF3, REX} prefix raises `#UD` (invalid opcode exception)
     * 4 byte prefix
         * First byte 0x62
 * Opcode: 1,2 or 3 byte opcode [required]

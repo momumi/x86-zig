@@ -13,6 +13,8 @@ pub const AsmError = error {
     InvalidImmediate,
     InvalidMemoryAddressing,
     InvalidRegisterCombination,
+    InstructionTooLong,
+    InvalidPrefixes,
 };
 
 pub const Segment = enum (u8) {
@@ -26,7 +28,7 @@ pub const Segment = enum (u8) {
     DefaultSeg = 0x10,
 };
 
-pub const BitSize = enum (u16) {
+pub const BitSize = enum (u8) {
     None  = 0,
     Bit8  = 1,
     Bit16 = 2,
@@ -41,7 +43,7 @@ pub const BitSize = enum (u16) {
         return 8 * @enumToInt(self);
     }
 
-    pub fn valueBytes(self: BitSize) u16 {
+    pub fn valueBytes(self: BitSize) u8 {
         return @enumToInt(self);
     }
 };
@@ -184,6 +186,15 @@ pub const Opcode = struct {
 
     pub fn getPostfix(self: Opcode) u8 {
         return @enumToInt(self.prefix);
+    }
+
+    /// Calculate how many bytes are in the opcode excluding mandatory prefixes.
+    pub fn byteCount(self: Opcode) u8 {
+        const extra: u8 = switch (self.prefix_type) {
+            .Compound, .Postfix => 1,
+            else => 0,
+        };
+        return self.len + extra;
     }
 
     fn create_generic(
@@ -345,7 +356,7 @@ pub const DataSize = enum (u16) {
     }
 
     pub fn bitSize(self: DataSize) BitSize {
-        return @intToEnum(BitSize, @enumToInt(self) & size_mask);
+        return @intToEnum(BitSize, @intCast(u8, @enumToInt(self) & size_mask));
     }
 
     pub fn dataType(self: DataSize) DataType {
@@ -354,10 +365,14 @@ pub const DataSize = enum (u16) {
 };
 
 pub const PrefixGroup = enum {
-    Group1 = 0,
-    Group2 = 1,
-    Group3 = 2,
-    Group4 = 3,
+    const count = 6;
+
+    Group0 = 0,
+    Group1 = 1,
+    Group2 = 2,
+    Group3 = 3,
+    Group4 = 4,
+    Rex = 5,
     None,
 };
 
@@ -369,36 +384,79 @@ pub const Prefix = enum(u8) {
     Repne = 0xF2,
     Rep = 0xF3,
 
+    // Bnd = 0xF2, // BND prefix aliases with Repne
+    // Xacquire = 0xF2, // XACQUIRE prefix aliases with Repne
+    // Xrelease = 0xF3, // XRELEASE prefix aliases with Rep
+
     // Group 2
     // BranchTaken = 0x2E, // aliases with SegmentCS
     // BranchNotTaken = 0x3E, // aliases with SegmentDS
     SegmentCS = 0x2E,
+    SegmentDS = 0x3E,
     SegmentES = 0x26,
     SegmentSS = 0x36,
-    SegmentDS = 0x3E,
     SegmentFS = 0x64,
     SegmentGS = 0x65,
 
     // Group 3
-    OperandOveride = 0x66,
+    OpSize = 0x66,
 
     // Group 4
-    AddressOveride = 0x67,
+    AddrSize = 0x67,
+
+    REX      = 0x40,
+    REX_B    = 0x41,
+    REX_X    = 0x42,
+    REX_XB   = 0x43,
+    REX_R    = 0x44,
+    REX_RB   = 0x45,
+    REX_RX   = 0x46,
+    REX_RXB  = 0x47,
+    REX_W    = 0x48,
+    REX_WB   = 0x49,
+    REX_WX   = 0x4A,
+    REX_WXB  = 0x4B,
+    REX_WR   = 0x4C,
+    REX_WRB  = 0x4D,
+    REX_WRX  = 0x4E,
+    REX_WRXB = 0x4F,
+
+    pub fn getGroupNumber(self: Prefix) u8 {
+        return @enumToInt(self.getGroup());
+    }
 
     pub fn getGroup(self: Prefix) PrefixGroup {
         return switch (self) {
-            .Lock, .Repne, .Rep => .Group1,
+            .Lock => .Group0,
+            .Repne, .Rep => .Group1,
 
             .SegmentCS,
+            .SegmentDS,
             .SegmentES,
             .SegmentSS,
-            .SegmentDS,
             .SegmentFS,
-            .SegmentGS,
-            => .Group2,
+            .SegmentGS => .Group2,
 
-            .OperandOveride => .Group2,
-            .AddressOveride => .Group3,
+            .OpSize => .Group2,
+            .AddrSize => .Group3,
+
+            .REX,
+            .REX_B,
+            .REX_X,
+            .REX_XB,
+            .REX_R,
+            .REX_RB,
+            .REX_RX,
+            .REX_RXB,
+            .REX_W,
+            .REX_WB,
+            .REX_WX,
+            .REX_WXB,
+            .REX_WR,
+            .REX_WRB,
+            .REX_WRX,
+            .REX_WRXB => .Rex,
+
             .None => .None,
         };
     }
@@ -451,7 +509,6 @@ pub const Prefixes = struct {
     pub fn addOverides64(
         self: *Prefixes,
         rex_w: *u1,
-        operand_size: BitSize,
         addressing_size: BitSize,
         overides: Overides
     ) AsmError!void {
@@ -459,7 +516,7 @@ pub const Prefixes = struct {
             // zero overides
             .ZO => {},
             // size overide, 16 bit
-            .Op16 => self.addPrefix(.OperandOveride),
+            .Op16 => self.addPrefix(.OpSize),
             // size overide, 32 bit
             .Op32 => {},
             //
@@ -468,7 +525,7 @@ pub const Prefixes = struct {
             .Addr16 => return AsmError.InvalidOperand,
             .Addr32 => {
                 if (addressing_size == .None) {
-                    self.addPrefix(.AddressOveride);
+                    self.addPrefix(.AddrSize);
                 } else if (addressing_size != .Bit32) {
                     // Using this mode the addressing size must match register size
                     return AsmError.InvalidOperand;
@@ -486,7 +543,7 @@ pub const Prefixes = struct {
 
         switch (addressing_size) {
             .None => {},
-            .Bit32 => self.addPrefix(.AddressOveride),
+            .Bit32 => self.addPrefix(.AddrSize),
             .Bit64 => {}, // default, no prefix needed
             else => return AsmError.InvalidOperand,
         }
@@ -495,7 +552,6 @@ pub const Prefixes = struct {
     pub fn addOverides32(
         self: *Prefixes,
         rex_w: *u1,
-        operand_size: BitSize,
         addressing_size: BitSize,
         overides: Overides
     ) AsmError!void {
@@ -504,7 +560,7 @@ pub const Prefixes = struct {
             // zero overides
             .ZO => {},
             // size overide, 16 bit
-            .Op16 => self.addPrefix(.OperandOveride),
+            .Op16 => self.addPrefix(.OpSize),
             // size overide, 32 bit
             .Op32 => {},
             //
@@ -513,7 +569,7 @@ pub const Prefixes = struct {
 
             .Addr16 => {
                 if (addressing_size == .None) {
-                    self.addPrefix(.AddressOveride);
+                    self.addPrefix(.AddrSize);
                 } else if (addressing_size != .Bit16) {
                     // Using this mode the addressing size must match register size
                     return AsmError.InvalidOperand;
@@ -532,7 +588,7 @@ pub const Prefixes = struct {
 
         switch (addressing_size) {
             .None => {},
-            .Bit16 => self.addPrefix(.AddressOveride),
+            .Bit16 => self.addPrefix(.AddrSize),
             .Bit32 => {}, // default
             else => return AsmError.InvalidOperand,
         }
@@ -542,7 +598,6 @@ pub const Prefixes = struct {
     pub fn addOverides16(
         self: *Prefixes,
         rex_w: *u1,
-        operand_size: BitSize,
         addressing_size: BitSize,
         overides: Overides
     ) AsmError!void {
@@ -553,7 +608,7 @@ pub const Prefixes = struct {
             // size overide, 16 bit
             .Op16 => {},
             // size overide, 32 bit
-            .Op32 => self.addPrefix(.OperandOveride),
+            .Op32 => self.addPrefix(.OpSize),
             //
             .REX_W => return AsmError.InvalidOperand,
 
@@ -567,7 +622,7 @@ pub const Prefixes = struct {
             },
             .Addr32 => {
                 if (addressing_size == .None) {
-                    self.addPrefix(.AddressOveride);
+                    self.addPrefix(.AddrSize);
                 } else if (addressing_size != .Bit32) {
                     // Using this mode the addressing size must match register size
                     return AsmError.InvalidOperand;
@@ -579,7 +634,7 @@ pub const Prefixes = struct {
         switch (addressing_size) {
             .None => {},
             .Bit16 => {},
-            .Bit32 => self.addPrefix(.AddressOveride), // default
+            .Bit32 => self.addPrefix(.AddrSize), // default
             else => return AsmError.InvalidOperand,
         }
 
@@ -589,15 +644,121 @@ pub const Prefixes = struct {
         self: *Prefixes,
         mode: Mode86,
         rex_w: *u1,
-        operand_size: BitSize,
         addressing_size: BitSize,
         overides: Overides
     ) AsmError!void {
         switch (mode) {
-            .x86_16 => try self.addOverides16(rex_w, operand_size, addressing_size, overides),
-            .x86_32 => try self.addOverides32(rex_w, operand_size, addressing_size, overides),
-            .x64 => try self.addOverides64(rex_w, operand_size, addressing_size, overides),
+            .x86_16 => try self.addOverides16(rex_w, addressing_size, overides),
+            .x86_32 => try self.addOverides32(rex_w, addressing_size, overides),
+            .x64 => try self.addOverides64(rex_w, addressing_size, overides),
         }
     }
 };
 
+pub const EncodingHint = enum(u8) {
+    NoHint,
+    /// For AVX instructions use 2 Byte VEX encoding
+    Vex2,
+    /// For AVX instructions use 3 Byte VEX encoding
+    Vex3,
+    /// For AVX instructions use EVEX encoding
+    Evex,
+};
+
+pub const PrefixingTechnique = enum {
+    AddPrefixes,
+    ExactPrefixes,
+};
+
+pub const EncodingControl = struct {
+    const max_prefix_count = 14;
+
+    prefixes: [max_prefix_count]Prefix = [1]Prefix{.None} ** max_prefix_count,
+    encoding_hint: EncodingHint = .NoHint,
+
+    /// Provide the prefixes in the exact order given and do not generate any
+    /// other prefixes automatically.
+    prefixing_technique: PrefixingTechnique = .AddPrefixes,
+
+    pub fn init(
+        hint: EncodingHint,
+        prefixing_technique: PrefixingTechnique,
+        prefixes: []Prefix,
+    ) EncodingControl {
+        var res: EncodingControl = undefined;
+        assert(prefixes.len <= max_prefix_count);
+        for (prefixes) |pre, i| {
+            res.prefixes[i] = pre;
+        }
+        if (prefixes.len < max_prefix_count) {
+            res.prefixes[prefixes.len] = .None;
+        }
+        res.encoding_hint = hint;
+        res.prefixing_technique = prefixing_technique;
+        return res;
+    }
+
+    pub fn useExactPrefixes(self: EncodingControl) bool {
+        return self.prefixing_technique == .ExactPrefixes;
+    }
+
+    pub fn prefix(pre: Prefix) EncodingControl {
+        var res =  EncodingControl {};
+        res.prefixes[0] = pre;
+        return res;
+    }
+
+    pub fn prefix2(pre1: Prefix, pre2: Prefix) EncodingControl {
+        var res =  EncodingControl {};
+        res.prefixes[0] = pre1;
+        res.prefixes[1] = pre2;
+        return res;
+    }
+
+    pub fn encodingHint(hint: EncodingHint) EncodingControl {
+        var res =  EncodingControl {};
+        res.encoding_hint = hint;
+        return res;
+    }
+
+    /// If multiple prefixes from the same group are used then only the one
+    /// closest to the instruction is actually effective.
+    pub fn calcEffectivePrefixes(self: EncodingControl) [PrefixGroup.count]Prefix {
+        var res = [1]Prefix { .None } ** PrefixGroup.count;
+
+        for (self.prefixes) |pre| {
+            if (pre == .None) {
+                break;
+            }
+            const group = pre.getGroupNumber();
+            res[group] = pre;
+        }
+        return res;
+    }
+
+    pub fn prefixCount(self: EncodingControl) u8 {
+        var res: u8 = 0;
+        for (self.prefixes) |pre| {
+            if (pre == .None) {
+                break;
+            }
+            res += 1;
+        }
+        return res;
+    }
+
+    pub fn hasNecessaryPrefixes(self: EncodingControl, prefixes: Prefixes) bool {
+        const effective_prefixes = self.calcEffectivePrefixes();
+        for (prefixes.prefixes) |pre| {
+            if (pre == .None) {
+                break;
+            }
+
+            const group = pre.getGroupNumber();
+            if (effective_prefixes[group] != pre) {
+                return false;
+            }
+        }
+        return true;
+    }
+};

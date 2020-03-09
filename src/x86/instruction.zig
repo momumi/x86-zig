@@ -1,17 +1,18 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-const machine = @import("machine.zig");
+const x86 = @import("machine.zig");
 
 usingnamespace(@import("types.zig"));
 
-const ModRmResult = machine.operand.ModRmResult;
-const Immediate = machine.operand.Immediate;
-const Address = machine.operand.Address;
-const MOffsetDisp = machine.operand.MOffsetDisp;
-const Register = machine.Register;
-const AvxOpcode = machine.avx.AvxOpcode;
-const AvxResult = machine.avx.AvxResult;
+const ModRmResult = x86.operand.ModRmResult;
+const Immediate = x86.operand.Immediate;
+const Address = x86.operand.Address;
+const MOffsetDisp = x86.operand.MOffsetDisp;
+const Register = x86.Register;
+const AvxOpcode = x86.avx.AvxOpcode;
+const AvxResult = x86.avx.AvxResult;
+const InstructionItem = x86.database.InstructionItem;
 
 // LegacyPrefixes | REX/VEX/EVEX | OPCODE(0,1,2,3) | ModRM | SIB | displacement(0,1,2,4) | immediate(0,1,2,4)
 pub const prefix_max_len = 4;
@@ -114,7 +115,49 @@ pub const Instruction = struct {
         self.len += 1;
     }
 
-    pub fn addPrefixes(self: *@This(), prefix: Prefixes, opcode: Opcode) void {
+    fn addPrefixSlice(self: *@This(), prefix_slice: []const Prefix) void {
+        for (prefix_slice) |pre| {
+            if (pre == .None) {
+                break;
+            }
+            self.addByte(@enumToInt(pre));
+        }
+    }
+
+    fn checkLengthError(
+        instr_item: *const InstructionItem,
+        enc_ctrl: *const EncodingControl,
+        prefixes: Prefixes,
+        modrm_: ?ModRmResult,
+    ) AsmError!void {
+        var len = instr_item.calcLengthLegacy(modrm_);
+        if (modrm_ != null and modrm_.?.isRexRequired()) {
+            len += 1;
+        }
+        len += enc_ctrl.prefixCount();
+        if (!enc_ctrl.useExactPrefixes()) {
+            len += prefixes.len;
+        }
+        if (len > Instruction.max_length) {
+            return AsmError.InstructionTooLong;
+        }
+    }
+
+    pub fn addUserPrefixes(
+        self: *@This(),
+        ctrl: *const EncodingControl,
+        prefixes: Prefixes,
+    ) AsmError!void {
+        self.addPrefixSlice(ctrl.prefixes[0..]);
+        if (ctrl.useExactPrefixes() and !ctrl.hasNecessaryPrefixes(prefixes)) {
+            return AsmError.InvalidPrefixes;
+        }
+        if (!ctrl.useExactPrefixes()) {
+            self.addPrefixSlice(prefixes.prefixes[0..]);
+        }
+    }
+
+    pub fn addStandardPrefixes(self: *@This(), prefix: Prefixes, opcode: Opcode) void {
         if (prefix.len == 0 and !opcode.hasPrefixByte()) {
             return;
         }
@@ -126,6 +169,26 @@ pub const Instruction = struct {
         } else {
             self.view.prefix = self.makeViewPart(prefix.len);
             self.addBytes(prefix.asSlice());
+        }
+    }
+
+    pub fn addPrefixes(
+        self: *@This(),
+        instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
+        prefixes: Prefixes,
+        modrm_: ?ModRmResult,
+        opcode: Opcode,
+    ) AsmError!void {
+        if (enc_ctrl) |ctrl| {
+            var normal_prefixes = prefixes;
+            if (opcode.hasPrefixByte()) {
+                normal_prefixes.addPrefix(@intToEnum(Prefix, @enumToInt(opcode.prefix)));
+            }
+            try checkLengthError(instr_item, ctrl, normal_prefixes, modrm_);
+            try self.addUserPrefixes(ctrl, normal_prefixes);
+        } else {
+            self.addStandardPrefixes(prefixes, opcode);
         }
     }
 
@@ -389,4 +452,3 @@ pub const Instruction = struct {
     }
 
 };
-

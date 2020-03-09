@@ -40,8 +40,14 @@ P1: | W | v | v | v | v | L | p | p |
 ```
 
 * Prefixes
-    * REX / 0x66 / 0xF2 / 0xF3 prefixes reserved for future use
-    * Allowed: Address size (0x67) / segment override
+    * Reserved prefixes:
+        * Using reserved prefix raises `#UD` (invalid opcode exception)
+        * Lock (0xF0)
+        * Operand size override (0x66)
+        * Repeat prefixes (0xF2, 0xF3)
+    * Allowed prefixes:
+        * Address size override (0x67)
+        * Segment override (0x2E, 0x3E, 0x26, 0x36, 0x64, 0x65)
 * VEX (2,3)
     * Prefix(1), determines length of the VEX/XOP
         * Two byte: 0xC5 (opcode for LDS in compat mode)

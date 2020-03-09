@@ -78,6 +78,7 @@ pub const Machine = struct {
     pub fn encodeRMI(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         op_reg: ?*const Operand,
         op_rm: ?*const Operand,
         imm: ?Immediate,
@@ -85,7 +86,6 @@ pub const Machine = struct {
     ) AsmError!Instruction {
         const opcode = instr_item.opcode.Op;
         var res = Instruction{};
-        var prefixes = Prefixes {};
         var rex_w: u1 = 0;
 
         const reg = if (op_reg) |r| x: {
@@ -108,15 +108,11 @@ pub const Machine = struct {
 
         res.addCompoundOpcode(opcode);
         if (has_rm) {
-            res.addPrefixes(modrm.prefixes, opcode);
-        } else if (imm) |im| {
-            const op_size = im.bitSize();
-            const addr_size = .None;
-            try prefixes.addOverides(self.mode, &rex_w, op_size, addr_size, overides);
-            res.addPrefixes(prefixes, opcode);
+            try res.addPrefixes(instr_item, enc_ctrl, modrm.prefixes, modrm, opcode);
         } else {
-            try prefixes.addOverides(self.mode, &rex_w, .None, .None, overides);
-            res.addPrefixes(prefixes, opcode);
+            var prefixes = Prefixes {};
+            try prefixes.addOverides(self.mode, &rex_w, .None, overides);
+            try res.addPrefixes(instr_item, enc_ctrl, prefixes, null, opcode);
         }
 
         try res.addRexRm(self.mode, rex_w, modrm);
@@ -145,6 +141,7 @@ pub const Machine = struct {
     pub fn encodeOI(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         op_reg: ?*const Operand,
         imm: ?Immediate,
         overides: Overides
@@ -159,14 +156,9 @@ pub const Machine = struct {
         };
 
         // compute prefixes
-        {
-            const operand_size = reg.bitSize();
-            const addressing_size = BitSize.None;
+        try prefixes.addOverides(self.mode, &rex_w, .None, overides);
 
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
-        }
-
-        res.addPrefixes(prefixes, opcode);
+        try res.addPrefixes(instr_item, enc_ctrl, prefixes, null, opcode);
         try res.addRex(self.mode, null, reg, overides);
         res.addOpcodeRegNum(opcode, reg);
 
@@ -180,13 +172,14 @@ pub const Machine = struct {
     pub fn encodeRMII(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         op_reg: ?*const Operand,
         op_rm: ?*const Operand,
         imm1: Immediate,
         imm2: Immediate,
         overides: Overides
     ) AsmError!Instruction {
-        var res = try self.encodeRMI(instr_item, op_reg, op_rm, imm1, overides);
+        var res = try self.encodeRMI(instr_item, enc_ctrl, op_reg, op_rm, imm1, overides);
         res.addImm(imm2);
 
         return res;
@@ -195,6 +188,7 @@ pub const Machine = struct {
     pub fn encodeAddress(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         op_addr: ?*const Operand,
         overides: Overides
     ) AsmError!Instruction {
@@ -206,15 +200,10 @@ pub const Machine = struct {
         const addr = op_addr.?.Addr;
 
         // compute prefixes
-        {
-            const operand_size = addr.getDisp().bitSize();
-            const addressing_size = BitSize.None;
-
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
-        }
+        try prefixes.addOverides(self.mode, &rex_w, .None, overides);
 
         res.addCompoundOpcode(opcode);
-        res.addPrefixes(prefixes, opcode);
+        try res.addPrefixes(instr_item, enc_ctrl, prefixes, null, opcode);
         res.addOpcode(opcode);
         res.addAddress(addr);
 
@@ -262,6 +251,7 @@ pub const Machine = struct {
     pub fn encodeMSpecial(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         op_1: ?*const Operand,
         op_2: ?*const Operand,
         overides: Overides,
@@ -270,7 +260,6 @@ pub const Machine = struct {
         const opcode = instr_item.opcode.Op;
         var res = Instruction{};
 
-        var operand_size: BitSize = .None;
         var addressing_size: BitSize = .None;
         var def_seg: Segment = .DefaultSeg;
         var overide_seg: Segment = .DefaultSeg;
@@ -308,7 +297,6 @@ pub const Machine = struct {
                     return AsmError.InvalidOperand;
                 }
                 addressing_size = di_addr_size;
-                operand_size = di_op_size;
                 overide_seg = di_seg;
                 def_seg = .ES;
             },
@@ -332,7 +320,6 @@ pub const Machine = struct {
                     return AsmError.InvalidOperand;
                 }
                 addressing_size = si_addr_size;
-                operand_size = si_op_size;
                 overide_seg = si_seg;
                 def_seg = .DS;
             },
@@ -359,7 +346,6 @@ pub const Machine = struct {
                     return AsmError.InvalidOperand;
                 }
                 addressing_size = di_addr_size;
-                operand_size = di_op_size;
                 overide_seg = si_seg;
                 def_seg = .DS;
             },
@@ -367,7 +353,6 @@ pub const Machine = struct {
             // XLAT AL, BYTE DS:[(E/R)BX + AL]
             .XLAT => {
                 const rm = if (op_2) |op_2_| op_2_.Rm else op_1.?.Rm;
-                operand_size = .Bit8;
                 def_seg = .DS;
                 switch (rm) {
                     .Sib => |sib| {
@@ -400,9 +385,9 @@ pub const Machine = struct {
         if (overide_seg != def_seg) {
             prefixes.addSegmentOveride(overide_seg);
         }
-        try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
+        try prefixes.addOverides(self.mode, &rex_w, addressing_size, overides);
 
-        res.addPrefixes(prefixes, opcode);
+        try res.addPrefixes(instr_item, enc_ctrl, prefixes, null, opcode);
         try res.rexRaw(self.mode, util.rexValue(rex_w, 0, 0, 0));
         res.addOpcode(opcode);
 
@@ -412,6 +397,7 @@ pub const Machine = struct {
     pub fn encodeMOffset(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         op_reg: ?*const Operand,
         op_moff: ?*const Operand,
         overides: Overides
@@ -438,14 +424,13 @@ pub const Machine = struct {
                 prefixes.addSegmentOveride(moff.segment);
             }
 
-            const operand_size = reg.bitSize();
             const addressing_size = moff.disp.bitSize();
 
-            try prefixes.addOverides(self.mode, &rex_w, operand_size, addressing_size, overides);
+            try prefixes.addOverides(self.mode, &rex_w, addressing_size, overides);
         }
 
         res.addCompoundOpcode(opcode);
-        res.addPrefixes(prefixes, opcode);
+        try res.addPrefixes(instr_item, enc_ctrl, prefixes, null, opcode);
         try res.rexRaw(self.mode, util.rexValue(rex_w, 0, 0, 0));
         res.addOpcode(opcode);
 
@@ -461,6 +446,7 @@ pub const Machine = struct {
     pub fn encodeAvx(
         self: Machine,
         instr_item: *const InstructionItem,
+        enc_ctrl: ?*const EncodingControl,
         vec1_r: ?*const Operand,
         vec2_v: ?*const Operand,
         rm_op: ?*const Operand,
@@ -497,11 +483,14 @@ pub const Machine = struct {
         }
 
         if (has_modrm) {
-            res.addPrefixes(modrm.prefixes, Opcode{});
+            try res.addPrefixes(instr_item, enc_ctrl, modrm.prefixes, null, Opcode{});
+        } else {
+            try res.addPrefixes(instr_item, enc_ctrl, Prefixes{}, null, Opcode{});
         }
 
         const modrm_ptr: ?*const operand.ModRmResult = if (has_modrm) &modrm else null;
         const avx_res = try avx_opcode.encode(self, vec1_r, vec2_v, rm_op, modrm_ptr);
+
         try res.addAvx(self.mode, avx_res);
         res.addOpcodeByte(avx_opcode.opcode);
 
@@ -534,35 +523,59 @@ pub const Machine = struct {
         return res;
     }
 
-    pub fn build0(self: Machine, mnem: Mnemonic) AsmError!Instruction {
-        return self.build(mnem, null, null, null, null, null);
+    pub fn build0(
+        self: Machine,
+        ctrl: EncodingControl,
+        mnem: Mnemonic
+    ) AsmError!Instruction {
+        return self.build(mnem, &ctrl, null, null, null, null, null);
     }
 
-    pub fn build1(self: Machine, mnem: Mnemonic, ops1: Operand) AsmError!Instruction {
-        return self.build(mnem, &ops1, null, null, null, null);
+    pub fn build1(
+        self: Machine,
+        ctrl: EncodingControl,
+        mnem: Mnemonic,
+        ops1: Operand
+    ) AsmError!Instruction {
+        return self.build(mnem, &ctrl, &ops1, null, null, null, null);
     }
 
-    pub fn build2(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, null, null, null);
+    pub fn build2(
+        self: Machine,
+        ctrl: EncodingControl,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand
+    ) AsmError!Instruction {
+        return self.build(mnem, &ctrl, &ops1, &ops2, null, null, null);
     }
 
-    pub fn build3(self: Machine, mnem: Mnemonic, ops1: Operand, ops2: Operand, ops3: Operand) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, &ops3, null, null);
+    pub fn build3(
+        self: Machine,
+        ctrl: EncodingControl,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand
+    ) AsmError!Instruction {
+        return self.build(mnem, &ctrl, &ops1, &ops2, &ops3, null, null);
     }
 
     pub fn build4(
         self: Machine,
+        ctrl: EncodingControl,
         mnem: Mnemonic,
         ops1: Operand,
         ops2: Operand,
         ops3: Operand,
         ops4: Operand
     ) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, &ops3, &ops4, null);
+        return self.build(mnem, &ctrl, &ops1, &ops2, &ops3, &ops4, null);
     }
 
     pub fn build5(
         self: Machine,
+        ctrl: EncodingControl,
         mnem: Mnemonic,
         ops1: Operand,
         ops2: Operand,
@@ -570,11 +583,12 @@ pub const Machine = struct {
         ops4: Operand,
         ops5: Operand,
     ) AsmError!Instruction {
-        return self.build(mnem, &ops1, &ops2, &ops3, &ops4, &ops5);
+        return self.build(mnem, &ctrl, &ops1, &ops2, &ops3, &ops4, &ops5);
     }
 
     pub fn build(
         self: Machine,
+        ctrl: ?*const EncodingControl,
         mnem: Mnemonic,
         ops1: ?*const Operand,
         ops2: ?*const Operand,
@@ -604,7 +618,7 @@ pub const Machine = struct {
                 if (!item.isMachineMatch(self)) {
                     continue;
                 }
-                return item.encode(self, ops1, ops2, ops3, ops4, ops5);
+                return item.encode(self, ctrl, ops1, ops2, ops3, ops4, ops5);
             }
         }
 

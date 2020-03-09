@@ -8,28 +8,28 @@ pub fn main() anyerror!void {
     {
         const op1 = x86.Operand.register(.RAX);
         const op2 = x86.Operand.register(.R15);
-        const instr = try machine64.build(.MOV, &op1, &op2, null, null);
+        const instr = try machine64.build2(.MOV, op1, op2);
         warn("{x}\t\t\tMOV\t{}, {}\n", .{instr.asSlice(), op1, op2});
     }
 
     {
         const op1 = x86.Operand.register(.RAX);
         const op2 = x86.Operand.memoryRm(.GS, .QWORD, .RAX, 0x33221100);
-        const instr = try machine64.build2(.MOV, op1, op2);
-        warn("{x}\tMOV\t{}, {}\n", .{instr.asSlice(), op1, op2});
+        const instr = try machine64.build2_pre(.Lock, .MOV, op1, op2);
+        warn("{x}\tLOCK MOV\t{}, {}\n", .{instr.asSlice(), op1, op2});
     }
 
     {
         const op1 = x86.Operand.memorySib(.FS, .DWORD, 8, .ECX, .EBX, 0x33221100);
         const op2 = x86.Operand.register(.EAX);
-        const instr1 = try machine64.build2(.MOV, op1, op2);
-        warn("{x}\tMOV\t{}, {}\n", .{instr1.asSlice(), op1, op2});
+        const instr1 = try machine64.build2_pre(.Lock, .MOV, op1, op2);
+        warn("{x}\tLOCK MOV\t{}, {}\n", .{instr1.asSlice(), op1, op2});
 
         // Same as above except with default segment
         const op3 = x86.Operand.memorySibDef(.DWORD, 8, .ECX, .EBX, 0x33221100);
         const op4 = x86.Operand.register(.EAX);
-        const instr2 = try machine64.build2(.MOV, op3, op4);
-        warn("{x}\tMOV\t{}, {}\n", .{instr2.asSlice(), op3, op4});
+        const instr2 = try machine64.build2_pre(.Lock, .MOV, op3, op4);
+        warn("{x}\tLOCK MOV\t{}, {}\n", .{instr2.asSlice(), op3, op4});
     }
 
     {

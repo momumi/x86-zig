@@ -1742,7 +1742,6 @@ pub const ModRm = union(ModRmTag) {
                     } else {
                         try std.fmt.format(context, FmtError, output, " + 0x{x}", .{disp});
                     }
-                    try std.fmt.format(context, FmtError, output, "{}", .{disp});
                 }
                 try output(context, "]");
             },

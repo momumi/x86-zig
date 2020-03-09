@@ -523,34 +523,34 @@ pub const Machine = struct {
         return res;
     }
 
-    pub fn build0(
+    pub fn build0_ctrl(
         self: Machine,
         ctrl: EncodingControl,
         mnem: Mnemonic
     ) AsmError!Instruction {
-        return self.build(mnem, &ctrl, null, null, null, null, null);
+        return self.build(&ctrl, mnem, null, null, null, null, null);
     }
 
-    pub fn build1(
+    pub fn build1_ctrl(
         self: Machine,
         ctrl: EncodingControl,
         mnem: Mnemonic,
         ops1: Operand
     ) AsmError!Instruction {
-        return self.build(mnem, &ctrl, &ops1, null, null, null, null);
+        return self.build(&ctrl, mnem, &ops1, null, null, null, null);
     }
 
-    pub fn build2(
+    pub fn build2_ctrl(
         self: Machine,
         ctrl: EncodingControl,
         mnem: Mnemonic,
         ops1: Operand,
         ops2: Operand
     ) AsmError!Instruction {
-        return self.build(mnem, &ctrl, &ops1, &ops2, null, null, null);
+        return self.build(&ctrl, mnem, &ops1, &ops2, null, null, null);
     }
 
-    pub fn build3(
+    pub fn build3_ctrl(
         self: Machine,
         ctrl: EncodingControl,
         mnem: Mnemonic,
@@ -558,10 +558,10 @@ pub const Machine = struct {
         ops2: Operand,
         ops3: Operand
     ) AsmError!Instruction {
-        return self.build(mnem, &ctrl, &ops1, &ops2, &ops3, null, null);
+        return self.build(&ctrl, mnem, &ops1, &ops2, &ops3, null, null);
     }
 
-    pub fn build4(
+    pub fn build4_ctrl(
         self: Machine,
         ctrl: EncodingControl,
         mnem: Mnemonic,
@@ -570,10 +570,10 @@ pub const Machine = struct {
         ops3: Operand,
         ops4: Operand
     ) AsmError!Instruction {
-        return self.build(mnem, &ctrl, &ops1, &ops2, &ops3, &ops4, null);
+        return self.build(&ctrl, mnem, &ops1, &ops2, &ops3, &ops4, null);
     }
 
-    pub fn build5(
+    pub fn build5_ctrl(
         self: Machine,
         ctrl: EncodingControl,
         mnem: Mnemonic,
@@ -583,7 +583,133 @@ pub const Machine = struct {
         ops4: Operand,
         ops5: Operand,
     ) AsmError!Instruction {
-        return self.build(mnem, &ctrl, &ops1, &ops2, &ops3, &ops4, &ops5);
+        return self.build(&ctrl, mnem, &ops1, &ops2, &ops3, &ops4, &ops5);
+    }
+
+    pub fn build0_pre(
+        self: Machine,
+        prefix: Prefix,
+        mnem: Mnemonic
+    ) AsmError!Instruction {
+        const ctrl = EncodingControl.prefix(prefix);
+        return self.build(&ctrl, mnem, null, null, null, null, null);
+    }
+
+    pub fn build1_pre(
+        self: Machine,
+        prefix: Prefix,
+        mnem: Mnemonic,
+        ops1: Operand
+    ) AsmError!Instruction {
+        const ctrl = EncodingControl.prefix(prefix);
+        return self.build(&ctrl, mnem, &ops1, null, null, null, null);
+    }
+
+    pub fn build2_pre(
+        self: Machine,
+        prefix: Prefix,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand
+    ) AsmError!Instruction {
+        const ctrl = EncodingControl.prefix(prefix);
+        return self.build(&ctrl, mnem, &ops1, &ops2, null, null, null);
+    }
+
+    pub fn build3_pre(
+        self: Machine,
+        prefix: Prefix,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand
+    ) AsmError!Instruction {
+        const ctrl = EncodingControl.prefix(prefix);
+        return self.build(&ctrl, mnem, &ops1, &ops2, &ops3, null, null);
+    }
+
+    pub fn build4_pre(
+        self: Machine,
+        prefix: Prefix,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand,
+        ops4: Operand
+    ) AsmError!Instruction {
+        const ctrl = EncodingControl.prefix(prefix);
+        return self.build(&ctrl, mnem, &ops1, &ops2, &ops3, &ops4, null);
+    }
+
+    pub fn build5_pre(
+        self: Machine,
+        prefix: Prefix,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand,
+        ops4: Operand,
+        ops5: Operand,
+    ) AsmError!Instruction {
+        const ctrl = EncodingControl.prefix(prefix);
+        return self.build(&ctrl, mnem, &ops1, &ops2, &ops3, &ops4, &ops5);
+    }
+
+    pub fn build0(
+        self: Machine,
+        mnem: Mnemonic
+    ) AsmError!Instruction {
+        return self.build(null, mnem, null, null, null, null, null);
+    }
+
+    pub fn build1(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand
+    ) AsmError!Instruction {
+        return self.build(null, mnem, &ops1, null, null, null, null);
+    }
+
+    pub fn build2(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand
+    ) AsmError!Instruction {
+        return self.build(null, mnem, &ops1, &ops2, null, null, null);
+    }
+
+    pub fn build3(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand
+    ) AsmError!Instruction {
+        return self.build(null, mnem, &ops1, &ops2, &ops3, null, null);
+    }
+
+    pub fn build4(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand,
+        ops4: Operand
+    ) AsmError!Instruction {
+        return self.build(null, mnem, &ops1, &ops2, &ops3, &ops4, null);
+    }
+
+    pub fn build5(
+        self: Machine,
+        mnem: Mnemonic,
+        ops1: Operand,
+        ops2: Operand,
+        ops3: Operand,
+        ops4: Operand,
+        ops5: Operand,
+    ) AsmError!Instruction {
+        return self.build(null, mnem, &ops1, &ops2, &ops3, &ops4, &ops5);
     }
 
     pub fn build(

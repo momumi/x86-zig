@@ -503,7 +503,7 @@ pub const Prefixes = struct {
     }
 
     pub fn asSlice(self: Prefixes) []const u8 {
-        return @sliceToBytes(self.prefixes[0..self.len]);
+        return std.mem.asBytes(&self.prefixes)[0..self.len];
     }
 
     pub fn addOverides64(

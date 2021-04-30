@@ -7,7 +7,7 @@ pub const Mode86 = enum {
     x64 = 2,
 };
 
-pub const AsmError = error {
+pub const AsmError = error{
     InvalidOperand,
     InvalidMode,
     InvalidImmediate,
@@ -17,7 +17,7 @@ pub const AsmError = error {
     InvalidPrefixes,
 };
 
-pub const Segment = enum (u8) {
+pub const Segment = enum(u8) {
     ES = 0x00,
     CS,
     SS,
@@ -28,9 +28,9 @@ pub const Segment = enum (u8) {
     DefaultSeg = 0x10,
 };
 
-pub const BitSize = enum (u8) {
-    None  = 0,
-    Bit8  = 1,
+pub const BitSize = enum(u8) {
+    None = 0,
+    Bit8 = 1,
     Bit16 = 2,
     Bit32 = 4,
     Bit64 = 8,
@@ -48,8 +48,7 @@ pub const BitSize = enum (u8) {
     }
 };
 
-
-pub const Overides = enum (u8) {
+pub const Overides = enum(u8) {
     /// 64 bit mode:
     ///     zero overides, valid
     /// 32 bit mode:
@@ -146,13 +145,13 @@ pub const OpcodePrefix = enum(u8) {
     }
 };
 
-pub const CompoundInstruction = enum (u8) {
+pub const CompoundInstruction = enum(u8) {
     None = 0x66,
     FWAIT = 0x9B,
 };
 
 pub const Opcode = struct {
-    const max_length:u8 = 3;
+    const max_length: u8 = 3;
     opcode: [max_length]u8 = undefined,
     len: u8 = 0,
     compound_op: CompoundInstruction = .None,
@@ -201,7 +200,7 @@ pub const Opcode = struct {
         prefix: OpcodePrefix,
         opcode_bytes: [3]u8,
         len: u8,
-        reg_bits: ?u3
+        reg_bits: ?u3,
     ) Opcode {
         const prefix_type = switch (prefix) {
             .Any => OpcodePrefixType.Prefixable,
@@ -210,7 +209,7 @@ pub const Opcode = struct {
             ._66, ._F3, ._F2 => OpcodePrefixType.Mandatory,
             else => OpcodePrefixType.Compound,
         };
-        return Opcode {
+        return Opcode{
             .opcode = opcode_bytes,
             .len = len,
             .prefix = prefix,
@@ -220,74 +219,73 @@ pub const Opcode = struct {
     }
 
     pub fn op1(byte0: u8) Opcode {
-        return create_generic(.Any, [_]u8{byte0, 0, 0}, 1, null);
+        return create_generic(.Any, [_]u8{ byte0, 0, 0 }, 1, null);
     }
 
     pub fn op2(byte0: u8, byte1: u8) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, null);
+        return create_generic(.Any, [_]u8{ byte0, byte1, 0 }, 2, null);
     }
 
     pub fn op3(byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, byte2}, 3, null);
+        return create_generic(.Any, [_]u8{ byte0, byte1, byte2 }, 3, null);
     }
 
     pub fn op1r(byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, 0, 0}, 1, reg_bits);
+        return create_generic(.Any, [_]u8{ byte0, 0, 0 }, 1, reg_bits);
     }
 
     pub fn op2r(byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, reg_bits);
+        return create_generic(.Any, [_]u8{ byte0, byte1, 0 }, 2, reg_bits);
     }
 
     pub fn op3r(byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(.Any, [_]u8{byte0, byte1, byte2}, 3, reg_bits);
+        return create_generic(.Any, [_]u8{ byte0, byte1, byte2 }, 3, reg_bits);
     }
 
     pub fn preOp1r(prefix: OpcodePrefix, byte0: u8, reg_bits: u3) Opcode {
-        return create_generic(prefix, [_]u8{byte0, 0, 0}, 1, reg_bits);
+        return create_generic(prefix, [_]u8{ byte0, 0, 0 }, 1, reg_bits);
     }
 
     pub fn preOp2r(prefix: OpcodePrefix, byte0: u8, byte1: u8, reg_bits: u3) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, 0}, 2, reg_bits);
+        return create_generic(prefix, [_]u8{ byte0, byte1, 0 }, 2, reg_bits);
     }
 
     pub fn preOp3r(prefix: OpcodePrefix, byte0: u8, byte1: u8, byte2: u8, reg_bits: u3) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, byte2}, 3, reg_bits);
+        return create_generic(prefix, [_]u8{ byte0, byte1, byte2 }, 3, reg_bits);
     }
 
     pub fn preOp1(prefix: OpcodePrefix, byte0: u8) Opcode {
-        return create_generic(prefix, [_]u8{byte0, 0, 0}, 1, null);
+        return create_generic(prefix, [_]u8{ byte0, 0, 0 }, 1, null);
     }
 
     pub fn preOp2(prefix: OpcodePrefix, byte0: u8, byte1: u8) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, 0}, 2, null);
+        return create_generic(prefix, [_]u8{ byte0, byte1, 0 }, 2, null);
     }
 
     pub fn preOp3(prefix: OpcodePrefix, byte0: u8, byte1: u8, byte2: u8) Opcode {
-        return create_generic(prefix, [_]u8{byte0, byte1, byte2}, 3, null);
+        return create_generic(prefix, [_]u8{ byte0, byte1, byte2 }, 3, null);
     }
 
     pub fn compOp1r(compound_op: CompoundInstruction, byte0: u8, reg_bits: u3) Opcode {
-        var res = create_generic(.Any, [_]u8{byte0, 0, 0}, 1, reg_bits);
+        var res = create_generic(.Any, [_]u8{ byte0, 0, 0 }, 1, reg_bits);
         res.compound_op = compound_op;
         return res;
     }
 
     pub fn compOp2(compound_op: CompoundInstruction, byte0: u8, byte1: u8) Opcode {
-        var res = create_generic(.Any, [_]u8{byte0, byte1, 0}, 2, null);
+        var res = create_generic(.Any, [_]u8{ byte0, byte1, 0 }, 2, null);
         res.compound_op = compound_op;
         return res;
     }
 
     pub fn op3DNow(byte0: u8, byte1: u8, imm_byte: u8) Opcode {
-        var res = create_generic(OpcodePrefix.byte(imm_byte), [_]u8{byte0, byte1, 0}, 2, null);
+        var res = create_generic(OpcodePrefix.byte(imm_byte), [_]u8{ byte0, byte1, 0 }, 2, null);
         res.prefix_type = .Postfix;
         return res;
     }
 };
 
-
-pub const DataType = enum (u16) {
+pub const DataType = enum(u16) {
     NormalMemory = 0x0000,
     FarAddress = 0x01000,
     FloatingPoint = 0x0200,
@@ -297,7 +295,7 @@ pub const DataType = enum (u16) {
     Register = 0x0F00,
 };
 
-pub const DataSize = enum (u16) {
+pub const DataSize = enum(u16) {
     const tag_mask: u16 = 0xFF00;
     const size_mask: u16 = 0x00FF;
     const normal_tag: u16 = @enumToInt(DataType.NormalMemory);
@@ -404,21 +402,21 @@ pub const Prefix = enum(u8) {
     // Group 4
     AddrSize = 0x67,
 
-    REX      = 0x40,
-    REX_B    = 0x41,
-    REX_X    = 0x42,
-    REX_XB   = 0x43,
-    REX_R    = 0x44,
-    REX_RB   = 0x45,
-    REX_RX   = 0x46,
-    REX_RXB  = 0x47,
-    REX_W    = 0x48,
-    REX_WB   = 0x49,
-    REX_WX   = 0x4A,
-    REX_WXB  = 0x4B,
-    REX_WR   = 0x4C,
-    REX_WRB  = 0x4D,
-    REX_WRX  = 0x4E,
+    REX = 0x40,
+    REX_B = 0x41,
+    REX_X = 0x42,
+    REX_XB = 0x43,
+    REX_R = 0x44,
+    REX_RB = 0x45,
+    REX_RX = 0x46,
+    REX_RXB = 0x47,
+    REX_W = 0x48,
+    REX_WB = 0x49,
+    REX_WX = 0x4A,
+    REX_WXB = 0x4B,
+    REX_WR = 0x4C,
+    REX_WRB = 0x4D,
+    REX_WRX = 0x4E,
     REX_WRXB = 0x4F,
 
     pub fn getGroupNumber(self: Prefix) u8 {
@@ -430,32 +428,12 @@ pub const Prefix = enum(u8) {
             .Lock => .Group0,
             .Repne, .Rep => .Group1,
 
-            .SegmentCS,
-            .SegmentDS,
-            .SegmentES,
-            .SegmentSS,
-            .SegmentFS,
-            .SegmentGS => .Group2,
+            .SegmentCS, .SegmentDS, .SegmentES, .SegmentSS, .SegmentFS, .SegmentGS => .Group2,
 
             .OpSize => .Group2,
             .AddrSize => .Group3,
 
-            .REX,
-            .REX_B,
-            .REX_X,
-            .REX_XB,
-            .REX_R,
-            .REX_RB,
-            .REX_RX,
-            .REX_RXB,
-            .REX_W,
-            .REX_WB,
-            .REX_WX,
-            .REX_WXB,
-            .REX_WR,
-            .REX_WRB,
-            .REX_WRX,
-            .REX_WRXB => .Rex,
+            .REX, .REX_B, .REX_X, .REX_XB, .REX_R, .REX_RB, .REX_RX, .REX_RXB, .REX_W, .REX_WB, .REX_WX, .REX_WXB, .REX_WR, .REX_WRB, .REX_WRX, .REX_WRXB => .Rex,
 
             .None => .None,
         };
@@ -481,7 +459,6 @@ pub const Prefixes = struct {
             .FS => self.addPrefix(.SegmentFS),
             .GS => self.addPrefix(.SegmentGS),
             .DefaultSeg => {},
-            else => unreachable,
         }
     }
 
@@ -510,7 +487,7 @@ pub const Prefixes = struct {
         self: *Prefixes,
         rex_w: *u1,
         addressing_size: BitSize,
-        overides: Overides
+        overides: Overides,
     ) AsmError!void {
         switch (overides) {
             // zero overides
@@ -553,9 +530,8 @@ pub const Prefixes = struct {
         self: *Prefixes,
         rex_w: *u1,
         addressing_size: BitSize,
-        overides: Overides
+        overides: Overides,
     ) AsmError!void {
-
         switch (overides) {
             // zero overides
             .ZO => {},
@@ -565,7 +541,6 @@ pub const Prefixes = struct {
             .Op32 => {},
             //
             .REX_W => return AsmError.InvalidOperand,
-
 
             .Addr16 => {
                 if (addressing_size == .None) {
@@ -592,16 +567,14 @@ pub const Prefixes = struct {
             .Bit32 => {}, // default
             else => return AsmError.InvalidOperand,
         }
-
     }
 
     pub fn addOverides16(
         self: *Prefixes,
         rex_w: *u1,
         addressing_size: BitSize,
-        overides: Overides
+        overides: Overides,
     ) AsmError!void {
-
         switch (overides) {
             // zero overides
             .ZO => {},
@@ -637,7 +610,6 @@ pub const Prefixes = struct {
             .Bit32 => self.addPrefix(.AddrSize), // default
             else => return AsmError.InvalidOperand,
         }
-
     }
 
     pub fn addOverides(
@@ -645,7 +617,7 @@ pub const Prefixes = struct {
         mode: Mode86,
         rex_w: *u1,
         addressing_size: BitSize,
-        overides: Overides
+        overides: Overides,
     ) AsmError!void {
         switch (mode) {
             .x86_16 => try self.addOverides16(rex_w, addressing_size, overides),
@@ -683,7 +655,7 @@ pub const EncodingControl = struct {
     pub fn init(
         hint: EncodingHint,
         prefixing_technique: PrefixingTechnique,
-        prefixes: []Prefix,
+        prefixes: []const Prefix,
     ) EncodingControl {
         var res: EncodingControl = undefined;
         assert(prefixes.len <= max_prefix_count);
@@ -703,20 +675,20 @@ pub const EncodingControl = struct {
     }
 
     pub fn prefix(pre: Prefix) EncodingControl {
-        var res =  EncodingControl {};
+        var res = EncodingControl{};
         res.prefixes[0] = pre;
         return res;
     }
 
     pub fn prefix2(pre1: Prefix, pre2: Prefix) EncodingControl {
-        var res =  EncodingControl {};
+        var res = EncodingControl{};
         res.prefixes[0] = pre1;
         res.prefixes[1] = pre2;
         return res;
     }
 
     pub fn encodingHint(hint: EncodingHint) EncodingControl {
-        var res =  EncodingControl {};
+        var res = EncodingControl{};
         res.encoding_hint = hint;
         return res;
     }
@@ -724,7 +696,7 @@ pub const EncodingControl = struct {
     /// If multiple prefixes from the same group are used then only the one
     /// closest to the instruction is actually effective.
     pub fn calcEffectivePrefixes(self: EncodingControl) [PrefixGroup.count]Prefix {
-        var res = [1]Prefix { .None } ** PrefixGroup.count;
+        var res = [1]Prefix{.None} ** PrefixGroup.count;
 
         for (self.prefixes) |pre| {
             if (pre == .None) {

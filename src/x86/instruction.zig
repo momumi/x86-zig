@@ -3,7 +3,7 @@ const assert = std.debug.assert;
 
 const x86 = @import("machine.zig");
 
-usingnamespace(@import("types.zig"));
+usingnamespace (@import("types.zig"));
 
 const ModRmResult = x86.operand.ModRmResult;
 const Immediate = x86.operand.Immediate;
@@ -56,7 +56,7 @@ pub const Instruction = struct {
 
     fn viewSlice(self: @This(), vptr: ?ViewPtr) ?[]const u8 {
         if (vptr) |v| {
-            return self.data[v.offset .. (v.offset+v.size)];
+            return self.data[v.offset..(v.offset + v.size)];
         } else {
             return null;
         }
@@ -64,7 +64,7 @@ pub const Instruction = struct {
 
     fn viewMutSlice(self: *@This(), vptr: ?ViewPtr) ?[]u8 {
         if (vptr) |v| {
-            return self.data[v.offset .. (v.offset+v.size)];
+            return self.data[v.offset..(v.offset + v.size)];
         } else {
             return null;
         }
@@ -74,32 +74,32 @@ pub const Instruction = struct {
         const warn = if (true) std.debug.warn else util.warnDummy;
         warn("Instruction {{", .{});
         if (self.view.prefix.size != 0) {
-            warn(" Pre:{x}", .{self.viewSlice(self.view.prefix)});
+            warn(" Pre:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.prefix))});
         }
         if (self.view.ext.size != 0) {
-            warn(" Ext:{x}", .{self.viewSlice(self.view.ext)});
+            warn(" Ext:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.ext))});
         }
         if (self.view.opcode.size != 0) {
-            warn(" Op:{x}", .{self.viewSlice(self.view.opcode)});
+            warn(" Op:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.opcode))});
         }
         if (self.view.modrm.size != 0) {
-            warn(" Rm:{x}", .{self.viewSlice(self.view.modrm)});
+            warn(" Rm:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.modrm))});
         }
         if (self.view.sib.size != 0) {
-            warn(" Sib:{x}", .{self.viewSlice(self.view.sib)});
+            warn(" Sib:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.sib))});
         }
         if (self.view.displacement.size != 0) {
-            warn(" Dis:{x}", .{self.viewSlice(self.view.displacement)});
+            warn(" Dis:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.displacement))});
         }
         if (self.view.immediate.size != 0) {
-            warn(" Imm:{x}", .{self.viewSlice(self.view.immediate)});
+            warn(" Imm:{}", .{std.fmt.fmtSliceHexLower(self.viewSlice(self.view.immediate))});
         }
         warn(" }}\n", .{});
     }
 
     fn makeViewPart(self: *@This(), size: u8) ViewPtr {
-        assert(self.len+size <= max_length);
-        return ViewPtr {
+        assert(self.len + size <= max_length);
+        return ViewPtr{
             .offset = @intCast(u8, self.len),
             .size = size,
         };
@@ -192,7 +192,6 @@ pub const Instruction = struct {
         }
     }
 
-
     // TODO: need to handle more cases, and those interacting with different addressing modes
     pub fn addRex(self: *@This(), mode: Mode86, reg: ?Register, rm: ?Register, overides: Overides) AsmError!void {
         const reg_num = if (reg == null) 0 else reg.?.number();
@@ -201,27 +200,33 @@ pub const Instruction = struct {
         var needs_no_rex = false;
         var w: u1 = 0;
 
-        if (reg != null and reg.?.needsRex()) { needs_rex = true; }
-        if (rm != null and rm.?.needsRex())   { needs_rex = true; }
+        if (reg != null and reg.?.needsRex()) {
+            needs_rex = true;
+        }
+        if (rm != null and rm.?.needsRex()) {
+            needs_rex = true;
+        }
 
-        if (reg != null and reg.?.needsNoRex()) { needs_no_rex = true; }
-        if (rm != null and rm.?.needsNoRex())   { needs_no_rex = true; }
+        if (reg != null and reg.?.needsNoRex()) {
+            needs_no_rex = true;
+        }
+        if (rm != null and rm.?.needsNoRex()) {
+            needs_no_rex = true;
+        }
 
         if (!overides.is64Default()) {
-            if (reg != null and reg.?.bitSize() == .Bit64) { w = 1; }
-            if (rm != null and rm.?.bitSize() == .Bit64)  { w = 1; }
+            if (reg != null and reg.?.bitSize() == .Bit64) {
+                w = 1;
+            }
+            if (rm != null and rm.?.bitSize() == .Bit64) {
+                w = 1;
+            }
         }
 
         const r: u8 = if (reg_num < 8) 0 else 1;
         const x: u8 = 0;
         const b: u8 = if (rm_num < 8) 0 else 1;
-        const rex_byte: u8 = (
-            (0x40)
-            | (@as(u8, w) << 3)
-            | (r << 2)
-            | (x << 1)
-            | (b << 0)
-        );
+        const rex_byte: u8 = ((0x40) | (@as(u8, w) << 3) | (r << 2) | (x << 1) | (b << 0));
 
         if (rex_byte != 0x40 or needs_rex) {
             if (mode != .x64) {
@@ -331,7 +336,7 @@ pub const Instruction = struct {
     /// Add the opcode to instruction incrementing the last byte by register number.
     pub fn addOpcodeRegNum(self: *@This(), op: Opcode, reg: Register) void {
         var modified_op = op;
-        modified_op.opcode[modified_op.len-1] += reg.number() & 0x07;
+        modified_op.opcode[modified_op.len - 1] += reg.number() & 0x07;
         self.view.opcode = self.makeViewPart(modified_op.len);
         self.addBytes(modified_op.asSlice());
     }
@@ -405,15 +410,15 @@ pub const Instruction = struct {
     }
 
     pub fn add32(self: *@This(), imm32: u32) void {
-        self.addByte(@intCast(u8, (imm32 >> 0)  & 0xFF));
-        self.addByte(@intCast(u8, (imm32 >> 8)  & 0xFF));
+        self.addByte(@intCast(u8, (imm32 >> 0) & 0xFF));
+        self.addByte(@intCast(u8, (imm32 >> 8) & 0xFF));
         self.addByte(@intCast(u8, (imm32 >> 16) & 0xFF));
         self.addByte(@intCast(u8, (imm32 >> 24) & 0xFF));
     }
 
     pub fn add64(self: *@This(), imm64: u64) void {
-        self.addByte(@intCast(u8, (imm64 >>  0) & 0xFF));
-        self.addByte(@intCast(u8, (imm64 >>  8) & 0xFF));
+        self.addByte(@intCast(u8, (imm64 >> 0) & 0xFF));
+        self.addByte(@intCast(u8, (imm64 >> 8) & 0xFF));
         self.addByte(@intCast(u8, (imm64 >> 16) & 0xFF));
         self.addByte(@intCast(u8, (imm64 >> 24) & 0xFF));
         self.addByte(@intCast(u8, (imm64 >> 32) & 0xFF));
@@ -437,7 +442,7 @@ pub const Instruction = struct {
             .FarJmp => |far| {
                 const disp_size = disp.bitSize();
                 assert(disp_size != .Bit64);
-                self.view.immediate = self.makeViewPart(@intCast(u8,disp_size.valueBytes()) + 2);
+                self.view.immediate = self.makeViewPart(@intCast(u8, disp_size.valueBytes()) + 2);
                 self.addMOffsetDisp(disp);
                 self.add16(far.segment);
             },
@@ -447,8 +452,5 @@ pub const Instruction = struct {
                 self.addMOffsetDisp(disp);
             },
         }
-
-
     }
-
 };

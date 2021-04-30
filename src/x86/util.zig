@@ -15,33 +15,27 @@ var hide_debug: bool = true;
 
 pub fn rexValue(w: u1, r: u1, x: u1, b: u1) u8 {
     // 0b0100_WRXB
-    return (
-        (0b0100 << 4)
-        | (@as(u8, w) << 3)
-        | (@as(u8, r) << 2)
-        | (@as(u8, x) << 1)
-        | (@as(u8, b) << 0)
-    );
+    return (0b0100 << 4) |
+        (@as(u8, w) << 3) |
+        (@as(u8, r) << 2) |
+        (@as(u8, x) << 1) |
+        (@as(u8, b) << 0);
 }
 
 pub fn modrmValue(mod: u2, reg: u3, rm: u3) u8 {
     // mm_rrr_rrr
-    return (
-        (@as(u8, mod) << 6)
-        | (@as(u8, reg) << 3)
-        | (@as(u8, rm) << 0)
-    );
+    return (@as(u8, mod) << 6) |
+        (@as(u8, reg) << 3) |
+        (@as(u8, rm) << 0);
 }
 
 pub fn sibValue(scale: u2, index: u3, base: u3) u8 {
-    return (
-        (@as(u8, scale) << 6)
-        | (@as(u8, index) << 3)
-        | (@as(u8, base) << 0)
-    );
+    return (@as(u8, scale) << 6) |
+        (@as(u8, index) << 3) |
+        (@as(u8, base) << 0);
 }
 
-pub fn warnDummy(a: var, b: var) void {}
+pub fn warnDummy(a: anytype, b: anytype) void {}
 
 /// Returns true if bytes matches the given hex string. ie:
 /// matchesHexString(&[3]u8{0xaa, 0xbb, 0xcc}, "aa bb cc") -> true
@@ -130,11 +124,11 @@ pub fn printOp(
             if (pre == .None) {
                 break;
             }
-            std.debug.warn("{} ", .{@tagName(pre)});
+            std.debug.warn("{s} ", .{@tagName(pre)});
         }
     }
 
-    std.debug.warn("{} ", .{@tagName(mnem)});
+    std.debug.warn("{s} ", .{@tagName(mnem)});
 
     if (op1) |op| {
         std.debug.warn("{}", .{op1});
@@ -153,7 +147,7 @@ pub fn printOp(
     }
 
     if (instr) |temp| {
-        std.debug.warn(": {x}\n", .{temp.asSlice()});
+        std.debug.warn(": {}\n", .{std.fmt.fmtSliceHexLower(temp.asSlice())});
     } else |err| {
         std.debug.warn(": {}\n", .{err});
     }
@@ -168,7 +162,7 @@ pub fn testOp(
     op3: ?*const Operand,
     op4: ?*const Operand,
     op5: ?*const Operand,
-    comptime thing_to_match: var,
+    comptime thing_to_match: anytype,
 ) void {
     switch (@TypeOf(thing_to_match)) {
         AsmError => {
@@ -189,7 +183,7 @@ pub fn testOpInstruction(
     op3: ?*const Operand,
     op4: ?*const Operand,
     op5: ?*const Operand,
-    hex_str: []const u8
+    hex_str: []const u8,
 ) void {
     const instr = machine.build(ctrl, mnem, op1, op2, op3, op4, op5);
     printOp(hide_debug, machine, ctrl, mnem, instr, op1, op2, op3, op4, op5);
@@ -205,9 +199,9 @@ pub fn testOpInstruction(
         }
 
         std.debug.warn("Test failed:\n", .{});
-        std.debug.warn("Expeced: {}\n", .{expected_hex[0..pos]});
+        std.debug.warn("Expeced: {s}\n", .{expected_hex[0..pos]});
         if (instr) |ins| {
-            std.debug.warn("But got: {x}\n", .{ins.asSlice()});
+            std.debug.warn("But got: {}\n", .{std.fmt.fmtSliceHexLower(ins.asSlice())});
         } else |err| {
             std.debug.warn("But got: {}\n", .{err});
         }
@@ -234,7 +228,7 @@ pub fn testOpError(
         std.debug.warn("Test failed:\n", .{});
         std.debug.warn("Expeced error: {}\n", .{err});
         if (instr) |ins| {
-            std.debug.warn("But got instr: {x}\n", .{ins.asSlice()});
+            std.debug.warn("But got instr: {}\n", .{std.fmt.fmtSliceHexLower(ins.asSlice())});
         } else |actual_error| {
             std.debug.warn("But got error: {}\n", .{actual_error});
         }
@@ -252,19 +246,19 @@ pub fn isErrorMatch(instr: AsmError!Instruction, err: AsmError) bool {
     }
 }
 
-pub fn testOp0(machine: Machine, mnem: Mnemonic, comptime expected: var) void {
+pub fn testOp0(machine: Machine, mnem: Mnemonic, comptime expected: anytype) void {
     testOp(machine, null, mnem, null, null, null, null, null, expected);
 }
 
-pub fn testOp1(machine: Machine, mnem: Mnemonic, op1: Operand, comptime expected: var) void {
+pub fn testOp1(machine: Machine, mnem: Mnemonic, op1: Operand, comptime expected: anytype) void {
     testOp(machine, null, mnem, &op1, null, null, null, null, expected);
 }
 
-pub fn testOp2(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, comptime expected: var) void {
+pub fn testOp2(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, comptime expected: anytype) void {
     testOp(machine, null, mnem, &op1, &op2, null, null, null, expected);
 }
 
-pub fn testOp3(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3: Operand, comptime expected: var) void {
+pub fn testOp3(machine: Machine, mnem: Mnemonic, op1: Operand, op2: Operand, op3: Operand, comptime expected: anytype) void {
     testOp(machine, null, mnem, &op1, &op2, &op3, null, null, expected);
 }
 
@@ -275,7 +269,7 @@ pub fn testOp4(
     op2: Operand,
     op3: Operand,
     op4: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, null, mnem, &op1, &op2, &op3, &op4, null, expected);
 }
@@ -288,7 +282,7 @@ pub fn testOp5(
     op3: Operand,
     op4: Operand,
     op5: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, null, mnem, &op1, &op2, &op3, &op4, &op5, expected);
 }
@@ -297,7 +291,7 @@ pub fn testOpCtrl0(
     machine: Machine,
     ctrl: EncodingControl,
     mnem: Mnemonic,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, &ctrl, mnem, null, null, null, null, null, expected);
 }
@@ -307,7 +301,7 @@ pub fn testOpCtrl1(
     ctrl: EncodingControl,
     mnem: Mnemonic,
     op1: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, &ctrl, mnem, &op1, null, null, null, null, expected);
 }
@@ -318,7 +312,7 @@ pub fn testOpCtrl2(
     mnem: Mnemonic,
     op1: Operand,
     op2: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, &ctrl, mnem, &op1, &op2, null, null, null, expected);
 }
@@ -330,7 +324,7 @@ pub fn testOpCtrl3(
     op1: Operand,
     op2: Operand,
     op3: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, &ctrl, mnem, &op1, &op2, &op3, null, null, expected);
 }
@@ -343,7 +337,7 @@ pub fn testOpCtrl4(
     op2: Operand,
     op3: Operand,
     op4: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, &ctrl, mnem, &op1, &op2, &op3, &op4, null, expected);
 }
@@ -357,7 +351,7 @@ pub fn testOpCtrl5(
     op3: Operand,
     op4: Operand,
     op5: Operand,
-    comptime expected: var
+    comptime expected: anytype,
 ) void {
     testOp(machine, &ctrl, mnem, &op1, &op2, &op3, &op4, &op5, expected);
 }

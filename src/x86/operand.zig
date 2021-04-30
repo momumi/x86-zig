@@ -8,15 +8,14 @@ pub const register = @import("register.zig");
 pub const machine = @import("machine.zig");
 pub const avx = @import("avx.zig");
 
-usingnamespace(@import("types.zig"));
+usingnamespace @import("types.zig");
 
 const Register = register.Register;
-
 
 pub const OperandType = enum(u32) {
     const num_pos = 0;
 
-    pub const Class = enum (u8) {
+    pub const Class = enum(u8) {
         const Type = u8;
         const mask = 0xff;
         const pos = 8;
@@ -60,7 +59,7 @@ pub const OperandType = enum(u32) {
         }
     };
 
-    pub const MemClass = enum (u4) {
+    pub const MemClass = enum(u4) {
         const pos = 16;
         const Type = u4;
         const mask = 0x0f;
@@ -80,7 +79,7 @@ pub const OperandType = enum(u32) {
         mem16_64,
     };
 
-    pub const RmClass = enum (u1) {
+    pub const RmClass = enum(u1) {
         const pos = 20;
         const Type = u1;
         const mask = 0x01;
@@ -89,16 +88,16 @@ pub const OperandType = enum(u32) {
         rm = 1,
     };
 
-    pub const Modifier = enum (u3) {
+    pub const Modifier = enum(u3) {
         const pos = 21;
         const Type = u3;
         const mask = 0x07;
 
         no_mod = 0b000,
-        k      = 0b001,
-        kz     = 0b010,
-        sae    = 0b011,
-        er     = 0b100,
+        k = 0b001,
+        kz = 0b010,
+        sae = 0b011,
+        er = 0b100,
     };
 
     pub const Broadcast = enum(u2) {
@@ -111,7 +110,7 @@ pub const OperandType = enum(u32) {
         m64bcst = 0b10,
     };
 
-    pub const SpecialCase = enum (u2) {
+    pub const SpecialCase = enum(u2) {
         const pos = 26;
         const Type = u2;
         const mask = 0x03;
@@ -130,15 +129,13 @@ pub const OperandType = enum(u32) {
         bcst: Broadcast,
         special: SpecialCase,
     ) u32 {
-        return (
-            @intCast(u32, num) << num_pos
-            | @intCast(u32, @enumToInt(class)) << Class.pos
-            | @intCast(u32, @enumToInt(mem)) << MemClass.pos
-            | @intCast(u32, @enumToInt(rm)) << RmClass.pos
-            | @intCast(u32, @enumToInt(mod)) << Modifier.pos
-            | @intCast(u32, @enumToInt(bcst)) << Broadcast.pos
-            | @intCast(u32, @enumToInt(special)) << SpecialCase.pos
-        );
+        return @intCast(u32, num) << num_pos |
+            @intCast(u32, @enumToInt(class)) << Class.pos |
+            @intCast(u32, @enumToInt(mem)) << MemClass.pos |
+            @intCast(u32, @enumToInt(rm)) << RmClass.pos |
+            @intCast(u32, @enumToInt(mod)) << Modifier.pos |
+            @intCast(u32, @enumToInt(bcst)) << Broadcast.pos |
+            @intCast(u32, @enumToInt(special)) << SpecialCase.pos;
     }
 
     pub fn create_basic(num: u8, reg_class: Class) u32 {
@@ -196,11 +193,9 @@ pub const OperandType = enum(u32) {
         const temp_mod = template.getModifier();
         const other_mod = other.getModifier();
 
-        return (
-            temp_mod == other_mod
-            or (temp_mod == .kz and other_mod == .k)
-            or (other_mod == .no_mod)
-        );
+        return temp_mod == other_mod or
+            (temp_mod == .kz and other_mod == .k) or
+            (other_mod == .no_mod);
     }
 
     reg8 = create_basic(0, .reg8),
@@ -452,9 +447,9 @@ pub const OperandType = enum(u32) {
     rm_xmm = create_rm(0, .xmm, .no_mem),
     rm_ymm = create_rm(0, .ymm, .no_mem),
     rm_zmm = create_rm(0, .zmm, .no_mem),
-    rm_xmm_kz = create(0, .xmm, .no_mem, .rm,    .kz,     .no_bcst, .no_special),
-    rm_ymm_kz = create(0, .ymm, .no_mem, .rm,    .kz,     .no_bcst, .no_special),
-    rm_zmm_kz = create(0, .zmm, .no_mem, .rm,    .kz,     .no_bcst, .no_special),
+    rm_xmm_kz = create(0, .xmm, .no_mem, .rm, .kz, .no_bcst, .no_special),
+    rm_ymm_kz = create(0, .ymm, .no_mem, .rm, .kz, .no_bcst, .no_special),
+    rm_zmm_kz = create(0, .zmm, .no_mem, .rm, .kz, .no_bcst, .no_special),
 
     moffs = create_basic(0, .moffs),
     moffs8,
@@ -493,124 +488,124 @@ pub const OperandType = enum(u32) {
     bnd_m64 = create(0, .reg_bnd, .mem64, .rm, .no_mod, .no_bcst, .no_special),
     bnd_m128 = create(0, .reg_bnd, .mem128, .rm, .no_mod, .no_bcst, .no_special),
 
-    reg32_er     = create(0, .reg32, .no_mem, .rm, .er, .no_bcst, .no_special),
-    reg64_er     = create(0, .reg64, .no_mem, .rm, .er, .no_bcst, .no_special),
-    rm32_er      = create(0, .reg32, .mem32,  .rm, .er, .no_bcst, .no_special),
-    rm64_er      = create(0, .reg64, .mem64,  .rm, .er, .no_bcst, .no_special),
-    rm_mem64_kz  = create(0, .mem,   .mem64,  .rm, .kz, .no_bcst, .no_special),
-    rm_mem128_k  = create(0, .mem,   .mem128, .rm, .k,  .no_bcst, .no_special),
-    rm_mem256_k  = create(0, .mem,   .mem256, .rm, .k,  .no_bcst, .no_special),
-    rm_mem512_k  = create(0, .mem,   .mem512, .rm, .k,  .no_bcst, .no_special),
-    rm_mem128_kz = create(0, .mem,   .mem128, .rm, .kz, .no_bcst, .no_special),
-    rm_mem256_kz = create(0, .mem,   .mem256, .rm, .kz, .no_bcst, .no_special),
-    rm_mem512_kz = create(0, .mem,   .mem512, .rm, .kz, .no_bcst, .no_special),
+    reg32_er = create(0, .reg32, .no_mem, .rm, .er, .no_bcst, .no_special),
+    reg64_er = create(0, .reg64, .no_mem, .rm, .er, .no_bcst, .no_special),
+    rm32_er = create(0, .reg32, .mem32, .rm, .er, .no_bcst, .no_special),
+    rm64_er = create(0, .reg64, .mem64, .rm, .er, .no_bcst, .no_special),
+    rm_mem64_kz = create(0, .mem, .mem64, .rm, .kz, .no_bcst, .no_special),
+    rm_mem128_k = create(0, .mem, .mem128, .rm, .k, .no_bcst, .no_special),
+    rm_mem256_k = create(0, .mem, .mem256, .rm, .k, .no_bcst, .no_special),
+    rm_mem512_k = create(0, .mem, .mem512, .rm, .k, .no_bcst, .no_special),
+    rm_mem128_kz = create(0, .mem, .mem128, .rm, .kz, .no_bcst, .no_special),
+    rm_mem256_kz = create(0, .mem, .mem256, .rm, .kz, .no_bcst, .no_special),
+    rm_mem512_kz = create(0, .mem, .mem512, .rm, .kz, .no_bcst, .no_special),
 
-    reg_k_k  = create(0, .reg_k, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
-    reg_k_kz = create(0, .reg_k, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
-    k_m8     = create(0, .reg_k, .mem8,   .rm,    .no_mod, .no_bcst, .no_special),
-    k_m16    = create(0, .reg_k, .mem16,  .rm,    .no_mod, .no_bcst, .no_special),
-    k_m32    = create(0, .reg_k, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
-    k_m64    = create(0, .reg_k, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
+    reg_k_k = create(0, .reg_k, .no_mem, .no_rm, .k, .no_bcst, .no_special),
+    reg_k_kz = create(0, .reg_k, .no_mem, .no_rm, .kz, .no_bcst, .no_special),
+    k_m8 = create(0, .reg_k, .mem8, .rm, .no_mod, .no_bcst, .no_special),
+    k_m16 = create(0, .reg_k, .mem16, .rm, .no_mod, .no_bcst, .no_special),
+    k_m32 = create(0, .reg_k, .mem32, .rm, .no_mod, .no_bcst, .no_special),
+    k_m64 = create(0, .reg_k, .mem64, .rm, .no_mod, .no_bcst, .no_special),
 
     // TODO: probably should support .low16 variants
     // VSIB memory addressing
-    vm32xl  = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
-    vm32yl  = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm32xl = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm32yl = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
     //
-    vm64xl  = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
-    vm64yl  = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm64xl = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .low16),
+    vm64yl = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .low16),
     //
-    vm32x   = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm32y   = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm32z   = create(0, .vm32z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm32x_k = create(0, .vm32x, .no_mem, .rm, .k,      .no_bcst, .no_special),
-    vm32y_k = create(0, .vm32y, .no_mem, .rm, .k,      .no_bcst, .no_special),
-    vm32z_k = create(0, .vm32z, .no_mem, .rm, .k,      .no_bcst, .no_special),
+    vm32x = create(0, .vm32x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32y = create(0, .vm32y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32z = create(0, .vm32z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm32x_k = create(0, .vm32x, .no_mem, .rm, .k, .no_bcst, .no_special),
+    vm32y_k = create(0, .vm32y, .no_mem, .rm, .k, .no_bcst, .no_special),
+    vm32z_k = create(0, .vm32z, .no_mem, .rm, .k, .no_bcst, .no_special),
     //
-    vm64x   = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm64y   = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm64z   = create(0, .vm64z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
-    vm64x_k = create(0, .vm64x, .no_mem, .rm, .k,      .no_bcst, .no_special),
-    vm64y_k = create(0, .vm64y, .no_mem, .rm, .k,      .no_bcst, .no_special),
-    vm64z_k = create(0, .vm64z, .no_mem, .rm, .k,      .no_bcst, .no_special),
+    vm64x = create(0, .vm64x, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64y = create(0, .vm64y, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64z = create(0, .vm64z, .no_mem, .rm, .no_mod, .no_bcst, .no_special),
+    vm64x_k = create(0, .vm64x, .no_mem, .rm, .k, .no_bcst, .no_special),
+    vm64y_k = create(0, .vm64y, .no_mem, .rm, .k, .no_bcst, .no_special),
+    vm64z_k = create(0, .vm64z, .no_mem, .rm, .k, .no_bcst, .no_special),
 
     /// Only matches xmm[0..15]
-    xmml      = create(0, .xmm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
-    xmml_m8   = create(0, .xmm, .mem8,   .rm,    .no_mod, .no_bcst, .low16),
-    xmml_m16  = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .low16),
-    xmml_m32  = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .low16),
-    xmml_m64  = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .low16),
-    xmml_m128 = create(0, .xmm, .mem128, .rm,    .no_mod, .no_bcst, .low16),
+    xmml = create(0, .xmm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
+    xmml_m8 = create(0, .xmm, .mem8, .rm, .no_mod, .no_bcst, .low16),
+    xmml_m16 = create(0, .xmm, .mem16, .rm, .no_mod, .no_bcst, .low16),
+    xmml_m32 = create(0, .xmm, .mem32, .rm, .no_mod, .no_bcst, .low16),
+    xmml_m64 = create(0, .xmm, .mem64, .rm, .no_mod, .no_bcst, .low16),
+    xmml_m128 = create(0, .xmm, .mem128, .rm, .no_mod, .no_bcst, .low16),
 
     /// Only matches ymm[0..15]
-    ymml      = create(0, .ymm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
-    ymml_m256 = create(0, .ymm, .mem256, .rm,    .no_mod, .no_bcst, .low16),
+    ymml = create(0, .ymm, .no_mem, .no_rm, .no_mod, .no_bcst, .low16),
+    ymml_m256 = create(0, .ymm, .mem256, .rm, .no_mod, .no_bcst, .low16),
 
     /// xmm[0..31]
-    xmm_k                = create(0, .xmm, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
-    xmm_kz               = create(0, .xmm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
-    xmm_sae              = create(0, .xmm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
-    xmm_er               = create(0, .xmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
-    xmm_m8               = create(0, .xmm, .mem8,   .rm,    .no_mod, .no_bcst, .no_special),
-    xmm_m16              = create(0, .xmm, .mem16,  .rm,    .no_mod, .no_bcst, .no_special),
-    xmm_m16_kz           = create(0, .xmm, .mem16,  .rm,    .kz,     .no_bcst, .no_special),
-    xmm_m32              = create(0, .xmm, .mem32,  .rm,    .no_mod, .no_bcst, .no_special),
-    xmm_m32_kz           = create(0, .xmm, .mem32,  .rm,    .kz,     .no_bcst, .no_special),
-    xmm_m32_er           = create(0, .xmm, .mem32,  .rm,    .er,     .no_bcst, .no_special),
-    xmm_m32_sae          = create(0, .xmm, .mem32,  .rm,    .sae,    .no_bcst, .no_special),
-    xmm_m64              = create(0, .xmm, .mem64,  .rm,    .no_mod, .no_bcst, .no_special),
-    xmm_m64_kz           = create(0, .xmm, .mem64,  .rm,    .kz,     .no_bcst, .no_special),
-    xmm_m64_er           = create(0, .xmm, .mem64,  .rm,    .er,     .no_bcst, .no_special),
-    xmm_m64_sae          = create(0, .xmm, .mem64,  .rm,    .sae,    .no_bcst, .no_special),
-    xmm_m64_m32bcst      = create(0, .xmm, .mem64,  .rm,    .no_mod, .m32bcst, .no_special),
-    xmm_m128             = create(0, .xmm, .mem128, .rm,    .no_mod, .no_bcst, .no_special),
-    xmm_m128_kz          = create(0, .xmm, .mem128, .rm,    .kz,     .no_bcst, .no_special),
-    xmm_m128_sae         = create(0, .xmm, .mem128, .rm,    .sae,    .no_bcst, .no_special),
-    xmm_m128_er          = create(0, .xmm, .mem128, .rm,    .er,     .no_bcst, .no_special),
-    xmm_m128_m32bcst     = create(0, .xmm, .mem128, .rm,    .no_mod, .m32bcst, .no_special),
-    xmm_m128_m32bcst_sae = create(0, .xmm, .mem128, .rm,    .sae,    .m32bcst, .no_special),
-    xmm_m128_m32bcst_er  = create(0, .xmm, .mem128, .rm,    .er,     .m32bcst, .no_special),
-    xmm_m128_m64bcst     = create(0, .xmm, .mem128, .rm,    .no_mod, .m64bcst, .no_special),
-    xmm_m128_m64bcst_sae = create(0, .xmm, .mem128, .rm,    .sae,    .m64bcst, .no_special),
-    xmm_m128_m64bcst_er  = create(0, .xmm, .mem128, .rm,    .er,     .m64bcst, .no_special),
+    xmm_k = create(0, .xmm, .no_mem, .no_rm, .k, .no_bcst, .no_special),
+    xmm_kz = create(0, .xmm, .no_mem, .no_rm, .kz, .no_bcst, .no_special),
+    xmm_sae = create(0, .xmm, .no_mem, .no_rm, .sae, .no_bcst, .no_special),
+    xmm_er = create(0, .xmm, .no_mem, .no_rm, .er, .no_bcst, .no_special),
+    xmm_m8 = create(0, .xmm, .mem8, .rm, .no_mod, .no_bcst, .no_special),
+    xmm_m16 = create(0, .xmm, .mem16, .rm, .no_mod, .no_bcst, .no_special),
+    xmm_m16_kz = create(0, .xmm, .mem16, .rm, .kz, .no_bcst, .no_special),
+    xmm_m32 = create(0, .xmm, .mem32, .rm, .no_mod, .no_bcst, .no_special),
+    xmm_m32_kz = create(0, .xmm, .mem32, .rm, .kz, .no_bcst, .no_special),
+    xmm_m32_er = create(0, .xmm, .mem32, .rm, .er, .no_bcst, .no_special),
+    xmm_m32_sae = create(0, .xmm, .mem32, .rm, .sae, .no_bcst, .no_special),
+    xmm_m64 = create(0, .xmm, .mem64, .rm, .no_mod, .no_bcst, .no_special),
+    xmm_m64_kz = create(0, .xmm, .mem64, .rm, .kz, .no_bcst, .no_special),
+    xmm_m64_er = create(0, .xmm, .mem64, .rm, .er, .no_bcst, .no_special),
+    xmm_m64_sae = create(0, .xmm, .mem64, .rm, .sae, .no_bcst, .no_special),
+    xmm_m64_m32bcst = create(0, .xmm, .mem64, .rm, .no_mod, .m32bcst, .no_special),
+    xmm_m128 = create(0, .xmm, .mem128, .rm, .no_mod, .no_bcst, .no_special),
+    xmm_m128_kz = create(0, .xmm, .mem128, .rm, .kz, .no_bcst, .no_special),
+    xmm_m128_sae = create(0, .xmm, .mem128, .rm, .sae, .no_bcst, .no_special),
+    xmm_m128_er = create(0, .xmm, .mem128, .rm, .er, .no_bcst, .no_special),
+    xmm_m128_m32bcst = create(0, .xmm, .mem128, .rm, .no_mod, .m32bcst, .no_special),
+    xmm_m128_m32bcst_sae = create(0, .xmm, .mem128, .rm, .sae, .m32bcst, .no_special),
+    xmm_m128_m32bcst_er = create(0, .xmm, .mem128, .rm, .er, .m32bcst, .no_special),
+    xmm_m128_m64bcst = create(0, .xmm, .mem128, .rm, .no_mod, .m64bcst, .no_special),
+    xmm_m128_m64bcst_sae = create(0, .xmm, .mem128, .rm, .sae, .m64bcst, .no_special),
+    xmm_m128_m64bcst_er = create(0, .xmm, .mem128, .rm, .er, .m64bcst, .no_special),
 
     /// ymm[0..31]
-    ymm_k                = create(0, .ymm, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
-    ymm_kz               = create(0, .ymm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
-    ymm_sae              = create(0, .ymm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
-    ymm_er               = create(0, .ymm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
-    ymm_m256             = create(0, .ymm, .mem256, .rm,    .no_mod, .no_bcst, .no_special),
-    ymm_m256_kz          = create(0, .ymm, .mem256, .rm,    .kz,     .no_bcst, .no_special),
-    ymm_m256_sae         = create(0, .ymm, .mem256, .rm,    .sae,    .no_bcst, .no_special),
-    ymm_m256_er          = create(0, .ymm, .mem256, .rm,    .er,     .no_bcst, .no_special),
-    ymm_m256_m32bcst     = create(0, .ymm, .mem256, .rm,    .no_mod, .m32bcst, .no_special),
-    ymm_m256_m32bcst_sae = create(0, .ymm, .mem256, .rm,    .sae,    .m32bcst, .no_special),
-    ymm_m256_m32bcst_er  = create(0, .ymm, .mem256, .rm,    .er,     .m32bcst, .no_special),
-    ymm_m256_m64bcst     = create(0, .ymm, .mem256, .rm,    .no_mod, .m64bcst, .no_special),
-    ymm_m256_m64bcst_sae = create(0, .ymm, .mem256, .rm,    .sae,    .m64bcst, .no_special),
-    ymm_m256_m64bcst_er  = create(0, .ymm, .mem256, .rm,    .er,     .m64bcst, .no_special),
+    ymm_k = create(0, .ymm, .no_mem, .no_rm, .k, .no_bcst, .no_special),
+    ymm_kz = create(0, .ymm, .no_mem, .no_rm, .kz, .no_bcst, .no_special),
+    ymm_sae = create(0, .ymm, .no_mem, .no_rm, .sae, .no_bcst, .no_special),
+    ymm_er = create(0, .ymm, .no_mem, .no_rm, .er, .no_bcst, .no_special),
+    ymm_m256 = create(0, .ymm, .mem256, .rm, .no_mod, .no_bcst, .no_special),
+    ymm_m256_kz = create(0, .ymm, .mem256, .rm, .kz, .no_bcst, .no_special),
+    ymm_m256_sae = create(0, .ymm, .mem256, .rm, .sae, .no_bcst, .no_special),
+    ymm_m256_er = create(0, .ymm, .mem256, .rm, .er, .no_bcst, .no_special),
+    ymm_m256_m32bcst = create(0, .ymm, .mem256, .rm, .no_mod, .m32bcst, .no_special),
+    ymm_m256_m32bcst_sae = create(0, .ymm, .mem256, .rm, .sae, .m32bcst, .no_special),
+    ymm_m256_m32bcst_er = create(0, .ymm, .mem256, .rm, .er, .m32bcst, .no_special),
+    ymm_m256_m64bcst = create(0, .ymm, .mem256, .rm, .no_mod, .m64bcst, .no_special),
+    ymm_m256_m64bcst_sae = create(0, .ymm, .mem256, .rm, .sae, .m64bcst, .no_special),
+    ymm_m256_m64bcst_er = create(0, .ymm, .mem256, .rm, .er, .m64bcst, .no_special),
 
     /// Zmm[0..31]
-    zmm_k                = create(0, .zmm, .no_mem, .no_rm, .k,      .no_bcst, .no_special),
-    zmm_kz               = create(0, .zmm, .no_mem, .no_rm, .kz,     .no_bcst, .no_special),
-    zmm_sae              = create(0, .zmm, .no_mem, .no_rm, .sae,    .no_bcst, .no_special),
-    zmm_er               = create(0, .zmm, .no_mem, .no_rm, .er,     .no_bcst, .no_special),
-    zmm_m512             = create(0, .zmm, .mem512, .rm,    .no_mod, .no_bcst, .no_special),
-    zmm_m512_kz          = create(0, .zmm, .mem512, .rm,    .kz,     .no_bcst, .no_special),
-    zmm_m512_sae         = create(0, .zmm, .mem512, .rm,    .sae,    .no_bcst, .no_special),
-    zmm_m512_er          = create(0, .zmm, .mem512, .rm,    .er,     .no_bcst, .no_special),
-    zmm_m512_m32bcst     = create(0, .zmm, .mem512, .rm,    .no_mod, .m32bcst, .no_special),
-    zmm_m512_m32bcst_sae = create(0, .zmm, .mem512, .rm,    .sae,    .m32bcst, .no_special),
-    zmm_m512_m32bcst_er  = create(0, .zmm, .mem512, .rm,    .er,     .m32bcst, .no_special),
-    zmm_m512_m64bcst     = create(0, .zmm, .mem512, .rm,    .no_mod, .m64bcst, .no_special),
-    zmm_m512_m64bcst_sae = create(0, .zmm, .mem512, .rm,    .sae,    .m64bcst, .no_special),
-    zmm_m512_m64bcst_er  = create(0, .zmm, .mem512, .rm,    .er,     .m64bcst, .no_special),
+    zmm_k = create(0, .zmm, .no_mem, .no_rm, .k, .no_bcst, .no_special),
+    zmm_kz = create(0, .zmm, .no_mem, .no_rm, .kz, .no_bcst, .no_special),
+    zmm_sae = create(0, .zmm, .no_mem, .no_rm, .sae, .no_bcst, .no_special),
+    zmm_er = create(0, .zmm, .no_mem, .no_rm, .er, .no_bcst, .no_special),
+    zmm_m512 = create(0, .zmm, .mem512, .rm, .no_mod, .no_bcst, .no_special),
+    zmm_m512_kz = create(0, .zmm, .mem512, .rm, .kz, .no_bcst, .no_special),
+    zmm_m512_sae = create(0, .zmm, .mem512, .rm, .sae, .no_bcst, .no_special),
+    zmm_m512_er = create(0, .zmm, .mem512, .rm, .er, .no_bcst, .no_special),
+    zmm_m512_m32bcst = create(0, .zmm, .mem512, .rm, .no_mod, .m32bcst, .no_special),
+    zmm_m512_m32bcst_sae = create(0, .zmm, .mem512, .rm, .sae, .m32bcst, .no_special),
+    zmm_m512_m32bcst_er = create(0, .zmm, .mem512, .rm, .er, .m32bcst, .no_special),
+    zmm_m512_m64bcst = create(0, .zmm, .mem512, .rm, .no_mod, .m64bcst, .no_special),
+    zmm_m512_m64bcst_sae = create(0, .zmm, .mem512, .rm, .sae, .m64bcst, .no_special),
+    zmm_m512_m64bcst_er = create(0, .zmm, .mem512, .rm, .er, .m64bcst, .no_special),
 
     _,
 
     fn isLowReg(self: OperandType) bool {
         const max_reg_num = 15 + 1;
-        return (@enumToInt(self) & 0xff) <= max_reg_num ;
+        return (@enumToInt(self) & 0xff) <= max_reg_num;
     }
 
     pub fn fromRegister(reg: Register) OperandType {
@@ -663,7 +658,7 @@ pub const OperandType = enum(u32) {
                 .Bit64 => OperandType.moffs64,
                 else => unreachable,
             },
-            .FarJmp => switch(addr.getDisp().bitSize()) {
+            .FarJmp => switch (addr.getDisp().bitSize()) {
                 .Bit16 => OperandType.ptr16_16,
                 .Bit32 => OperandType.ptr16_32,
                 else => unreachable,
@@ -714,24 +709,21 @@ pub const OperandType = enum(u32) {
                 .Bound => OperandType.rm_bnd,
             },
 
-            .Mem,
-            .Mem16,
-            .Sib,
-            .Rel => switch (modrm.operandDataSize()) {
+            .Mem, .Mem16, .Sib, .Rel => switch (modrm.operandDataSize()) {
                 .Void => OperandType.rm_mem,
                 .BYTE => OperandType.rm_mem8,
                 .WORD => OperandType.rm_mem16,
-                .DWORD  => OperandType.rm_mem32,
-                .QWORD  => OperandType.rm_mem64,
-                .TBYTE  => OperandType.rm_mem80,
+                .DWORD => OperandType.rm_mem32,
+                .QWORD => OperandType.rm_mem64,
+                .TBYTE => OperandType.rm_mem80,
                 .OWORD, .XMM_WORD => OperandType.rm_mem128,
                 .YMM_WORD => OperandType.rm_mem256,
                 .ZMM_WORD => OperandType.rm_mem512,
                 .DWORD_BCST => OperandType.rm_m32bcst,
                 .QWORD_BCST => OperandType.rm_m64bcst,
-                .FAR_WORD  => OperandType.m16_16,
-                .FAR_DWORD  => OperandType.m16_32,
-                .FAR_QWORD  => OperandType.m16_64,
+                .FAR_WORD => OperandType.m16_16,
+                .FAR_DWORD => OperandType.m16_32,
+                .FAR_QWORD => OperandType.m16_64,
 
                 // TODO:
                 else => unreachable,
@@ -754,7 +746,6 @@ pub const OperandType = enum(u32) {
             },
         };
     }
-
 
     pub fn fromRmPredicate(rm_pred: avx.RmPredicate) OperandType {
         const modifier = switch (rm_pred.z) {
@@ -798,12 +789,12 @@ pub const OperandType = enum(u32) {
         const other_special = other.getSpecialCase();
 
         // if the template and operand type have matching classes
-        const class_match = (class == other.getClass());
+        const class_match = class == other.getClass();
 
         // if the OperandType have matching register numbers:
         // eg: template .xmm matches xmm0..xmm31
         // eg: template .xmm1 matches only .xmm1
-        const num_match = (num == 0) or (num == other.getNum());
+        const num_match = num == 0 or num == other.getNum();
 
         // if template is rm type, then it can match other OperandType with or without rm
         // if template is no_rm type,
@@ -813,15 +804,13 @@ pub const OperandType = enum(u32) {
 
         // if template allows memory operand and other OperandType matches that memory type
         // eg: .xmm_m128 matches .rm_mem128
-        const mem_match = (other.getClass() == .mem and (template.getMemClass() == other.getMemClass()));
+        const mem_match = other.getClass() == .mem and template.getMemClass() == other.getMemClass();
 
         // if template allows a broadcast and other OperandType is a matching broadcast type
         // eg: .xmm_m128_m32bcst matches .rm_m32bcst
-        const bcst_match = (
-            other.getClass() == .mem
-            and (template.getBroadcast() != .no_bcst)
-            and (template.getBroadcast() == other.getBroadcast())
-        );
+        const bcst_match = other.getClass() == .mem and
+            template.getBroadcast() != .no_bcst and
+            template.getBroadcast() == other.getBroadcast();
 
         // For user supplied immediates without an explicit size are allowed to match
         // against larger immediate sizes:
@@ -830,17 +819,15 @@ pub const OperandType = enum(u32) {
         //      * .imm32_any <-> imm32, imm64
         //      * .imm64_any <-> imm64
         // NOTE: .match_larger_versions only used for immediates
-        const special_match = (other_special == .match_larger_versions and num >= other_num);
+        const special_match = other_special == .match_larger_versions and num >= other_num;
 
         // Matches register number <= 15.
         // eg: .xmml (.low16) matches .xmm0..15
         // eg: .xmm (.no_mod) matches .xmm0..31
-        const invalid_size = (template.getSpecialCase() == .low16 and other_num != 0 and other_num > 16);
+        const invalid_size = template.getSpecialCase() == .low16 and other_num != 0 and other_num > 16;
 
         // eg: rm_xmml (num = 0 and .low16 and .rm)
-        const invalid_size_rm = (
-            other_num == 0 and template.getSpecialCase() == .low16 and other.getSpecialCase() != .low16
-        );
+        const invalid_size_rm = other_num == 0 and template.getSpecialCase() == .low16 and other.getSpecialCase() != .low16;
 
         // modifier type matches ie sae/er/mask
         // eg: .xmm_kz matches .xmm and .xmm_k and .xmm_kz
@@ -872,7 +859,7 @@ const MemDisp = struct {
     size: DispSize = .None,
 
     pub fn create(dis_size: DispSize, dis: i32) @This() {
-        return @This() {
+        return @This(){
             .displacement = dis,
             .size = dis_size,
         };
@@ -992,7 +979,7 @@ const RelRegister = enum {
     RIP,
 
     pub fn bitSize(self: @This()) BitSize {
-        return switch(self) {
+        return switch (self) {
             .EIP => .Bit32,
             .RIP => .Bit64,
         };
@@ -1007,20 +994,19 @@ const RelMemory = struct {
     segment: Segment,
 
     pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) RelMemory {
-        return RelMemory {
+        return RelMemory{
             .reg = reg,
             .disp = disp,
             .data_size = data_size,
             .segment = seg,
         };
     }
-
 };
 
 pub const ModRmResult = struct {
     needs_rex: bool = false,
     needs_no_rex: bool = false,
-    prefixes: Prefixes = Prefixes {},
+    prefixes: Prefixes = Prefixes{},
     reg_size: BitSize = .None,
     addressing_size: BitSize = .None,
     data_size: DataSize = .Void,
@@ -1042,19 +1028,17 @@ pub const ModRmResult = struct {
         self.needs_no_rex = self.needs_no_rex or reg.needsNoRex();
     }
 
-    pub fn addMemDisp(self: *@This(), disp: var) void {
+    pub fn addMemDisp(self: *@This(), disp: anytype) void {
         self.disp_bit_size = disp.bitSize();
         self.disp = disp.value();
     }
 
     pub fn rex(self: @This(), w: u1) u8 {
-        return (
-            (0x40)
-            | (@as(u8, self.rex_w | w) << 3)
-            | (@as(u8, self.rex_r) << 2)
-            | (@as(u8, self.rex_x) << 1)
-            | (@as(u8, self.rex_b) << 0)
-        );
+        return (0x40) |
+            (@as(u8, self.rex_w | w) << 3) |
+            (@as(u8, self.rex_r) << 2) |
+            (@as(u8, self.rex_x) << 1) |
+            (@as(u8, self.rex_b) << 0);
     }
 
     pub fn isRexRequired(self: @This()) bool {
@@ -1062,11 +1046,9 @@ pub const ModRmResult = struct {
     }
 
     pub fn modrm(self: @This()) u8 {
-        return (
-            (@as(u8, self.mod) << 6)
-            | (@as(u8, self.reg) << 3)
-            | (@as(u8, self.rm ) << 0)
-        );
+        return (@as(u8, self.mod) << 6) |
+            (@as(u8, self.reg) << 3) |
+            (@as(u8, self.rm) << 0);
     }
 };
 
@@ -1159,12 +1141,11 @@ pub const ModRm = union(ModRmTag) {
     pub fn scaleAvx512Displacement(self: *@This(), disp_mult: u8) void {
         const mem_disp = self.getDisplacement();
 
-        if (
-            mem_disp.size == .None
-            or (disp_mult <= 1)
+        if (mem_disp.size == .None or
+            (disp_mult <= 1) or
             // rel memory can only use 32 bit displacement, so can't compress it
-            or (@as(ModRmTag, self.*) == .Rel)
-        ) {
+            (@as(ModRmTag, self.*) == .Rel))
+        {
             return;
         }
 
@@ -1195,7 +1176,7 @@ pub const ModRm = union(ModRmTag) {
         }
     }
 
-    pub fn encodeMem16(mem: Memory16Bit, mode:Mode86, modrm_reg: Register) AsmError!ModRmResult {
+    pub fn encodeMem16(mem: Memory16Bit, mode: Mode86, modrm_reg: Register) AsmError!ModRmResult {
         var res = ModRmResult{};
 
         if (modrm_reg.needsRex()) {
@@ -1275,7 +1256,7 @@ pub const ModRm = union(ModRmTag) {
             .Mem16 => |mem| res = try encodeMem16(mem, mode, modrm_reg),
             .Mem => |mem| {
                 // Can't use SP or R12 without a SIB byte since they are used to encode it.
-                if ((mem.reg.name() == .SP) or (mem.reg.name() == .R12)){
+                if (mem.reg.name() == .SP or mem.reg.name() == .R12) {
                     return AsmError.InvalidMemoryAddressing;
                 }
 
@@ -1283,7 +1264,7 @@ pub const ModRm = union(ModRmTag) {
                 res.addressing_size = mem.reg.bitSize();
                 res.segment = mem.segment;
 
-                if (mem.disp.dispSize() != .None)  {
+                if (mem.disp.dispSize() != .None) {
                     // ModRM addressing: [r/m + disp8/32]
                     switch (mem.disp.dispSize()) {
                         .Disp8 => res.mod = 0b01,
@@ -1297,7 +1278,7 @@ pub const ModRm = union(ModRmTag) {
                     // ModRM addressing: [r/m]
                     // Can't use BP or R13 and no displacement without a SIB byte
                     // (it is used to encode RIP/EIP relative addressing)
-                    if ((mem.reg.name() == .BP) or (mem.reg.name() == .R13)) {
+                    if (mem.reg.name() == .BP or mem.reg.name() == .R13) {
                         return AsmError.InvalidMemoryAddressing;
                     }
 
@@ -1338,7 +1319,7 @@ pub const ModRm = union(ModRmTag) {
                     }
 
                     switch (disp_size) {
-                        .Disp8  => res.mod = 0b01,
+                        .Disp8 => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
                         else => unreachable,
                     }
@@ -1355,7 +1336,7 @@ pub const ModRm = union(ModRmTag) {
                     const magic_index = Register.SP;
 
                     switch (disp_size) {
-                        .Disp8  => res.mod = 0b01,
+                        .Disp8 => res.mod = 0b01,
                         .Disp32 => res.mod = 0b10,
                         else => unreachable,
                     }
@@ -1369,7 +1350,7 @@ pub const ModRm = union(ModRmTag) {
                     res.addMemDisp(sib.disp);
                 } else if (disp_size == .None and sib.index != null and sib.base != null) {
                     // SIB addressing: [base + (index * s)]
-                    if ((sib.base.?.name() == .BP) or (sib.base.?.name() == .R13)) {
+                    if (sib.base.?.name() == .BP or sib.base.?.name() == .R13) {
                         return AsmError.InvalidMemoryAddressing;
                     }
 
@@ -1396,7 +1377,7 @@ pub const ModRm = union(ModRmTag) {
                 } else if (disp_size == .None and sib.index == null and sib.base != null) {
                     // SIB addressing: [base]
                     // NOTE: illegal to use BP or R13 as the base
-                    if ((sib.base.?.name() == .BP) or (sib.base.?.name() == .R13)){
+                    if (sib.base.?.name() == .BP or sib.base.?.name() == .R13) {
                         return AsmError.InvalidMemoryAddressing;
                     }
                     const magic_index = Register.SP;
@@ -1424,11 +1405,9 @@ pub const ModRm = union(ModRmTag) {
                     return AsmError.InvalidMemoryAddressing;
                 }
 
-                res.sib = (
-                    (@as(u8, @enumToInt(sib.scale)) << 6)
-                    | (@as(u8, index) << 3)
-                    | (@as(u8, base)  << 0)
-                );
+                res.sib = (@as(u8, @enumToInt(sib.scale)) << 6) |
+                    (@as(u8, index) << 3) |
+                    (@as(u8, base) << 0);
             },
             .Rel => |rel| {
                 res.mod = 0b00;
@@ -1478,10 +1457,7 @@ pub const ModRm = union(ModRmTag) {
                     res.rex_b = tmp_reg.numberRex();
                     res.addressing_size = if (mode == .x64) .Bit64 else .Bit32;
                 } else {
-                    if (
-                        disp_size == .None
-                        and vsib.base.?.numberRm() == Register.BP.numberRm()
-                    ) {
+                    if (disp_size == .None and vsib.base.?.numberRm() == Register.BP.numberRm()) {
                         return AsmError.InvalidMemoryAddressing;
                     }
                     switch (disp_size) {
@@ -1506,11 +1482,9 @@ pub const ModRm = union(ModRmTag) {
                 res.data_size = vsib.data_size;
                 res.segment = vsib.segment;
 
-                res.sib = (
-                    (@as(u8, @enumToInt(vsib.scale)) << 6)
-                    | (@as(u8, index) << 3)
-                    | (@as(u8, base)  << 0)
-                );
+                res.sib = (@as(u8, @enumToInt(vsib.scale)) << 6) |
+                    (@as(u8, index) << 3) |
+                    (@as(u8, base) << 0);
             },
         }
 
@@ -1518,28 +1492,20 @@ pub const ModRm = union(ModRmTag) {
             res.prefixes.addSegmentOveride(res.segment);
         }
 
-        try res.prefixes.addOverides(
-            mode, &res.rex_w, res.addressing_size, overides
-        );
+        try res.prefixes.addOverides(mode, &res.rex_w, res.addressing_size, overides);
 
         return res;
     }
 
     pub fn register(reg: Register) ModRm {
-        return ModRm { .Reg = reg };
+        return ModRm{ .Reg = reg };
     }
 
     pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) ModRm {
-        return ModRm { .Rel = RelMemory.relMemory(seg, data_size, reg, disp) };
+        return ModRm{ .Rel = RelMemory.relMemory(seg, data_size, reg, disp) };
     }
 
-    pub fn memory16Bit(
-        seg: Segment,
-        data_size: DataSize,
-        base: ?Register,
-        index: ?Register,
-        disp: i16
-    ) ModRm {
+    pub fn memory16Bit(seg: Segment, data_size: DataSize, base: ?Register, index: ?Register, disp: i16) ModRm {
         var displacement: MemDisp = undefined;
         if (base == null and index == null) {
             // need to use 16 bit displacement
@@ -1547,15 +1513,13 @@ pub const ModRm = union(ModRmTag) {
         } else {
             displacement = MemDisp.disp(.Disp16, disp);
         }
-        return ModRm {
-            .Mem16 = Memory16Bit {
-                .base = base,
-                .index = index,
-                .disp = displacement,
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Mem16 = Memory16Bit{
+            .base = base,
+            .index = index,
+            .disp = displacement,
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [seg: reg + disp]
@@ -1567,66 +1531,56 @@ pub const ModRm = union(ModRmTag) {
         } else {
             displacement = MemDisp.disp(.Disp32, disp);
         }
-        return ModRm {
-            .Mem = Memory {
-                .reg = reg,
-                .disp = displacement,
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Mem = Memory{
+            .reg = reg,
+            .disp = displacement,
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [reg + disp8]
     pub fn memoryRm8(seg: Segment, data_size: DataSize, reg: Register, disp: i8) ModRm {
-        return ModRm {
-            .Mem = Memory {
-                .reg = reg,
-                .disp = MemDisp.create(.Disp8, disp),
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Mem = Memory{
+            .reg = reg,
+            .disp = MemDisp.create(.Disp8, disp),
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [reg + disp32]
     pub fn memoryRm32(seg: Segment, data_size: DataSize, reg: Register, disp: i32) ModRm {
-        return ModRm {
-            .Mem = Memory {
-                .reg = reg,
-                .disp = MemDisp.create(.Disp32, disp),
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Mem = Memory{
+            .reg = reg,
+            .disp = MemDisp.create(.Disp32, disp),
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [(scale*index) + base + disp8]
     pub fn memorySib8(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp8: i8) ModRm {
-        return ModRm {
-            .Sib = MemorySib {
-                .scale = SibScale.scale(scale),
-                .index = index,
-                .base = base,
-                .disp = MemDisp.create(.Disp8, disp8),
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Sib = MemorySib{
+            .scale = SibScale.scale(scale),
+            .index = index,
+            .base = base,
+            .disp = MemDisp.create(.Disp8, disp8),
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [(scale*index) + base + disp32]
     pub fn memorySib32(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp32: i32) ModRm {
-        return ModRm {
-            .Sib = MemorySib {
-                .scale = SibScale.scale(scale),
-                .index = index,
-                .base = base,
-                .disp = MemDisp.create(.Disp32, disp32),
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Sib = MemorySib{
+            .scale = SibScale.scale(scale),
+            .index = index,
+            .base = base,
+            .disp = MemDisp.create(.Disp32, disp32),
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [seg: (scale*index) + base + disp]
@@ -1637,33 +1591,20 @@ pub const ModRm = union(ModRmTag) {
         } else x: {
             break :x MemDisp.disp(.Disp32, disp);
         };
-        return ModRm {
-            .Sib = MemorySib {
-                .scale = SibScale.scale(scale),
-                .index = index,
-                .base = base,
-                .disp = mem_disp,
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .Sib = MemorySib{
+            .scale = SibScale.scale(scale),
+            .index = index,
+            .base = base,
+            .disp = mem_disp,
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     /// data_size [seg: (scale*vec_index) + base + disp]
-    pub fn memoryVecSib(
-        seg: Segment,
-        data_size: DataSize,
-        scale: u8,
-        index: Register,
-        base: ?Register,
-        disp: i32
-    ) ModRm {
+    pub fn memoryVecSib(seg: Segment, data_size: DataSize, scale: u8, index: Register, base: ?Register, disp: i32) ModRm {
         // If base register is RBP/R13 (or EBP/R13D), then must use disp8 or disp32
-        const mem_disp = if (
-            base != null
-            and (base.?.numberRm() == Register.BP.numberRm())
-            and (disp == 0)
-        ) x: {
+        const mem_disp = if (base != null and base.?.numberRm() == Register.BP.numberRm() and disp == 0) x: {
             break :x MemDisp.create(.Disp8, 0);
         } else if (base == null) x: {
             break :x MemDisp.create(.Disp32, disp);
@@ -1671,158 +1612,150 @@ pub const ModRm = union(ModRmTag) {
             break :x MemDisp.disp(.Disp32, disp);
         };
 
-        return ModRm {
-            .VecSib = MemoryVecSib {
-                .scale = SibScale.scale(scale),
-                .index = index,
-                .base = base,
-                .disp = mem_disp,
-                .data_size = data_size,
-                .segment = seg,
-            }
-        };
+        return ModRm{ .VecSib = MemoryVecSib{
+            .scale = SibScale.scale(scale),
+            .index = index,
+            .base = base,
+            .disp = mem_disp,
+            .data_size = data_size,
+            .segment = seg,
+        } };
     }
 
     pub fn format(
         self: ModRm,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
-        context: var,
-        comptime FmtError: type,
-        comptime output: fn (@TypeOf(context), []const u8) FmtError!void,
-    ) FmtError!void {
+        writer: anytype,
+    ) !void {
         switch (self) {
             .Reg => |reg| {
-                try output(context, "RM.");
-                try output(context, @tagName(reg));
+                try writer.writeAll("RM.");
+                try writer.writeAll(@tagName(reg));
             },
             .Mem16 => |mem| {
-                try output(context, @tagName(mem.data_size));
-                try output(context, " ");
+                try writer.writeAll(@tagName(mem.data_size));
+                try writer.writeAll(" ");
                 if (mem.segment != .DefaultSeg) {
-                    try output(context, @tagName(mem.segment));
-                    try output(context, ":");
+                    try writer.writeAll(@tagName(mem.segment));
+                    try writer.writeAll(":");
                 }
-                try output(context, "[");
+                try writer.writeAll("[");
                 if (mem.base) |base| {
-                    try output(context, @tagName(base));
+                    try writer.writeAll(@tagName(base));
                     if (mem.index != null or mem.disp.dispSize() != .None) {
-                        try output(context, " + ");
+                        try writer.writeAll(" + ");
                     }
                 }
                 if (mem.index) |index| {
-                    try output(context, @tagName(index));
-                    if (mem.disp.dispSize() != .None ) {
-                        try output(context, " + ");
+                    try writer.writeAll(@tagName(index));
+                    if (mem.disp.dispSize() != .None) {
+                        try writer.writeAll(" + ");
                     }
                 }
                 if (mem.disp.dispSize() != .None) {
                     const disp = mem.disp.value();
                     if (disp < 0) {
-                        try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
+                        try writer.print("-0x{x}", .{-disp});
                     } else {
-                        try std.fmt.format(context, FmtError, output, "0x{x}", .{disp});
+                        try writer.print("0x{x}", .{disp});
                     }
                 }
-                try output(context, "]");
+                try writer.writeAll("]");
             },
             .Mem => |mem| {
-                try output(context, @tagName(mem.data_size));
-                try output(context, " ");
+                try writer.writeAll(@tagName(mem.data_size));
+                try writer.writeAll(" ");
                 if (mem.segment != .DefaultSeg) {
-                    try output(context, @tagName(mem.segment));
-                    try output(context, ": ");
+                    try writer.writeAll(@tagName(mem.segment));
+                    try writer.writeAll(": ");
                 }
-                try output(context, "[");
-                try output(context, @tagName(mem.reg));
-                if (mem.disp.dispSize() !=  .None) {
+                try writer.writeAll("[");
+                try writer.writeAll(@tagName(mem.reg));
+                if (mem.disp.dispSize() != .None) {
                     const disp = mem.disp.value();
                     if (disp < 0) {
-                        try std.fmt.format(context, FmtError, output, " - 0x{x}", .{-disp});
+                        try writer.print(" - 0x{x}", .{-disp});
                     } else {
-                        try std.fmt.format(context, FmtError, output, " + 0x{x}", .{disp});
+                        try writer.print(" + 0x{x}", .{disp});
                     }
                 }
-                try output(context, "]");
+                try writer.writeAll("]");
             },
             .Sib => |sib| {
-                try output(context, @tagName(sib.data_size));
-                try output(context, " ");
+                try writer.writeAll(@tagName(sib.data_size));
+                try writer.writeAll(" ");
                 if (sib.segment != .DefaultSeg) {
-                    try output(context, @tagName(sib.segment));
-                    try output(context, ":");
+                    try writer.writeAll(@tagName(sib.segment));
+                    try writer.writeAll(":");
                 }
-                try output(context, "[");
+                try writer.writeAll("[");
                 if (sib.index) |index| {
-                    try std.fmt.format(context, FmtError, output, "{}*{}", .{sib.scale.value(), @tagName(index)});
+                    try writer.print("{}*{s}", .{ sib.scale.value(), @tagName(index) });
                     if (sib.base != null or sib.disp.dispSize() != .None) {
-                        try output(context, " + ");
+                        try writer.writeAll(" + ");
                     }
                 }
                 if (sib.base) |base| {
-                    try output(context, @tagName(base));
-                    if (sib.disp.dispSize() != .None ) {
-                        try output(context, " + ");
+                    try writer.writeAll(@tagName(base));
+                    if (sib.disp.dispSize() != .None) {
+                        try writer.writeAll(" + ");
                     }
                 }
                 if (sib.disp.dispSize() != .None) {
                     const disp = sib.disp.value();
                     if (disp < 0) {
-                        try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
+                        try writer.print("-0x{x}", .{-disp});
                     } else {
-                        try std.fmt.format(context, FmtError, output, "0x{x}", .{disp});
+                        try writer.print("0x{x}", .{disp});
                     }
                 }
-                try output(context, "]");
+                try writer.writeAll("]");
             },
             .VecSib => |vsib| {
-                try output(context, @tagName(vsib.data_size));
-                try output(context, " ");
+                try writer.writeAll(@tagName(vsib.data_size));
+                try writer.writeAll(" ");
                 if (vsib.segment != .DefaultSeg) {
-                    try output(context, @tagName(vsib.segment));
-                    try output(context, ":");
+                    try writer.writeAll(@tagName(vsib.segment));
+                    try writer.writeAll(":");
                 }
-                try output(context, "[");
-                try std.fmt.format(context, FmtError, output, "{}*{}", .{vsib.scale.value(), @tagName(vsib.index)});
+                try writer.writeAll("[");
+                try writer.print("{}*{s}", .{ vsib.scale.value(), @tagName(vsib.index) });
                 if (vsib.base != null or vsib.disp.dispSize() != .None) {
-                    try output(context, " + ");
+                    try writer.writeAll(" + ");
                 }
                 if (vsib.base) |base| {
-                    try output(context, @tagName(base));
-                    if (vsib.disp.dispSize() != .None ) {
-                        try output(context, " + ");
+                    try writer.writeAll(@tagName(base));
+                    if (vsib.disp.dispSize() != .None) {
+                        try writer.writeAll(" + ");
                     }
                 }
                 if (vsib.disp.dispSize() != .None) {
                     const disp = vsib.disp.value();
                     if (disp < 0) {
-                        try std.fmt.format(context, FmtError, output, "-0x{x}", .{-disp});
+                        try writer.print("-0x{x}", .{-disp});
                     } else {
-                        try std.fmt.format(context, FmtError, output, "0x{x}", .{disp});
+                        try writer.print("0x{x}", .{disp});
                     }
                 }
-                try output(context, "]");
+                try writer.writeAll("]");
             },
             .Rel => |rel| {
-                try output(context, @tagName(rel.data_size));
-                try output(context, " ");
+                try writer.writeAll(@tagName(rel.data_size));
+                try writer.writeAll(" ");
                 if (rel.segment != .DefaultSeg) {
-                    try output(context, @tagName(rel.segment));
-                    try output(context, ": ");
+                    try writer.writeAll(@tagName(rel.segment));
+                    try writer.writeAll(": ");
                 }
-                try output(context, "[");
-                try output(context, @tagName(rel.reg));
+                try writer.writeAll("[");
+                try writer.writeAll(@tagName(rel.reg));
                 const disp = rel.disp;
                 if (disp < 0) {
-                    try std.fmt.format(context, FmtError, output, " - 0x{x}", .{-disp});
+                    try writer.print(" - 0x{x}", .{-disp});
                 } else {
-                    try std.fmt.format(context, FmtError, output, " + 0x{x}", .{disp});
+                    try writer.print(" + 0x{x}", .{disp});
                 }
-                try output(context, "]");
-            },
-
-            else => {
-                try output(context, "<Format TODO>");
+                try writer.writeAll("]");
             },
         }
     }
@@ -1885,71 +1818,58 @@ pub const Address = union(enum) {
     }
 
     pub fn moffset16(seg: Segment, size: DataSize, disp: u16) Address {
-        return Address {
-            .MOffset = MemoryOffset {
-                .disp = MOffsetDisp { .Disp16 = disp },
-                .segment = seg,
-                .operand_size = size,
-            }
-        };
+        return Address{ .MOffset = MemoryOffset{
+            .disp = MOffsetDisp{ .Disp16 = disp },
+            .segment = seg,
+            .operand_size = size,
+        } };
     }
 
     pub fn moffset32(seg: Segment, size: DataSize, disp: u32) Address {
-        return Address {
-            .MOffset = MemoryOffset {
-                .disp = MOffsetDisp { .Disp32 = disp },
-                .segment = seg,
-                .operand_size = size,
-            }
-        };
+        return Address{ .MOffset = MemoryOffset{
+            .disp = MOffsetDisp{ .Disp32 = disp },
+            .segment = seg,
+            .operand_size = size,
+        } };
     }
 
     pub fn moffset64(seg: Segment, size: DataSize, disp: u64) Address {
-        return Address {
-            .MOffset = MemoryOffset {
-                .disp = MOffsetDisp { .Disp64 = disp },
-                .segment = seg,
-                .operand_size = size,
-            }
-        };
+        return Address{ .MOffset = MemoryOffset{
+            .disp = MOffsetDisp{ .Disp64 = disp },
+            .segment = seg,
+            .operand_size = size,
+        } };
     }
 
     pub fn far16(seg: u16, size: DataSize, addr: u16) Address {
-        return Address {
-            .FarJmp = MemoryOffsetFarJmp {
-                .addr = MOffsetDisp { .Disp16 = addr },
-                .segment = seg,
-                .operand_size = size,
-            }
-        };
+        return Address{ .FarJmp = MemoryOffsetFarJmp{
+            .addr = MOffsetDisp{ .Disp16 = addr },
+            .segment = seg,
+            .operand_size = size,
+        } };
     }
 
     pub fn far32(seg: u16, size: DataSize, addr: u32) Address {
-        return Address {
-            .FarJmp = MemoryOffsetFarJmp {
-                .addr = MOffsetDisp { .Disp32 = addr },
-                .segment = seg,
-                .operand_size = size,
-            }
-        };
+        return Address{ .FarJmp = MemoryOffsetFarJmp{
+            .addr = MOffsetDisp{ .Disp32 = addr },
+            .segment = seg,
+            .operand_size = size,
+        } };
     }
 
     pub fn format(
         self: Address,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
-        context: var,
-        comptime FmtError: type,
-        comptime output: fn (@TypeOf(context), []const u8) FmtError!void,
-    ) FmtError!void {
+        writer: anytype,
+    ) !void {
         switch (self) {
             .MOffset => |moff| {
-                try std.fmt.format(context, FmtError, output, "{}:0x{x}", .{@tagName(moff.segment), moff.disp.value()});
+                try writer.print("{s}:0x{x}", .{ @tagName(moff.segment), moff.disp.value() });
             },
             .FarJmp => |far| {
-                try std.fmt.format(context, FmtError, output, "0x{x}:0x{x}", .{far.segment, far.addr.value()});
+                try writer.print("0x{x}:0x{x}", .{ far.segment, far.addr.value() });
             },
-            else => {},
         }
     }
 };
@@ -1961,13 +1881,13 @@ pub const ImmediateSize = enum(u8) {
     Imm16_any = 0x01,
     Imm32_any = 0x02,
     Imm64_any = 0x03,
-    Imm8 = 0x00  | strict_flag,
+    Imm8 = 0x00 | strict_flag,
     Imm16 = 0x01 | strict_flag,
     Imm32 = 0x02 | strict_flag,
     Imm64 = 0x03 | strict_flag,
 };
 
-pub const ImmediateSign = enum (u1) {
+pub const ImmediateSign = enum(u1) {
     Unsigned = 0,
     Signed = 1,
 };
@@ -1993,7 +1913,7 @@ pub const Immediate = struct {
 
     pub fn bitSize(self: Immediate) BitSize {
         const size: u8 = @enumToInt(self.size) & ImmediateSize.size_mask;
-        return @intToEnum(BitSize, @as(u8,1) << (@intCast(u3,size)));
+        return @intToEnum(BitSize, @as(u8, 1) << (@intCast(u3, size)));
     }
 
     pub fn dataSize(self: Immediate) DataSize {
@@ -2022,10 +1942,10 @@ pub const Immediate = struct {
 
     pub fn willSignExtend(self: Immediate, op_type: OperandType) bool {
         switch (op_type) {
-            .imm8_any, .imm8 => return (self._value & (1<<7)) == (1<<7),
-            .imm16_any, .imm16 => return (self._value & (1<<15)) == (1<<15),
-            .imm32_any, .imm32 => return (self._value & (1<<31)) == (1<<31),
-            .imm64_any, .imm64 => return (self._value & (1<<63)) == (1<<63),
+            .imm8_any, .imm8 => return (self._value & (1 << 7)) == (1 << 7),
+            .imm16_any, .imm16 => return (self._value & (1 << 15)) == (1 << 15),
+            .imm32_any, .imm32 => return (self._value & (1 << 31)) == (1 << 31),
+            .imm64_any, .imm64 => return (self._value & (1 << 63)) == (1 << 63),
             else => unreachable,
         }
     }
@@ -2035,17 +1955,17 @@ pub const Immediate = struct {
             return false;
         }
         switch (self.size) {
-            .Imm8_any, .Imm8 => return (self._value & (1<<7)) == (1<<7),
-            .Imm16_any, .Imm16 => return (self._value & (1<<15)) == (1<<15),
-            .Imm32_any, .Imm32 => return (self._value & (1<<31)) == (1<<31),
-            .Imm64_any, .Imm64 => return (self._value & (1<<63)) == (1<<63),
+            .Imm8_any, .Imm8 => return (self._value & (1 << 7)) == (1 << 7),
+            .Imm16_any, .Imm16 => return (self._value & (1 << 15)) == (1 << 15),
+            .Imm32_any, .Imm32 => return (self._value & (1 << 31)) == (1 << 31),
+            .Imm64_any, .Imm64 => return (self._value & (1 << 63)) == (1 << 63),
         }
     }
 
     pub fn coerce(self: Immediate, bit_size: BitSize) Immediate {
         var result = self;
         switch (bit_size) {
-            .Bit8  => result.size = .Imm8,
+            .Bit8 => result.size = .Imm8,
             .Bit16 => result.size = .Imm16,
             .Bit32 => result.size = .Imm32,
             .Bit64 => result.size = .Imm64,
@@ -2066,7 +1986,7 @@ pub const Immediate = struct {
         }
     }
 
-    pub fn immUnsigned(im : u64) Immediate {
+    pub fn immUnsigned(im: u64) Immediate {
         if (im <= maxInt(u8)) {
             return createUnsigned(.Imm8_any, im);
         } else if (im <= maxInt(u16)) {
@@ -2079,7 +1999,7 @@ pub const Immediate = struct {
     }
 
     pub fn createUnsigned(size: ImmediateSize, val: u64) Immediate {
-        return Immediate {
+        return Immediate{
             .size = size,
             ._value = val,
             .sign = .Unsigned,
@@ -2087,13 +2007,12 @@ pub const Immediate = struct {
     }
 
     pub fn createSigned(size: ImmediateSize, val: i64) Immediate {
-        return Immediate {
+        return Immediate{
             .size = size,
             ._value = @bitCast(u64, val),
             .sign = .Signed,
         };
     }
-
 };
 
 pub const VoidOperand = struct {
@@ -2168,78 +2087,76 @@ pub const Operand = union(OperandTag) {
     }
 
     pub fn register(reg: Register) Operand {
-        return Operand { .Reg = reg };
+        return Operand{ .Reg = reg };
     }
 
     pub fn registerRm(reg: Register) Operand {
-        return Operand { .Rm = ModRm.register(reg) };
+        return Operand{ .Rm = ModRm.register(reg) };
     }
 
     pub fn registerPredicate(reg: Register, mask: avx.MaskRegister, z: avx.ZeroOrMerge) Operand {
-        return Operand { .RegPred = avx.RegisterPredicate.create(reg, mask, z) };
+        return Operand{ .RegPred = avx.RegisterPredicate.create(reg, mask, z) };
     }
 
     pub fn rmPredicate(op: Operand, mask: avx.MaskRegister, z: avx.ZeroOrMerge) Operand {
         return switch (op) {
-            .Reg => |reg| Operand { .RmPred = avx.RmPredicate.create(ModRm.register(reg), mask, z) },
-            .Rm => |rm| Operand { .RmPred = avx.RmPredicate.create(rm, mask, z) },
-            else => {
-                std.debug.panic("Expected Operand.Register or Operand.ModRm, got: {}", .{op});
-            },
+            .Reg => |reg| Operand{ .RmPred = avx.RmPredicate.create(ModRm.register(reg), mask, z) },
+            .Rm => |rm| Operand{ .RmPred = avx.RmPredicate.create(rm, mask, z) },
+            else => std.debug.panic("Expected Operand.Register or Operand.ModRm, got: {}", .{op}),
         };
     }
 
     pub fn registerSae(reg: Register, sae: avx.SuppressAllExceptions) Operand {
-        return Operand { .RegSae = avx.RegisterSae.create(reg, sae) };
+        return Operand{ .RegSae = avx.RegisterSae.create(reg, sae) };
     }
 
     pub fn voidOperand(data_size: DataSize) Operand {
-        return Operand { .None = VoidOperand { .operand_size = data_size } };
+        return Operand{ .None = VoidOperand{ .operand_size = data_size } };
     }
 
     pub fn immediate(im: u64) Operand {
-        return Operand { .Imm = Immediate.immUnsigned(im) };
+        return Operand{ .Imm = Immediate.immUnsigned(im) };
     }
 
     pub fn immediate8(im: u8) Operand {
-        return Operand { .Imm = Immediate.createUnsigned(.Imm8, im) };
+        return Operand{ .Imm = Immediate.createUnsigned(.Imm8, im) };
     }
     pub fn immediate16(im: u16) Operand {
-        return Operand { .Imm = Immediate.createUnsigned(.Imm16, im) };
+        return Operand{ .Imm = Immediate.createUnsigned(.Imm16, im) };
     }
     pub fn immediate32(im: u32) Operand {
-        return Operand { .Imm = Immediate.createUnsigned(.Imm32, im) };
+        return Operand{ .Imm = Immediate.createUnsigned(.Imm32, im) };
     }
     pub fn immediate64(im: u64) Operand {
-        return Operand { .Imm = Immediate.createUnsigned(.Imm64, im) };
+        return Operand{ .Imm = Immediate.createUnsigned(.Imm64, im) };
     }
 
     pub fn immediateSigned(im: i64) Operand {
-        return Operand { .Imm = Immediate.immSigned(im) };
+        return Operand{ .Imm = Immediate.immSigned(im) };
     }
 
     pub fn immediateSigned8(im: i8) Operand {
-        return Operand { .Imm = Immediate.createSigned(.Imm8, @intCast(i64, im)) };
+        return Operand{ .Imm = Immediate.createSigned(.Imm8, @intCast(i64, im)) };
     }
     pub fn immediateSigned16(im: i16) Operand {
-        return Operand { .Imm = Immediate.createSigned(.Imm16, @intCast(i64, im)) };
+        return Operand{ .Imm = Immediate.createSigned(.Imm16, @intCast(i64, im)) };
     }
     pub fn immediateSigned32(im: i32) Operand {
-        return Operand { .Imm = Immediate.createSigned(.Imm32, @intCast(i64, im)) };
+        return Operand{ .Imm = Immediate.createSigned(.Imm32, @intCast(i64, im)) };
     }
     pub fn immediateSigned64(im: i64) Operand {
-        return Operand { .Imm = Immediate.createSigned(.Imm64, @intCast(i64, im)) };
+        return Operand{ .Imm = Immediate.createSigned(.Imm64, @intCast(i64, im)) };
     }
 
     pub fn memory16Bit(seg: Segment, data_size: DataSize, base: ?Register, index: ?Register, disp: i16) Operand {
-        return Operand { .Rm = ModRm.memory16Bit(seg, data_size, base, index, disp) };
+        return Operand{ .Rm = ModRm.memory16Bit(seg, data_size, base, index, disp) };
     }
 
     /// Same as memorySib, except it may choose to encode it as memoryRm if the encoding is shorter
     pub fn memory(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
         var modrm: ModRm = undefined;
         if (index != null and index.?.isVector()) {
-            return Operand { .Rm = ModRm.memoryVecSib(seg, data_size, scale, index.?, base, disp) };
+            return Operand{ .Rm = ModRm.memoryVecSib(seg, data_size, scale, index.?, base, disp) };
         }
 
         if (index == null and base != null) edge_case: {
@@ -2249,10 +2166,10 @@ pub const Operand = union(OperandTag) {
                 break :edge_case;
             }
 
-            return Operand { .Rm = ModRm.memoryRm(seg, data_size, base.?, disp) };
+            return Operand{ .Rm = ModRm.memoryRm(seg, data_size, base.?, disp) };
         }
 
-        return Operand { .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
+        return Operand{ .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
     }
 
     /// Same memory() except uses the default segment
@@ -2262,151 +2179,146 @@ pub const Operand = union(OperandTag) {
 
     /// data_size [seg: reg + disp0/8/32]
     pub fn memoryRm(seg: Segment, data_size: DataSize, reg: Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memoryRm(seg, data_size, reg, disp) };
+        return Operand{ .Rm = ModRm.memoryRm(seg, data_size, reg, disp) };
     }
 
     /// data_size [DefaultSeg: reg + disp0/8/32]
     pub fn memoryRmDef(data_size: DataSize, reg: Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memoryRm(.DefaultSeg, data_size, reg, disp) };
+        return Operand{ .Rm = ModRm.memoryRm(.DefaultSeg, data_size, reg, disp) };
     }
 
     /// data_size [seg: reg + disp8]
     pub fn memoryRm8(seg: Segment, data_size: DataSize, reg: Register, disp: i8) Operand {
-        return Operand { .Rm = ModRm.memoryRm8(seg, data_size, reg, disp) };
+        return Operand{ .Rm = ModRm.memoryRm8(seg, data_size, reg, disp) };
     }
 
     /// data_size [seg: reg + disp32]
     pub fn memoryRm32(seg: Segment, data_size: DataSize, reg: Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memoryRm32(seg, data_size, reg, disp) };
+        return Operand{ .Rm = ModRm.memoryRm32(seg, data_size, reg, disp) };
     }
 
     /// data_size [seg: (scale*index) + base + disp0/8/32]
     pub fn memorySib(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
+        return Operand{ .Rm = ModRm.memorySib(seg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [seg: (scale*index) + base + disp8]
     pub fn memorySib8(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i8) Operand {
-        return Operand { .Rm = ModRm.memorySib8(seg, data_size, scale, index, base, disp) };
+        return Operand{ .Rm = ModRm.memorySib8(seg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [seg: (scale*index) + base + disp32]
     pub fn memorySib32(seg: Segment, data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memorySib32(seg, data_size, scale, index, base, disp) };
+        return Operand{ .Rm = ModRm.memorySib32(seg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [DefaultSeg: (scale*index) + base + disp]
     pub fn memorySibDef(data_size: DataSize, scale: u8, index: ?Register, base: ?Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memorySib(.DefaultSeg, data_size, scale, index, base, disp) };
+        return Operand{ .Rm = ModRm.memorySib(.DefaultSeg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [seg: (scale*vec_index) + base + disp0/8/32]
     pub fn memoryVecSib(seg: Segment, data_size: DataSize, scale: u8, index: Register, base: ?Register, disp: i32) Operand {
-        return Operand { .Rm = ModRm.memoryVecSib(seg, data_size, scale, index, base, disp) };
+        return Operand{ .Rm = ModRm.memoryVecSib(seg, data_size, scale, index, base, disp) };
     }
 
     /// data_size [Seg: EIP/RIP + disp]
     pub fn relMemory(seg: Segment, data_size: DataSize, reg: RelRegister, disp: i32) Operand {
-        return Operand { .Rm = ModRm.relMemory(seg, data_size, reg, disp) };
+        return Operand{ .Rm = ModRm.relMemory(seg, data_size, reg, disp) };
     }
 
     /// data_size [DefaultSeg: EIP/RIP + disp]
     pub fn relMemoryDef(data_size: DataSize, reg: RelRegister, disp: i32) Operand {
-        return Operand { .Rm = ModRm.relMemory(.DefaultSeg, data_size, reg, disp) };
+        return Operand{ .Rm = ModRm.relMemory(.DefaultSeg, data_size, reg, disp) };
     }
 
     pub fn moffset16(seg: Segment, size: DataSize, disp: u16) Operand {
-        return Operand { .Addr = Address.moffset16(seg, size, disp) };
+        return Operand{ .Addr = Address.moffset16(seg, size, disp) };
     }
 
     pub fn moffset32(seg: Segment, size: DataSize, disp: u32) Operand {
-        return Operand { .Addr = Address.moffset32(seg, size, disp) };
+        return Operand{ .Addr = Address.moffset32(seg, size, disp) };
     }
 
     pub fn moffset64(seg: Segment, size: DataSize, disp: u64) Operand {
-        return Operand { .Addr = Address.moffset64(seg, size, disp) };
+        return Operand{ .Addr = Address.moffset64(seg, size, disp) };
     }
 
-    // pub fn far16(seg: u16, size: DataSize, addr: u16) Operand {
     pub fn far16(seg: u16, addr: u16) Operand {
-        return Operand { .Addr = Address.far16(seg, .Default, addr) };
+        return Operand{ .Addr = Address.far16(seg, .Default, addr) };
     }
 
     pub fn far32(seg: u16, addr: u32) Operand {
-        return Operand { .Addr = Address.far32(seg, .Default, addr) };
+        return Operand{ .Addr = Address.far32(seg, .Default, addr) };
     }
 
-
-    /// fn format(value: ?, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void
     pub fn format(
         self: Operand,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
-        context: var,
-        comptime FmtError: type,
-        comptime output: fn (@TypeOf(context), []const u8) FmtError!void,
-    ) FmtError!void {
+        writer: anytype,
+    ) !void {
         // self.assertWritable();
         // TODO look at fmt and support other bases
         // TODO support read-only fixed integers
         switch (self) {
-            .Reg => |reg| try output(context, @tagName(reg)),
-            .Rm => |rm| try rm.format(fmt, options, context, FmtError, output),
+            .Reg => |reg| try writer.writeAll(@tagName(reg)),
+            .Rm => |rm| try rm.format(fmt, options, writer),
             .Imm => |im| {
                 if (im.sign == .Signed and im.isNegative()) {
-                    try std.fmt.format(context, FmtError, output, "{}", .{im.asSignedValue()});
+                    try writer.print("{}", .{im.asSignedValue()});
                 } else {
-                    try std.fmt.format(context, FmtError, output, "0x{x}", .{im.value()});
+                    try writer.print("0x{x}", .{im.value()});
                 }
             },
             .Addr => |addr| {
                 if (addr.operandDataSize() != .Default) {
-                    try output(context, @tagName(addr.operandDataSize()));
-                    try output(context, " ");
+                    try writer.writeAll(@tagName(addr.operandDataSize()));
+                    try writer.writeAll(" ");
                 }
-                try addr.format(fmt, options, context, FmtError, output);
+                try addr.format(fmt, options, writer);
             },
 
             .RegPred => |pred| {
-                try output(context, @tagName(pred.reg));
+                try writer.writeAll(@tagName(pred.reg));
                 if (pred.mask != .NoMask) {
-                    try output(context, " {");
-                    try output(context, @tagName(pred.mask));
-                    try output(context, "}");
+                    try writer.writeAll(" {");
+                    try writer.writeAll(@tagName(pred.mask));
+                    try writer.writeAll("}");
                 }
 
                 if (pred.z == .Zero) {
-                    try output(context, " {z}");
+                    try writer.writeAll(" {z}");
                 }
             },
 
             .RegSae => |sae_reg| {
-                try output(context, @tagName(sae_reg.reg));
+                try writer.writeAll(@tagName(sae_reg.reg));
                 switch (sae_reg.sae) {
                     .AE => {},
-                    .SAE => try output(context, " {sae}"),
-                    .RN_SAE => try output(context, " {rn-sae}"),
-                    .RD_SAE => try output(context, " {rd-sae}"),
-                    .RU_SAE => try output(context, " {ru-sae}"),
-                    .RZ_SAE => try output(context, " {rz-sae}"),
+                    .SAE => try writer.writeAll(" {sae}"),
+                    .RN_SAE => try writer.writeAll(" {rn-sae}"),
+                    .RD_SAE => try writer.writeAll(" {rd-sae}"),
+                    .RU_SAE => try writer.writeAll(" {ru-sae}"),
+                    .RZ_SAE => try writer.writeAll(" {rz-sae}"),
                 }
             },
 
             .RmPred => |rm_pred| {
-                try std.fmt.format(context, FmtError, output, "{}", .{rm_pred.rm});
+                try writer.print("{}", .{rm_pred.rm});
                 if (rm_pred.mask != .NoMask) {
-                    try output(context, " {");
-                    try output(context, @tagName(rm_pred.mask));
-                    try output(context, "}");
+                    try writer.writeAll(" {");
+                    try writer.writeAll(@tagName(rm_pred.mask));
+                    try writer.writeAll("}");
                 }
 
                 if (rm_pred.z == .Zero) {
-                    try output(context, " {z}");
+                    try writer.writeAll(" {z}");
                 }
             },
 
             else => {
-                try output(context, "<Format TODO>");
+                try writer.writeAll("<Format TODO>");
             },
         }
     }
@@ -2424,7 +2336,7 @@ test "ModRm Encoding" {
         const result = try modrm.encodeOpcodeRm(.x86_16, 7, .Op16);
         expect(result.modrm() == 0b00111010);
         expect(result.disp_bit_size == .None);
-        expect(result.disp          == 0);
+        expect(result.disp == 0);
         expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{}));
     }
 
@@ -2434,8 +2346,8 @@ test "ModRm Encoding" {
         const result = try modrm.encodeOpcodeRm(.x86_32, 7, .Op16);
         expect(result.modrm() == 0b01111011);
         expect(result.disp_bit_size == .Bit8);
-        expect(result.disp          == 0x10);
-        expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{0x66, 0x67}));
+        expect(result.disp == 0x10);
+        expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{ 0x66, 0x67 }));
     }
 
     // x86_16: DWORD [BX], (RM32)
@@ -2444,15 +2356,15 @@ test "ModRm Encoding" {
         const result = try modrm.encodeOpcodeRm(.x86_16, 5, .Op32);
         expect(result.modrm() == 0b10101111);
         expect(result.disp_bit_size == .Bit16);
-        expect(result.disp          == 0x1100);
+        expect(result.disp == 0x1100);
         expect(std.mem.eql(u8, result.prefixes.asSlice(), &[_]u8{0x66}));
     }
 
     {
         const modrm = ModRm.register(.RAX);
         const result = try modrm.encodeOpcodeRm(.x64, 0, .REX_W);
-        expect(result.rex(0)  == 0b01001000);
-        expect(result.rex(1)  == 0b01001000);
+        expect(result.rex(0) == 0b01001000);
+        expect(result.rex(1) == 0b01001000);
         expect(result.modrm() == 0b11000000);
         expect(result.sib == null);
         expect(result.disp_bit_size == .None);
@@ -2461,8 +2373,8 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.register(.R15);
         const result = try modrm.encodeReg(.x64, .R9, .REX_W);
-        expect(result.rex(0)  == 0b01001101);
-        expect(result.rex(1)  == 0b01001101);
+        expect(result.rex(0) == 0b01001101);
+        expect(result.rex(1) == 0b01001101);
         expect(result.modrm() == 0b11001111);
         expect(result.sib == null);
         expect(result.disp_bit_size == .None);
@@ -2472,8 +2384,8 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.relMemory(.DefaultSeg, .DWORD, .EIP, 0x76543210);
         const result = try modrm.encodeReg(.x64, .R8, .REX_W);
-        expect(result.rex(0)  == 0b01001100);
-        expect(result.rex(1)  == 0b01001100);
+        expect(result.rex(0) == 0b01001100);
+        expect(result.rex(1) == 0b01001100);
         expect(result.modrm() == 0b00000101);
         expect(result.sib == null);
         expect(result.disp == 0x76543210);
@@ -2483,8 +2395,8 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.relMemory(.DefaultSeg, .QWORD, .RIP, 0x76543210);
         const result = try modrm.encodeReg(.x64, .R8, .REX_W);
-        expect(result.rex(0)  == 0b01001100);
-        expect(result.rex(1)  == 0b01001100);
+        expect(result.rex(0) == 0b01001100);
+        expect(result.rex(1) == 0b01001100);
         expect(result.modrm() == 0b00000101);
         expect(result.sib == null);
         expect(result.disp == 0x76543210);
@@ -2494,8 +2406,8 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memoryRm(.DefaultSeg, .QWORD, .R9, 0x0);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(0)  == 0b01001001);
-        expect(result.rex(1)  == 0b01001001);
+        expect(result.rex(0) == 0b01001001);
+        expect(result.rex(1) == 0b01001001);
         expect(result.modrm() == 0b00000001);
         expect(result.sib == null);
         expect(result.disp_bit_size == .None);
@@ -2504,8 +2416,8 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memoryRm(.DefaultSeg, .QWORD, .R9, 0x10);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(0)  == 0b01001001);
-        expect(result.rex(1)  == 0b01001001);
+        expect(result.rex(0) == 0b01001001);
+        expect(result.rex(1) == 0b01001001);
         expect(result.modrm() == 0b01000001);
         expect(result.sib == null);
         expect(result.disp == 0x10);
@@ -2514,8 +2426,8 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memoryRm(.DefaultSeg, .QWORD, .R9, 0x76543210);
         const result = try modrm.encodeReg(.x64, .R15, .REX_W);
-        expect(result.rex(0)  == 0b01001101);
-        expect(result.rex(1)  == 0b01001101);
+        expect(result.rex(0) == 0b01001101);
+        expect(result.rex(1) == 0b01001101);
         expect(result.modrm() == 0b10111001);
         expect(result.sib == null);
         expect(result.disp == 0x76543210);
@@ -2525,7 +2437,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 2, .R15, .R15, 0x10);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001011);
+        expect(result.rex(1) == 0b01001011);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01111111);
         expect(result.disp == 0x10);
@@ -2535,7 +2447,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 1, .R15, .R15, 0x76543210);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001011);
+        expect(result.rex(1) == 0b01001011);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b00111111);
         expect(result.disp == 0x76543210);
@@ -2545,7 +2457,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 2, null, .R15, 0x10);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001001);
+        expect(result.rex(1) == 0b01001001);
         expect(result.modrm() == 0b01000100);
         expect(result.sib.? == 0b01100111);
         expect(result.disp == 0x10);
@@ -2555,7 +2467,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 2, null, .R15, 0x3210);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001001);
+        expect(result.rex(1) == 0b01001001);
         expect(result.modrm() == 0b10000100);
         expect(result.sib.? == 0b01100111);
         expect(result.disp == 0x3210);
@@ -2565,7 +2477,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 4, .R15, .R15, 0x00);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001011);
+        expect(result.rex(1) == 0b01001011);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111111);
         expect(result.disp_bit_size == .None);
@@ -2575,7 +2487,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 4, .R15, null, 0x10);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001010);
+        expect(result.rex(1) == 0b01001010);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10111101);
         expect(result.disp_bit_size == .Bit32);
@@ -2585,7 +2497,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 8, null, null, 0x10);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001000);
+        expect(result.rex(1) == 0b01001000);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b11100101);
         expect(result.disp_bit_size == .Bit32);
@@ -2595,7 +2507,7 @@ test "ModRm Encoding" {
     {
         const modrm = ModRm.memorySib(.DefaultSeg, .QWORD, 4, null, .R15, 0x00);
         const result = try modrm.encodeReg(.x64, .RAX, .REX_W);
-        expect(result.rex(1)  == 0b01001001);
+        expect(result.rex(1) == 0b01001001);
         expect(result.modrm() == 0b00000100);
         expect(result.sib.? == 0b10100111);
         expect(result.disp_bit_size == .None);

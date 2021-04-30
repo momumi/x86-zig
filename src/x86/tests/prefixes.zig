@@ -1,6 +1,6 @@
 const std = @import("std");
-usingnamespace (@import("../machine.zig"));
-usingnamespace (@import("../util.zig"));
+usingnamespace @import("../machine.zig");
+usingnamespace @import("../util.zig");
 
 const imm = Operand.immediate;
 const mem = Operand.memory;
@@ -29,7 +29,7 @@ test "user prefixes" {
         const ctrl = EncodingControl.init(
             .NoHint,
             .AddPrefixes,
-            &[_]Prefix{ .OpSize, .AddrSize, .SegmentCS, .Repne, },
+            &[_]Prefix{ .OpSize, .AddrSize, .SegmentCS, .Repne },
         );
         testOpCtrl0(m64, ctrl, .NOP, "66 67 2E F2 90");
         testOpCtrl1(m64, ctrl, .NOP, memRm(.GS, .QWORD, .EAX, 0x11), "66 67 2e f2 65 67 48 0f 1f 40 11");
@@ -39,7 +39,7 @@ test "user prefixes" {
         const ctrl = EncodingControl.init(
             .NoHint,
             .ExactPrefixes,
-            &[_]Prefix{ .OpSize, .AddrSize, .SegmentCS, .Repne, },
+            &[_]Prefix{ .OpSize, .AddrSize, .SegmentCS, .Repne },
         );
         testOpCtrl0(m64, ctrl, .NOP, "66 67 2E F2 90");
         testOpCtrl1(m64, ctrl, .NOP, memRm(.GS, .QWORD, .EAX, 0x11), AsmError.InvalidPrefixes);
@@ -49,7 +49,7 @@ test "user prefixes" {
         const ctrl = EncodingControl.init(
             .NoHint,
             .ExactPrefixes,
-            &[_]Prefix{ .OpSize, .AddrSize, .SegmentGS, .Repne, },
+            &[_]Prefix{ .OpSize, .AddrSize, .SegmentGS, .Repne },
         );
         testOpCtrl0(m64, ctrl, .NOP, "66 67 65 F2 90");
         testOpCtrl1(m64, ctrl, .NOP, memRm(.GS, .QWORD, .EAX, 0x11), "66 67 65 f2 48 0f 1f 40 11");
@@ -59,14 +59,14 @@ test "user prefixes" {
         const ctrl = EncodingControl.init(
             .NoHint,
             .ExactPrefixes,
-            &[_]Prefix{ .OpSize, .SegmentGS, .Repne, },
+            &[_]Prefix{ .OpSize, .SegmentGS, .Repne },
         );
         testOpCtrl0(m64, ctrl, .NOP, "66 65 F2 90");
         testOpCtrl1(m64, ctrl, .NOP, memRm(.GS, .QWORD, .EAX, 0x11), AsmError.InvalidPrefixes);
     }
 
     {
-        const cs_x11 = EncodingControl.init(.NoHint, .AddPrefixes, &([_]Prefix{ .SegmentCS, } ** 11));
+        const cs_x11 = EncodingControl.init(.NoHint, .AddPrefixes, &([_]Prefix{.SegmentCS} ** 11));
         testOpCtrl0(m64, cs_x11, .NOP, "2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 90");
         testOpCtrl1(m64, cs_x11, .NOP, memRm(.DefaultSeg, .QWORD, .RAX, 0x00), "2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 48 0f 1f 00");
         testOpCtrl1(m64, cs_x11, .NOP, memRm(.DefaultSeg, .QWORD, .RAX, 0x11), AsmError.InstructionTooLong);
@@ -74,17 +74,16 @@ test "user prefixes" {
     }
 
     {
-        const cs_x14 = EncodingControl.init(.NoHint, .ExactPrefixes, &([_]Prefix{ .SegmentCS, } ** 14));
+        const cs_x14 = EncodingControl.init(.NoHint, .ExactPrefixes, &([_]Prefix{.SegmentCS} ** 14));
         testOpCtrl0(m64, cs_x14, .NOP, "2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 90");
         testOpCtrl1(m64, cs_x14, .NOP, memRm(.DefaultSeg, .DWORD, .RAX, 0x00), AsmError.InstructionTooLong);
     }
 
     {
-        const cs_x10 = EncodingControl.init(.NoHint, .ExactPrefixes, &([_]Prefix{ .SegmentCS, } ** 10));
+        const cs_x10 = EncodingControl.init(.NoHint, .ExactPrefixes, &([_]Prefix{.SegmentCS} ** 10));
         testOpCtrl1(m64, cs_x10, .NOP, memRm(.CS, .DWORD, .RAX, 0x00), "2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 0f 1f 00");
         testOpCtrl1(m64, cs_x10, .NOP, memRm(.GS, .DWORD, .RAX, 0x00), AsmError.InvalidPrefixes);
         testOpCtrl1(m64, cs_x10, .NOP, memRm(.GS, .DWORD, .RAX, 0x44332211), AsmError.InstructionTooLong);
         testOpCtrl1(m64, cs_x10, .NOP, memRm(.CS, .DWORD, .RAX, 0x44332211), AsmError.InstructionTooLong);
     }
-
 }

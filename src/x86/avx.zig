@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub usingnamespace(@import("types.zig"));
+pub usingnamespace @import("types.zig");
 
 const x86 = @import("machine.zig");
 
@@ -11,7 +11,7 @@ const ModRmResult = x86.operand.ModRmResult;
 const Register = x86.register.Register;
 const Machine = x86.Machine;
 
-pub const AvxMagic = enum (u8) {
+pub const AvxMagic = enum(u8) {
     Vex2 = 0xC4,
     Vex3 = 0xC5,
     Xop = 0x8F,
@@ -46,16 +46,14 @@ pub const AvxResult = struct {
     aaa: u3 = 0,
 
     pub fn needs64Bit(self: AvxResult) bool {
-        return (
-            self.R == 1
-            or self.X == 1
-            or self.B == 1
-            or self.W == 1
-            or self.R_ == 1
-            or self.V_ == 1
-            or self.vvvv > 7
-            or (self.is4 != null and self.is4.? > 7)
-        );
+        return self.R == 1 or
+            self.X == 1 or
+            self.B == 1 or
+            self.W == 1 or
+            self.R_ == 1 or
+            self.V_ == 1 or
+            self.vvvv > 7 or
+            (self.is4 != null and self.is4.? > 7);
     }
 
     pub fn addVecLen(self: *AvxResult, machine: Machine, vec_len: EvexLength) void {
@@ -129,7 +127,6 @@ pub const AvxResult = struct {
         self.X = @intCast(u1, (reg_num & 0x10) >> 4);
     }
 
-
     /// Generate EVEX prefix bytes
     ///
     ///       7   6   5   4   3   2   1   0
@@ -138,29 +135,23 @@ pub const AvxResult = struct {
     /// P1: | W | v | v | v | v | 1 | p | p |
     /// P2: | z | L'| L | b | V'| a | a | a |
     pub fn makeEvex(self: AvxResult) [4]u8 {
-        const P0: u8 = (
-            (@as(u8, ~self.R) << 7)
-            | (@as(u8, ~self.X) << 6)
-            | (@as(u8, ~self.B) << 5)
-            | (@as(u8, ~self.R_) << 4)
-            // | (0b00 << 2)
-            | (@as(u8, self.map) << 0)
-        );
-        const P1: u8 = (
-            (@as(u8, self.W) << 7)
-            | (@as(u8, ~self.vvvv) << 3)
-            | (@as(u8, 1) << 2)
-            | (@as(u8, self.pp) << 0)
-        );
-        const P2: u8 = (
-            (@as(u8, self.z) << 7)
-            | (@as(u8, self.L_) << 6)
-            | (@as(u8, self.L) << 5)
-            | (@as(u8, self.b) << 4)
-            | (@as(u8, ~self.V_) << 3)
-            | (@as(u8, self.aaa) << 0)
-        );
-        return [4]u8 { 0x62, P0, P1, P2 };
+        const P0: u8 = (@as(u8, ~self.R) << 7) |
+            (@as(u8, ~self.X) << 6) |
+            (@as(u8, ~self.B) << 5) |
+            (@as(u8, ~self.R_) << 4) |
+            // (0b00 << 2) |
+            (@as(u8, self.map) << 0);
+        const P1: u8 = (@as(u8, self.W) << 7) |
+            (@as(u8, ~self.vvvv) << 3) |
+            (@as(u8, 1) << 2) |
+            (@as(u8, self.pp) << 0);
+        const P2: u8 = (@as(u8, self.z) << 7) |
+            (@as(u8, self.L_) << 6) |
+            (@as(u8, self.L) << 5) |
+            (@as(u8, self.b) << 4) |
+            (@as(u8, ~self.V_) << 3) |
+            (@as(u8, self.aaa) << 0);
+        return [4]u8{ 0x62, P0, P1, P2 };
     }
 
     /// Generate VEX2 prefix bytes
@@ -169,31 +160,21 @@ pub const AvxResult = struct {
     /// C5  | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 1 |
     /// P0: | R | v | v | v | v | L | p | p |
     pub fn makeVex2(self: AvxResult) [2]u8 {
-        const P0: u8 = (
-            (@as(u8, ~self.R) << 7)
-            | (@as(u8, ~self.vvvv) << 3)
-            | (@as(u8, self.L) << 2)
-            | (@as(u8, self.pp) << 0)
-        );
-        return [2]u8 { 0xC5, P0 };
+        const P0: u8 = (@as(u8, ~self.R) << 7) | (@as(u8, ~self.vvvv) << 3) | (@as(u8, self.L) << 2) | (@as(u8, self.pp) << 0);
+        return [2]u8{ 0xC5, P0 };
     }
 
-
     fn makeCommonXopVex3(self: AvxResult, magic: u8) [3]u8 {
-        const P0: u8 = (
-            (@as(u8, ~self.R) << 7)
-            | (@as(u8, ~self.X) << 6)
-            | (@as(u8, ~self.B) << 5)
-            // | (0b000 << 2)
-            | (@as(u8, self.map) << 0)
-        );
-        const P1: u8 = (
-            (@as(u8, self.W) << 7)
-            | (@as(u8, ~self.vvvv) << 3)
-            | (@as(u8, self.L) << 2)
-            | (@as(u8, self.pp) << 0)
-        );
-        return [3]u8 { magic, P0, P1 };
+        const P0: u8 = (@as(u8, ~self.R) << 7) |
+            (@as(u8, ~self.X) << 6) |
+            (@as(u8, ~self.B) << 5) |
+            // (0b000 << 2) |
+            (@as(u8, self.map) << 0);
+        const P1: u8 = (@as(u8, self.W) << 7) |
+            (@as(u8, ~self.vvvv) << 3) |
+            (@as(u8, self.L) << 2) |
+            (@as(u8, self.pp) << 0);
+        return [3]u8{ magic, P0, P1 };
     }
 
     /// Generate VEX3 prefix bytes
@@ -232,13 +213,13 @@ pub const VexPrefix = enum(u2) {
 };
 
 // NOTE: Technically this is 5 bit, but 3 high bits are reserved and should be 0
-pub const VexEscape = enum (u2) {
+pub const VexEscape = enum(u2) {
     _0F = 0b01,
     _0F38 = 0b10,
     _0F3A = 0b11,
 };
 
-pub const XopMapSelect = enum (u5) {
+pub const XopMapSelect = enum(u5) {
     _08h = 0b01000,
     _09h = 0b01001,
     _0Ah = 0b01010,
@@ -279,7 +260,7 @@ pub const EvexLength = enum(u8) {
     LRC = 0x83,
 };
 
-pub const MaskRegister = enum (u3) {
+pub const MaskRegister = enum(u3) {
     NoMask = 0b000,
     K1 = 0b001,
     K2,
@@ -290,7 +271,7 @@ pub const MaskRegister = enum (u3) {
     K7 = 0b111,
 };
 
-pub const ZeroOrMerge = enum (u1) {
+pub const ZeroOrMerge = enum(u1) {
     Merge = 0,
     Zero = 1,
 };
@@ -301,7 +282,7 @@ pub const RegisterPredicate = struct {
     z: ZeroOrMerge,
 
     pub fn create(r: Register, k: MaskRegister, z: ZeroOrMerge) RegisterPredicate {
-        return RegisterPredicate {
+        return RegisterPredicate{
             .reg = r,
             .mask = k,
             .z = z,
@@ -315,7 +296,7 @@ pub const RmPredicate = struct {
     z: ZeroOrMerge,
 
     pub fn create(rm: ModRm, k: MaskRegister, z: ZeroOrMerge) RmPredicate {
-        return RmPredicate {
+        return RmPredicate{
             .rm = rm,
             .mask = k,
             .z = z,
@@ -328,14 +309,14 @@ pub const RegisterSae = struct {
     sae: SuppressAllExceptions,
 
     pub fn create(r: Register, sae: SuppressAllExceptions) RegisterSae {
-        return RegisterSae {
+        return RegisterSae{
             .reg = r,
             .sae = sae,
         };
     }
 };
 
-pub const SuppressAllExceptions = enum (u3) {
+pub const SuppressAllExceptions = enum(u3) {
     /// Round toward nearest and SAE
     RN_SAE = 0b00,
     /// Round toward -inf and SAE
@@ -468,7 +449,7 @@ pub const AvxOpcode = struct {
             }
         } else if (self.reg_bits) |reg_bits| {
             res.addVecR(reg_bits);
-        } else x: {
+        } else {
             res.addVecR(0);
         }
 
@@ -524,20 +505,18 @@ pub const AvxOpcode = struct {
             .WIG => res.W = machine.w_fill,
             .W0 => res.W = 0,
             .W1 => res.W = 1,
-            .W => { unreachable; }, // TODO
+            .W => unreachable, // TODO
         }
 
         switch (self.encoding) {
             // TODO: some way to force 3 byte Vex encoding
             .VEX => {
-                std.debug.assert(
-                    (res.L_ == 0)
-                    and (res.R_ == 0)
-                    and (vec2_v == null or res.V_ == 0)
-                    and (res.aaa == 0)
-                    and (res.b == 0)
-                    and (res.z == 0)
-                );
+                std.debug.assert((res.L_ == 0) and
+                    (res.R_ == 0) and
+                    (vec2_v == null or res.V_ == 0) and
+                    (res.aaa == 0) and
+                    (res.b == 0) and
+                    (res.z == 0));
 
                 if (res.X == 0 and res.B == 0 and res.W == 0 and res.map == 0b01) {
                     res.encoding = .Vex2;
@@ -549,8 +528,6 @@ pub const AvxOpcode = struct {
             .EVEX => res.encoding = .Evex,
             .XOP => res.encoding = .Xop,
         }
-
-
 
         return res;
     }
@@ -566,7 +543,6 @@ pub const AvxOpcode = struct {
         return evexr(len, pre, esc, w, op, null, tuple);
     }
 
-
     pub fn evexr(
         len: EvexLength,
         pre: VexPrefix,
@@ -576,7 +552,7 @@ pub const AvxOpcode = struct {
         reg: ?u3,
         tuple: TupleType,
     ) AvxOpcode {
-        return AvxOpcode {
+        return AvxOpcode{
             .encoding = .EVEX,
             .vec_len = len,
             .prefix = pre,
@@ -607,8 +583,13 @@ pub const AvxOpcode = struct {
         return vex_common(.VEX, len, pre, @enumToInt(esc), w, op, reg);
     }
 
-
-    pub fn xop(len: VexLength, pre: VexPrefix, map: XopMapSelect, w: VexW, op: u8,) AvxOpcode {
+    pub fn xop(
+        len: VexLength,
+        pre: VexPrefix,
+        map: XopMapSelect,
+        w: VexW,
+        op: u8,
+    ) AvxOpcode {
         return xop_r(len, pre, map, w, op, null);
     }
 
@@ -636,7 +617,7 @@ pub const AvxOpcode = struct {
         op: u8,
         reg: ?u3,
     ) AvxOpcode {
-        return AvxOpcode {
+        return AvxOpcode{
             .encoding = enc,
             .vec_len = @intToEnum(EvexLength, @enumToInt(len)),
             .prefix = pre,
@@ -651,7 +632,7 @@ pub const AvxOpcode = struct {
         self: AvxOpcode,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
-        context: var,
+        context: anytype,
         comptime FmtError: type,
         output: fn (@TypeOf(context), []const u8) FmtError!void,
     ) FmtError!void {

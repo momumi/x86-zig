@@ -1,11 +1,11 @@
 const std = @import("std");
 const assert = std.debug.assert;
-usingnamespace(@import("types.zig"));
+usingnamespace @import("types.zig");
 
 const OperandType = @import("operand.zig").OperandType;
 
 // When we want to refer to a register but don't care about it's bit size
-pub const RegisterName = enum (u8) {
+pub const RegisterName = enum(u8) {
     AX = 0x00,
     CX,
     DX,
@@ -39,7 +39,7 @@ pub const RegisterType = enum(u16) {
 };
 
 /// Special control and debug registers
-pub const Register = enum (u16) {
+pub const Register = enum(u16) {
     const tag_mask = 0xFF00;
     const tag_general = @enumToInt(RegisterType.General);
     const tag_segment = @enumToInt(RegisterType.Segment);
@@ -346,20 +346,18 @@ pub const Register = enum (u16) {
         std.debug.assert(reg_num <= 0x0F);
         switch (reg_size) {
             // TODO: does this need to handle AH vs SIL edge case?
-            .Bit8 => return @intToEnum(Register, (0<<4) | reg_num),
-            .Bit16 => return @intToEnum(Register, (1<<4) | reg_num),
-            .Bit32 => return @intToEnum(Register, (2<<4) | reg_num),
-            .Bit64 => return @intToEnum(Register, (3<<4) | reg_num),
+            .Bit8 => return @intToEnum(Register, (0 << 4) | reg_num),
+            .Bit16 => return @intToEnum(Register, (1 << 4) | reg_num),
+            .Bit32 => return @intToEnum(Register, (2 << 4) | reg_num),
+            .Bit64 => return @intToEnum(Register, (3 << 4) | reg_num),
             else => unreachable,
         }
     }
 
     /// If the register needs rex to be used, ie: BPL, SPL, SIL, DIL,
     pub fn needsRex(self: Register) bool {
-        return (
-            self.registerType() == .General
-            and (@enumToInt(self) & rex_flag) == rex_flag
-        );
+        return self.registerType() == .General and
+            (@enumToInt(self) & rex_flag) == rex_flag;
     }
 
     pub fn needsNoRex(self: Register) bool {
@@ -427,19 +425,18 @@ pub const Register = enum (u16) {
             .ZMM,
             .Bound,
             .Mask,
-            .Float => return DataSize.Void,
+            .Float,
+            => return DataSize.Void,
 
             // .MMX => return DataSize.QWORD,
             // .XMM => return DataSize.OWORD,
             // .XMM => return DataSize.XMM_WORD,
             // .YMM => return DataSize.YMM_WORD,
             // .ZMM => return DataSize.ZMM_WORD,
-            else => unreachable,
         }
     }
 
     pub fn bitSize(self: Register) BitSize {
         return self.dataSize().bitSize();
     }
-
 };
